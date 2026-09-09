@@ -6,6 +6,59 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, date
 from functools import wraps
 
+# ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
+MONGO_URI = os.getenv("MONGO_URI")
+_mongo_users = None  # lazy-init collection
+
+def get_mongo_users():
+    """Trả về MongoDB users collection nếu MONGO_URI được cấu hình."""
+    global _mongo_users
+    if _mongo_users is None and MONGO_URI:
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+            _mongo_users = client["viettranslate_db"]["users"]
+        except Exception as e:
+            print(f"[MongoDB] Không thể kết nối: {e}")
+    return _mongo_users
+
+def mongo_register_user(username, email, hashed_password, phone, role):
+    """Đăng ký tài khoản mới vào MongoDB. Trả về (success, message)."""
+    col = get_mongo_users()
+    if col is None:
+        return False, "MongoDB chưa được cấu hình."
+    if col.find_one({"email": email}):
+        return False, "Email đã được sử dụng."
+    col.insert_one({
+        "name": username,
+        "email": email,
+        "password_hash": hashed_password,
+        "phone": phone,
+        "role": role,
+        "is_admin": False,
+        "is_active": True,
+        "created_at": datetime.utcnow(),
+    })
+    return True, "Đăng ký thành công!"
+
+def mongo_find_user_by_email(email):
+    """Tìm user theo email trong MongoDB. Trả về dict hoặc None."""
+    col = get_mongo_users()
+    if col is None:
+        return None
+    return col.find_one({"email": email})
+
+def mongo_find_user_by_id(user_id):
+    """Tìm user theo _id string trong MongoDB. Trả về dict hoặc None."""
+    col = get_mongo_users()
+    if col is None:
+        return None
+    try:
+        from bson import ObjectId
+        return col.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return None
+
 # ─── LANGUAGE LANDING PAGE CONFIGURATION ──────────────────────────────────────
 
 LANGUAGE_PAGES = {
@@ -455,11 +508,31 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+class SimpleMongoUser:
+    """Wrapper nhẹ để templates có thể dùng current_user.name, .role, v.v. với MongoDB user."""
+    def __init__(self, data: dict):
+        self.id = f"mongo:{data['_id']}"
+        self.name = data.get('name', '')
+        self.email = data.get('email', '')
+        self.role = data.get('role', '')
+        self.phone = data.get('phone', '')
+        self.is_admin = data.get('is_admin', False)
+        self.is_active = data.get('is_active', True)
+        self.profile = None  # Không dùng SQLAlchemy relationship
+
 @app.context_processor
 def inject_globals():
     user = None
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
+    uid = session.get('user_id')
+    if uid:
+        if isinstance(uid, str) and uid.startswith('mongo:'):
+            # MongoDB user: dựng dữ liệu đã lưu trong session (tránh query lại)
+            mongo_id = uid[len('mongo:'):]
+            mongo_data = mongo_find_user_by_id(mongo_id)
+            if mongo_data:
+                user = SimpleMongoUser(mongo_data)
+        else:
+            user = User.query.get(uid)
     return dict(current_user=user, LANGUAGES=LANGUAGES)
 
 # ─── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
@@ -488,6 +561,27 @@ def login():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+
+        # ── Thử MongoDB trước (khi deploy trên Vercel) ──
+        if MONGO_URI:
+            mongo_user = mongo_find_user_by_email(email)
+            if mongo_user and mongo_user.get('is_active', True) and \
+                    check_password_hash(mongo_user['password_hash'], password):
+                # Lưu mongo _id dạng string vào session với prefix để phân biệt
+                session['user_id'] = f"mongo:{mongo_user['_id']}"
+                session['user_name'] = mongo_user.get('name', '')
+                session['user_role'] = mongo_user.get('role', '')
+                session['is_admin'] = mongo_user.get('is_admin', False)
+                flash('Đăng nhập thành công!', 'success')
+                if mongo_user.get('is_admin'):
+                    return redirect(url_for('admin_dashboard'))
+                return redirect(url_for('index'))
+            elif mongo_user:
+                flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.', 'error')
+                return render_template('login.html')
+            # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
+
+        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         user = User.query.filter_by(email=email).first()
         if user and user.is_active and check_password_hash(user.password_hash, password):
             session['user_id'] = user.id
@@ -507,13 +601,31 @@ def register():
         password = request.form.get('password')
         phone = request.form.get('phone')
         role = request.form.get('role')
+        hashed_pw = generate_password_hash(password)
 
+        # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
+        if MONGO_URI:
+            success, message = mongo_register_user(
+                username=name,
+                email=email,
+                hashed_password=hashed_pw,
+                phone=phone,
+                role=role,
+            )
+            if success:
+                flash('Đăng ký thành công! Vui lòng đăng nhập.', 'success')
+                return redirect(url_for('login'))
+            else:
+                flash(message, 'error')
+                return redirect(url_for('register'))
+
+        # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
             flash('Email đã được sử dụng.', 'error')
             return redirect(url_for('register'))
 
         new_user = User(name=name, email=email,
-                        password_hash=generate_password_hash(password),
+                        password_hash=hashed_pw,
                         phone=phone, role=role)
         db.session.add(new_user)
         db.session.commit()
