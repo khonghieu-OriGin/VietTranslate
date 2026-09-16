@@ -54,8 +54,8 @@
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
                             {% for contract in contracts %}
                             <tr class="hover:bg-slate-50/60 transition">
-                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate" title="{{ contract.job.title if contract.job else contract.service.name }}">
-                                    {{ contract.job.title if contract.job else contract.service.name }}
+                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate" title="{{ contract.job.title if contract.job else (contract.service.name if contract.service else ('Hợp đồng #' ~ contract.id)) }}">
+                                    {{ contract.job.title if contract.job else (contract.service.name if contract.service else ('Hợp đồng #' ~ contract.id)) }}
                                 </td>
                                 <td class="py-4 font-extrabold text-brand-700">
                                     {{ "{:,.0f}".format(contract.agreed_price) }}đ
@@ -103,8 +103,8 @@
                             </tr>
                         </thead>
                         <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                            {% for job in current_user.jobs_posted %}
-                                {% if job.status == 'open' %}
+                            {% set open_jobs = current_user.jobs_posted | selectattr("status", "equalto", "open") | list %}
+                            {% for job in open_jobs %}
                                 <tr class="hover:bg-slate-50/60 transition">
                                     <td class="py-4 font-bold text-slate-900">{{ job.title }}</td>
                                     <td class="py-4 text-slate-500 font-semibold">{{ job.proposals|length }} đề xuất</td>
@@ -117,10 +117,54 @@
                                         </a>
                                     </td>
                                 </tr>
-                                {% endif %}
                             {% else %}
                             <tr>
                                 <td colspan="4" class="py-8 text-center text-slate-400 text-xs sm:text-sm">Chưa có bài tuyển dụng đang mở nào.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% elif current_user.role == 'translator' %}
+                <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
+                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                    Đề xuất & Báo giá đã nộp
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3.5 font-bold">Dự án</th>
+                                <th class="pb-3.5 font-bold">Giá báo</th>
+                                <th class="pb-3.5 font-bold">Thời gian ước tính</th>
+                                <th class="pb-3.5 font-bold">Trạng thái</th>
+                                <th class="pb-3.5 font-bold text-right">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
+                            {% for prop in current_user.proposals %}
+                                <tr class="hover:bg-slate-50/60 transition">
+                                    <td class="py-4 font-bold text-slate-900 max-w-xs truncate">{{ prop.job.title }}</td>
+                                    <td class="py-4 font-extrabold text-brand-700">{{ "{:,.0f}".format(prop.price) }}đ</td>
+                                    <td class="py-4 text-slate-500">{{ prop.time_estimate or '—' }}</td>
+                                    <td class="py-4">
+                                        {% if prop.status == 'accepted' %}
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">Đã chọn</span>
+                                        {% elif prop.status == 'rejected' %}
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-rose-50 text-rose-800 border border-rose-200/60">Từ chối</span>
+                                        {% else %}
+                                        <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200/60">Chờ duyệt</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-4 text-right">
+                                        <a href="{{ url_for('job_detail', job_id=prop.job_id) }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline">
+                                            Xem dự án →
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="5" class="py-8 text-center text-slate-400 text-xs sm:text-sm">Bạn chưa gửi đề xuất báo giá nào.</td>
                             </tr>
                             {% endfor %}
                         </tbody>

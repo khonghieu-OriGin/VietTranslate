@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date
 from functools import wraps
+from translations import t as t_lookup, get_localized_languages
 
 # ─── LANGUAGE LANDING PAGE CONFIGURATION ──────────────────────────────────────
 
@@ -449,12 +450,52 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+@app.template_filter('format_date_vn')
+def format_date_vn(val):
+    if not val:
+        return ''
+    if hasattr(val, 'strftime'):
+        return val.strftime('%d/%m/%Y')
+    if isinstance(val, str):
+        try:
+            parts = val.split(' to ')
+            if len(parts) == 2:
+                d1 = datetime.strptime(parts[0].strip(), '%Y-%m-%d').strftime('%d/%m/%Y')
+                d2 = datetime.strptime(parts[1].strip(), '%Y-%m-%d').strftime('%d/%m/%Y')
+                return f'{d1} – {d2}'
+            return datetime.strptime(val.strip(), '%Y-%m-%d').strftime('%d/%m/%Y')
+        except Exception:
+            return val
+    return str(val)
+
 @app.context_processor
 def inject_globals():
     user = None
     if 'user_id' in session:
         user = User.query.get(session['user_id'])
-    return dict(current_user=user, LANGUAGES=LANGUAGES)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    if current_lang not in ('vi', 'en'):
+        current_lang = 'vi'
+    return dict(
+        current_user=user,
+        LANGUAGES=get_localized_languages(current_lang),
+        current_lang=current_lang,
+        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs)
+    )
+
+@app.route('/set-language/<lang>')
+def set_language(lang):
+    if lang in ('vi', 'en'):
+        session['lang'] = lang
+    referer = request.referrer
+    # Prevent open redirect vulnerabilities
+    if referer and request.host in referer:
+        resp = redirect(referer)
+    else:
+        resp = redirect(url_for('index'))
+    if lang in ('vi', 'en'):
+        resp.set_cookie('lang', lang, max_age=365*24*3600, samesite='Lax')
+    return resp
 
 # ─── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
 
@@ -586,6 +627,7 @@ def account_history():
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
+@app.route('/translators')
 def translator_list():
     lang = request.args.get('lang', '')
     rating_filter = request.args.get('rating', '')

@@ -1,49 +1,49 @@
 {% extends "base.html" %}
 
-{% block title %}Cơ chế Escrow & Bảo vệ thanh toán | VietTranslate{% endblock %}
+{% block title %}{{ t('payment_page.title') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
     
     <div class="text-center max-w-2xl mx-auto mb-12">
         <span class="inline-block text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-3">
-            An toàn tuyệt đối
+            {{ t('payment_page.badge') }}
         </span>
         <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-            Thanh toán & Bảo vệ giao dịch (Escrow)
+            {{ t('payment_page.headline') }}
         </h1>
         <p class="text-slate-500 text-sm sm:text-base leading-relaxed">
-            VietTranslate đóng vai trò là bên thứ ba trung gian uy tín, bảo đảm quyền lợi tài chính và chất lượng dịch vụ cho cả hai bên.
+            {{ t('payment_page.intro') }}
         </p>
     </div>
     
     <!-- Escrow 3 Steps Card -->
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10 mb-8">
-        <h2 class="text-xl font-bold text-slate-900 mb-2">Quy trình vận hành quỹ bảo chứng</h2>
-        <p class="text-slate-500 text-xs sm:text-sm mb-8">3 bước minh bạch bảo vệ 100% rủi ro bùng tiền hoặc không giao việc.</p>
+        <h2 class="text-xl font-bold text-slate-900 mb-2">{{ t('payment_page.process_title') }}</h2>
+        <p class="text-slate-500 text-xs sm:text-sm mb-8">{{ t('payment_page.process_subtitle') }}</p>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/70 relative">
                 <span class="text-2xl font-black text-brand-600 block mb-2">01</span>
-                <h3 class="text-sm font-bold text-slate-900 mb-2">Tạm giữ tiền (Escrow)</h3>
+                <h3 class="text-sm font-bold text-slate-900 mb-2">{{ t('payment_page.step1_title') }}</h3>
                 <p class="text-xs text-slate-500 leading-relaxed">
-                    Khách hàng thanh toán vào tài khoản quỹ trung gian của VietTranslate khi hai bên thống nhất hợp đồng.
+                    {{ t('payment_page.step1_desc') }}
                 </p>
             </div>
             
             <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/70 relative">
                 <span class="text-2xl font-black text-brand-600 block mb-2">02</span>
-                <h3 class="text-sm font-bold text-slate-900 mb-2">Yên tâm thực hiện</h3>
+                <h3 class="text-sm font-bold text-slate-900 mb-2">{{ t('payment_page.step2_title') }}</h3>
                 <p class="text-xs text-slate-500 leading-relaxed">
-                    Hệ thống xác nhận tiền đã sẵn sàng trong quỹ. Phiên dịch viên an tâm hoàn toàn để cống hiến chất lượng tốt nhất.
+                    {{ t('payment_page.step2_desc') }}
                 </p>
             </div>
             
             <div class="p-6 rounded-2xl bg-slate-50/70 border border-slate-200/70 relative">
                 <span class="text-2xl font-black text-brand-600 block mb-2">03</span>
-                <h3 class="text-sm font-bold text-slate-900 mb-2">Nghiệm thu & Giải ngân</h3>
+                <h3 class="text-sm font-bold text-slate-900 mb-2">{{ t('payment_page.step3_title') }}</h3>
                 <p class="text-xs text-slate-500 leading-relaxed">
-                    Sau khi sự kiện/bản dịch hoàn tất đạt yêu cầu, khách hàng bấm phê duyệt và tiền tự động chuyển về tài khoản chuyên gia.
+                    {{ t('payment_page.step3_desc') }}
                 </p>
             </div>
         </div>
@@ -51,19 +51,19 @@
     
     <!-- Refund Policy Card -->
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10">
-        <h2 class="text-xl font-bold text-slate-900 mb-4">Chính sách cam kết & Hoàn tiền</h2>
+        <h2 class="text-xl font-bold text-slate-900 mb-4">{{ t('payment_page.policy_title') }}</h2>
         <ul class="space-y-3 text-xs sm:text-sm text-slate-600">
             <li class="flex items-start gap-2.5">
                 <span class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">✓</span>
-                <span><strong>Hoàn tiền 100%:</strong> Áp dụng nếu phiên dịch viên vắng mặt, hủy ca đột xuất hoặc không bàn giao tài liệu như đã ký kết.</span>
+                <span><strong>{{ t('payment_page.policy_item1_label') }}</strong> {{ t('payment_page.policy_item1_text') }}</span>
             </li>
             <li class="flex items-start gap-2.5">
                 <span class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">✓</span>
-                <span><strong>Hỗ trợ giải quyết tranh chấp:</strong> Ban quản trị VietTranslate tham gia đối soát chứng từ, ghi âm, bản dịch trong vòng 24 giờ làm việc.</span>
+                <span><strong>{{ t('payment_page.policy_item2_label') }}</strong> {{ t('payment_page.policy_item2_text') }}</span>
             </li>
             <li class="flex items-start gap-2.5">
                 <span class="w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 text-xs font-bold mt-0.5">✓</span>
-                <span><strong>99.4% tỉ lệ hài lòng:</strong> Hơn 12,000+ hợp đồng giao dịch an toàn không phát sinh tranh chấp.</span>
+                <span><strong>{{ t('payment_page.policy_item3_label') }}</strong> {{ t('payment_page.policy_item3_text') }}</span>
             </li>
         </ul>
     </div>

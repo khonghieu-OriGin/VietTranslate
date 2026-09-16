@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Đăng Nhập | VietTranslate{% endblock %}
+{% block title %}{{ t('auth.login_title') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-md mx-auto px-4 sm:px-6 py-12 sm:py-16">
@@ -8,45 +8,45 @@
         
         <div class="text-center mb-8">
             <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-                VietTranslate Account
+                {{ t('auth.login_badge') }}
             </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Đăng Nhập</h1>
-            <p class="text-xs text-slate-500 mt-1">Truy cập nền tảng kết nối phiên dịch hàng đầu</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('auth.login_headline') }}</h1>
+            <p class="text-xs text-slate-500 mt-1">{{ t('auth.login_sub') }}</p>
         </div>
         
         <!-- Social Login -->
         <div class="space-y-3 mb-6">
             <button type="button" class="w-full border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2.5 transition text-xs sm:text-sm">
                 <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
-                <span>Đăng nhập với Google</span>
+                <span>{{ t('auth.google_login') }}</span>
             </button>
         </div>
         
         <div class="relative flex py-2 items-center mb-6">
             <div class="flex-grow border-t border-slate-200"></div>
-            <span class="flex-shrink-0 mx-3 text-slate-400 text-xs uppercase tracking-wider font-medium">Hoặc email</span>
+            <span class="flex-shrink-0 mx-3 text-slate-400 text-xs uppercase tracking-wider font-medium">{{ t('auth.or_email') }}</span>
             <div class="flex-grow border-t border-slate-200"></div>
         </div>
 
         <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
             <div>
-                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Email</label>
+                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.email_label') }}</label>
                 <input type="email" name="email" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" value="hirer@test.com">
             </div>
             <div>
                 <div class="flex justify-between items-center mb-1.5">
-                    <label class="block text-slate-700 font-bold text-xs uppercase tracking-wider">Mật khẩu</label>
-                    <a href="#" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">Quên mật khẩu?</a>
+                    <label class="block text-slate-700 font-bold text-xs uppercase tracking-wider">{{ t('auth.password_label') }}</label>
+                    <a href="#" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">{{ t('auth.forgot_password') }}</a>
                 </div>
                 <input type="password" name="password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" value="123456">
             </div>
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
-                Đăng Nhập
+                {{ t('auth.login_button') }}
             </button>
         </form>
         
         <p class="text-center mt-6 text-slate-500 text-xs">
-            Chưa có tài khoản? <a href="{{ url_for('register') }}" class="text-brand-600 font-bold hover:underline">Đăng ký thành viên</a>
+            {{ t('auth.no_account') }} <a href="{{ url_for('register') }}" class="text-brand-600 font-bold hover:underline">{{ t('auth.register_link') }}</a>
         </p>
     </div>
 </div>

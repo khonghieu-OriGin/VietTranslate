@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Đăng Ký Tài Khoản | VietTranslate{% endblock %}
+{% block title %}{{ t('auth.register_title') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-16">
@@ -8,61 +8,61 @@
         
         <div class="text-center mb-8">
             <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-                Tham gia mạng lưới
+                {{ t('auth.register_badge') }}
             </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Tạo Tài Khoản Mới</h1>
-            <p class="text-xs text-slate-500 mt-1">Gia nhập nền tảng ngôn ngữ chuyên nghiệp hàng đầu</p>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('auth.register_headline') }}</h1>
+            <p class="text-xs text-slate-500 mt-1">{{ t('auth.register_sub') }}</p>
         </div>
 
         <form method="POST" action="{{ url_for('register') }}" class="space-y-5">
             <!-- Role Selection -->
             <div>
-                <label class="block text-slate-700 font-bold mb-2.5 text-xs uppercase tracking-wider">Chọn vai trò của bạn</label>
+                <label class="block text-slate-700 font-bold mb-2.5 text-xs uppercase tracking-wider">{{ t('auth.role_label') }}</label>
                 <div class="grid grid-cols-2 gap-3">
                     <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group">
                         <input type="radio" name="role" value="hirer" class="absolute top-3 right-3 text-brand-600" checked>
                         <span class="text-2xl mb-1.5">🏢</span>
-                        <span class="font-bold text-slate-900 text-xs sm:text-sm block">Người Thuê</span>
-                        <span class="text-[11px] text-slate-400 mt-0.5">Tìm và thuê phiên dịch</span>
+                        <span class="font-bold text-slate-900 text-xs sm:text-sm block">{{ t('auth.role_hirer') }}</span>
+                        <span class="text-[11px] text-slate-400 mt-0.5">{{ t('auth.role_hirer_desc') }}</span>
                     </label>
                     
                     <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group">
                         <input type="radio" name="role" value="translator" class="absolute top-3 right-3 text-brand-600">
                         <span class="text-2xl mb-1.5">🎓</span>
-                        <span class="font-bold text-slate-900 text-xs sm:text-sm block">Phiên Dịch Viên</span>
-                        <span class="text-[11px] text-slate-400 mt-0.5">Nhận dự án & làm việc</span>
+                        <span class="font-bold text-slate-900 text-xs sm:text-sm block">{{ t('auth.role_translator') }}</span>
+                        <span class="text-[11px] text-slate-400 mt-0.5">{{ t('auth.role_translator_desc') }}</span>
                     </label>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Họ và tên <span class="text-red-500">*</span></label>
-                    <input type="text" name="name" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="VD: Hoàng Minh Nhật">
+                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.fullname_label') }} <span class="text-red-500">*</span></label>
+                    <input type="text" name="name" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.fullname_placeholder') }}">
                 </div>
                 <div>
-                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Số điện thoại <span class="text-red-500">*</span></label>
-                    <input type="tel" name="phone" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="0901234567">
+                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.phone_label') }} <span class="text-red-500">*</span></label>
+                    <input type="tel" name="phone" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.phone_placeholder') }}">
                 </div>
             </div>
             
             <div>
-                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Email công việc <span class="text-red-500">*</span></label>
-                <input type="email" name="email" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="name@company.com">
+                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.work_email_label') }} <span class="text-red-500">*</span></label>
+                <input type="email" name="email" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.work_email_placeholder') }}">
             </div>
             
             <div>
-                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Mật khẩu <span class="text-red-500">*</span></label>
-                <input type="password" name="password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="Tối thiểu 6 ký tự">
+                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.password_label') }} <span class="text-red-500">*</span></label>
+                <input type="password" name="password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.password_placeholder') }}">
             </div>
 
             <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
-                Đăng Ký Ngay
+                {{ t('auth.register_button') }}
             </button>
         </form>
         
         <p class="text-center mt-6 text-slate-500 text-xs">
-            Đã có tài khoản? <a href="{{ url_for('login') }}" class="text-brand-600 font-bold hover:underline">Đăng nhập</a>
+            {{ t('auth.have_account') }} <a href="{{ url_for('login') }}" class="text-brand-600 font-bold hover:underline">{{ t('auth.login_link') }}</a>
         </p>
     </div>
 </div>

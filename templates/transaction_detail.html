@@ -2,6 +2,34 @@
 
 {% block title %}Hợp đồng & Phòng làm việc | VietTranslate{% endblock %}
 
+{% block head %}
+<style>
+    .star-rating-input {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: center;
+        gap: 0.35rem;
+    }
+    .star-rating-input input {
+        display: none;
+    }
+    .star-rating-input label {
+        font-size: 1.75rem;
+        color: #cbd5e1;
+        cursor: pointer;
+        transition: color 0.15s ease-in-out, transform 0.15s ease;
+    }
+    .star-rating-input label:hover,
+    .star-rating-input label:hover ~ label,
+    .star-rating-input input:checked ~ label {
+        color: #f59e0b;
+    }
+    .star-rating-input label:hover {
+        transform: scale(1.15);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="bg-slate-50/60 py-8 md:py-12 border-b border-slate-200/70 min-h-screen">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -18,8 +46,10 @@
                 <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                     {% if contract.job %}
                         {{ contract.job.title }}
-                    {% else %}
+                    {% elif contract.service %}
                         Dịch vụ {{ contract.service.name }}
+                    {% else %}
+                        Hợp đồng dịch thuật #{{ contract.id }}
                     {% endif %}
                 </h1>
                 
@@ -27,12 +57,12 @@
                 <div class="mt-3 flex flex-wrap gap-3 text-xs bg-brand-50/80 text-brand-900 px-3.5 py-2 rounded-xl border border-brand-200/60 inline-flex items-center">
                     <div class="flex items-center gap-1.5 font-bold">
                         <span>📅</span>
-                        <span>Ngày hẹn: {{ contract.scheduled_date.strftime('%d/%m/%Y') }}</span>
+                        <span>Ngày hẹn: {{ contract.scheduled_date | format_date_vn }}</span>
                     </div>
                     {% if contract.scheduled_time_start %}
                     <div class="flex items-center gap-1.5 font-medium">
                         <span>⏰</span>
-                        <span>{{ contract.scheduled_time_start }} – {{ contract.scheduled_time_end }}</span>
+                        <span>{{ contract.scheduled_time_start }}{% if contract.scheduled_time_end %} – {{ contract.scheduled_time_end }}{% endif %}</span>
                     </div>
                     {% endif %}
                     {% if contract.location %}
@@ -265,21 +295,36 @@
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
     function fetchMessages() {
         fetch(`/api/messages/${contractId}`)
             .then(res => res.json())
             .then(data => {
                 const isScrolledToBottom = chatBox.scrollHeight - chatBox.clientHeight <= chatBox.scrollTop + 1;
                 chatBox.innerHTML = '';
+                if (!data || data.length === 0) {
+                    chatBox.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-400 space-y-2 py-12">
+                            <span class="text-3xl">💬</span>
+                            <p class="text-xs sm:text-sm font-medium">Chưa có tin nhắn trong phòng làm việc.<br>Hãy trao đổi về tiến độ, tài liệu hoặc thông tin cần thiết!</p>
+                        </div>
+                    `;
+                    return;
+                }
                 data.forEach(msg => {
                     const isMe = msg.sender_id === currentUserId;
                     const div = document.createElement('div');
                     div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
                     
                     div.innerHTML = `
-                        <span class="text-[10px] text-slate-400 mb-0.5 px-1">${msg.sender_name} • ${msg.time}</span>
+                        <span class="text-[10px] text-slate-400 mb-0.5 px-1">${escapeHtml(msg.sender_name)} • ${escapeHtml(msg.time)}</span>
                         <div class="px-3.5 py-2 rounded-2xl max-w-[85%] text-xs sm:text-sm shadow-xs ${isMe ? 'bg-brand-600 text-white rounded-br-xs' : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-xs'}">
-                            ${msg.content}
+                            ${escapeHtml(msg.content)}
                         </div>
                     `;
                     chatBox.appendChild(div);

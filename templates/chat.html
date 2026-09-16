@@ -56,6 +56,12 @@
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function fetchMessages() {
         fetch(`/api/direct-messages/${otherUserId}`)
             .then(res => res.json())
@@ -79,9 +85,9 @@
                     div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
                     
                     div.innerHTML = `
-                        <span class="text-[10px] text-slate-400 mb-0.5 px-1">${msg.time}</span>
+                        <span class="text-[10px] text-slate-400 mb-0.5 px-1">${escapeHtml(msg.time)}</span>
                         <div class="px-4 py-2 rounded-2xl max-w-[85%] md:max-w-[70%] text-xs sm:text-sm shadow-xs ${isMe ? 'bg-brand-600 text-white rounded-br-xs' : 'bg-white border border-slate-200/80 text-slate-800 rounded-bl-xs'}">
-                            ${msg.content}
+                            ${escapeHtml(msg.content)}
                         </div>
                     `;
                     chatBox.appendChild(div);

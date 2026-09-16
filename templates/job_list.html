@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Bảng Tin Việc Làm Dịch Thuật | VietTranslate{% endblock %}
+{% block title %}{{ t('job_list_page.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -86,15 +86,15 @@
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <span class="inline-block text-xs font-bold uppercase tracking-wider text-brand-600 bg-white/80 border border-brand-200/60 px-3 py-1 rounded-full mb-3">
-      Thị trường việc làm dịch thuật
+      {{ t('job_list_page.badge') }}
     </span>
-    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">Bảng Tin Việc Làm Dịch Thuật</h1>
+    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">{{ t('job_list_page.header_title') }}</h1>
     <p class="text-slate-600 max-w-2xl mx-auto text-sm md:text-base leading-relaxed mb-6">
-      Tiếp cận các dự án dịch thuật trực tiếp từ doanh nghiệp và cá nhân. Minh bạch ngân sách, an tâm Escrow.
+      {{ t('job_list_page.header_subtitle') }}
     </p>
     {% if current_user.is_authenticated and current_user.role == 'hirer' %}
     <a href="{{ url_for('post_job') }}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm px-5 py-2.5 rounded-xl transition shadow-sm">
-      <span>+ Đăng tin tuyển dụng mới</span>
+      <span>{{ t('job_list_page.post_job_cta') }}</span>
     </a>
     {% endif %}
   </div>
@@ -110,32 +110,38 @@
         <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <h3 class="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
             <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-            Bộ lọc việc làm
+            {{ t('job_list_page.filter_title') }}
           </h3>
           <button id="jf-clear-d"
             onclick="clearFilters()"
             class="text-xs text-brand-600 hover:text-brand-800 font-semibold hidden transition">
-            Xóa lọc
+            {{ t('job_list_page.reset_filter') }}
           </button>
         </div>
 
         <!-- Ngôn ngữ -->
         <div class="jf-sec">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Ngôn ngữ</h4>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
           <div class="space-y-1" id="lang-desk">
             {% set langs = [
-              ('Tiếng Anh','🇬🇧'),('Tiếng Nhật','🇯🇵'),('Tiếng Hàn','🇰🇷'),
-              ('Tiếng Trung','🇨🇳'),('Tiếng Pháp','🇫🇷'),('Tiếng Đức','🇩🇪'),
-              ('Tiếng Nga','🇷🇺'),('Tiếng Thái','🇹🇭'),
-              ('Tiếng Bồ Đào Nha','🇵🇹'),('Tiếng Tây Ban Nha','🇪🇸')
+              ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh', '🇬🇧'),
+              ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật', '🇯🇵'),
+              ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn', '🇰🇷'),
+              ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung', '🇨🇳'),
+              ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp', '🇫🇷'),
+              ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức', '🇩🇪'),
+              ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga', '🇷🇺'),
+              ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái', '🇹🇭'),
+              ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha', '🇵🇹'),
+              ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha', '🇪🇸')
             ] %}
-            {% for name, flag in langs %}
+            {% for name, display_name, flag in langs %}
             <div>
               <input type="checkbox" class="jf-cb jf-lang"
                 id="ld-{{ loop.index }}" value="{{ name }}">
               <label for="ld-{{ loop.index }}" class="jf-label">
                 <span class="jf-box"></span>
-                <span class="text-xs">{{ flag }} {{ name }}</span>
+                <span class="text-xs">{{ flag }} {{ display_name }}</span>
               </label>
             </div>
             {% endfor %}
@@ -144,14 +150,14 @@
 
         <!-- Mức giá -->
         <div class="jf-sec mt-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mức ngân sách</h4>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_budget') }}</h4>
           <div class="space-y-1">
             {% set prices = [
-              ('Dưới 500.000đ','p1'),
-              ('500.000 – 1.000.000đ','p2'),
-              ('1.000.000 – 3.000.000đ','p3'),
-              ('3.000.000 – 5.000.000đ','p4'),
-              ('Trên 5.000.000đ','p5')
+              (t('job_list_page.budget_under_1m'), 'p1'),
+              ('500.000 – 1.000.000đ' if current_lang == 'vi' else '500,000 – 1,000,000 VND', 'p2'),
+              ('1.000.000 – 3.000.000đ' if current_lang == 'vi' else '1,000,000 – 3,000,000 VND', 'p3'),
+              ('3.000.000 – 5.000.000đ' if current_lang == 'vi' else '3,000,000 – 5,000,000 VND', 'p4'),
+              ('Trên 5.000.000đ' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
             ] %}
             {% for label, val in prices %}
             <div>
@@ -167,12 +173,14 @@
 
         <!-- Ngày đăng -->
         <div class="jf-sec mt-3">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Thời gian đăng</h4>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_time') }}</h4>
           <div class="space-y-1">
             {% set dates = [
-              ('Hôm nay','1'),('3 ngày gần nhất','3'),
-              ('7 ngày gần nhất','7'),('30 ngày gần nhất','30'),
-              ('Tất cả','0')
+              (t('job_list_page.time_today'), '1'),
+              (t('job_list_page.time_3days'), '3'),
+              (t('job_list_page.time_7days'), '7'),
+              (t('job_list_page.time_30days'), '30'),
+              (t('job_list_page.time_all'), '0')
             ] %}
             {% for label, val in dates %}
             <div>
@@ -195,7 +203,7 @@
       <!-- Toolbar -->
       <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft">
         <p class="text-slate-600 text-xs sm:text-sm font-medium">
-          Hiển thị <span id="jf-count">{{ jobs|length }}</span> việc làm đang mở
+          {{ t('job_list_page.showing_count') }} <span id="jf-count">{{ jobs|length }}</span> {{ t('job_list_page.open_jobs_label') }}
         </p>
         <div class="flex items-center gap-2.5">
 
@@ -205,20 +213,20 @@
               onclick="openDrawer()"
               class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100 transition">
               <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-              Bộ lọc
+              {{ t('job_list_page.filter_title') }}
             </button>
             <span id="jf-mob-badge"></span>
           </div>
 
           <!-- Sort -->
           <div class="flex items-center gap-1.5">
-            <label for="jf-sort" class="text-xs text-slate-400 font-medium hidden sm:inline">Sắp xếp:</label>
+            <label for="jf-sort" class="text-xs text-slate-400 font-medium hidden sm:inline">{{ t('job_list_page.sort_label') }}</label>
             <select id="jf-sort" onchange="applyFilters()"
               class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
-              <option value="newest">Mới nhất</option>
-              <option value="budget_desc">Ngân sách cao nhất</option>
-              <option value="budget_asc">Ngân sách thấp nhất</option>
-              <option value="proposals_asc">Ít đề xuất nhất</option>
+              <option value="newest">{{ t('job_list_page.sort_newest') }}</option>
+              <option value="budget_desc">{{ t('job_list_page.sort_budget_desc') }}</option>
+              <option value="budget_asc">{{ t('job_list_page.sort_budget_asc') }}</option>
+              <option value="proposals_asc">{{ t('job_list_page.sort_proposals_asc') }}</option>
             </select>
           </div>
         </div>
@@ -240,7 +248,7 @@
                   {{ job.source_lang }} → {{ job.target_lang }}
                 </span>
                 <span class="text-xs text-slate-400">·</span>
-                <span class="text-xs text-slate-500 font-medium">{{ job.category or 'Phiên dịch' }}</span>
+                <span class="text-xs text-slate-500 font-medium">{{ job.category or ('Phiên dịch' if current_lang == 'vi' else 'Interpretation') }}</span>
               </div>
               <h2 class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition">
                 <a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a>
@@ -250,14 +258,14 @@
             <div class="text-left sm:text-right shrink-0">
               {% if job.budget_type == 'fixed' and job.budget_min %}
                 <span class="text-base sm:text-lg font-extrabold text-brand-700">{{ "{:,.0f}".format(job.budget_min) }}đ</span>
-                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Giá cố định</span>
+                <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.fixed_price') }}</span>
               {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
                 <span class="text-base sm:text-lg font-extrabold text-brand-700">
                   {{ "{:,.0f}".format(job.budget_min) }} – {{ "{:,.0f}".format(job.budget_max) }}đ
                 </span>
-                <span class="text-[10px] text-slate-400 uppercase font-semibold block">Khoảng ngân sách</span>
+                <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.budget_range_label') }}</span>
               {% else %}
-                <span class="text-base sm:text-lg font-extrabold text-slate-700">Thương lượng</span>
+                <span class="text-base sm:text-lg font-extrabold text-slate-700">{{ t('job_list_page.negotiable') }}</span>
               {% endif %}
             </div>
           </div>
@@ -266,25 +274,25 @@
 
           <div class="flex items-center justify-between border-t border-slate-100 pt-3.5 mt-2">
             <div class="flex items-center gap-3 text-xs text-slate-400">
-              <span>Đăng ngày {{ job.created_at.strftime('%d/%m/%Y') if job.created_at else '' }}</span>
+              <span>{{ t('job_list_page.posted_on') }} {{ job.created_at.strftime('%d/%m/%Y') if job.created_at else '' }}</span>
               <span>·</span>
               {% if job.proposals|length > 0 %}
-                <span class="text-slate-600 font-semibold">{{ job.proposals|length }} đề xuất</span>
+                <span class="text-slate-600 font-semibold">{{ job.proposals|length }} {{ t('job_list_page.proposals_count') }}</span>
               {% else %}
-                <span class="text-emerald-600 font-semibold">Chưa có đề xuất</span>
+                <span class="text-emerald-600 font-semibold">{{ t('job_list_page.no_proposals_yet') }}</span>
               {% endif %}
             </div>
             
             <a href="{{ url_for('job_detail', job_id=job.id) }}"
               class="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-3.5 py-2 rounded-xl transition">
-              <span>Xem chi tiết</span>
+              <span>{{ t('job_list_page.view_details') }}</span>
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </a>
           </div>
         </div>
         {% else %}
         <div class="text-center py-16 bg-white rounded-2xl border border-slate-200/90 shadow-soft">
-          <p class="text-slate-500 text-sm">Hiện chưa có việc làm nào đang mở.</p>
+          <p class="text-slate-500 text-sm">{{ t('job_list_page.no_jobs_available') }}</p>
         </div>
         {% endfor %}
       </div>
@@ -294,13 +302,13 @@
         <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
           🔍
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5">Không tìm thấy việc làm phù hợp</h3>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('job_list_page.no_match_title') }}</h3>
         <p class="text-slate-500 text-xs sm:text-sm max-w-sm mx-auto mb-5 leading-relaxed">
-          Hãy thử thay đổi hoặc xóa bớt tiêu chí lọc để khám phá thêm nhiều cơ hội mới.
+          {{ t('job_list_page.no_match_desc') }}
         </p>
         <button onclick="clearFilters()"
           class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
-          Xóa tất cả bộ lọc
+          {{ t('job_list_page.reset_all_filters') }}
         </button>
       </div>
 
@@ -312,13 +320,13 @@
 <div id="jf-overlay" onclick="closeDrawer()"></div>
 
 <!-- Mobile drawer -->
-<div id="jf-drawer" role="dialog" aria-modal="true" aria-label="Bộ lọc việc làm">
+<div id="jf-drawer" role="dialog" aria-modal="true" aria-label="{{ t('job_list_page.filter_title') }}">
   <div class="flex justify-center pt-3 pb-1">
     <div class="w-12 h-1 bg-slate-200 rounded-full"></div>
   </div>
   <div class="flex justify-between items-center px-5 py-3 border-b border-slate-100 sticky top-0 bg-white z-10">
-    <h3 class="font-bold text-slate-900 text-base">Bộ lọc việc làm</h3>
-    <button onclick="closeDrawer()" aria-label="Đóng"
+    <h3 class="font-bold text-slate-900 text-base">{{ t('job_list_page.filter_title') }}</h3>
+    <button onclick="closeDrawer()" aria-label="Close"
       class="p-2 rounded-xl hover:bg-slate-100 transition text-slate-400 hover:text-slate-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
@@ -327,21 +335,27 @@
   <div class="px-5 py-4 pb-32">
     <!-- Ngôn ngữ mobile -->
     <div class="jf-sec">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Ngôn ngữ</h4>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
       <div class="space-y-1">
         {% set langs = [
-          ('Tiếng Anh','🇬🇧'),('Tiếng Nhật','🇯🇵'),('Tiếng Hàn','🇰🇷'),
-          ('Tiếng Trung','🇨🇳'),('Tiếng Pháp','🇫🇷'),('Tiếng Đức','🇩🇪'),
-          ('Tiếng Nga','🇷🇺'),('Tiếng Thái','🇹🇭'),
-          ('Tiếng Bồ Đào Nha','🇵🇹'),('Tiếng Tây Ban Nha','🇪🇸')
+          ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh', '🇬🇧'),
+          ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật', '🇯🇵'),
+          ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn', '🇰🇷'),
+          ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung', '🇨🇳'),
+          ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp', '🇫🇷'),
+          ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức', '🇩🇪'),
+          ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga', '🇷🇺'),
+          ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái', '🇹🇭'),
+          ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha', '🇵🇹'),
+          ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha', '🇪🇸')
         ] %}
-        {% for name, flag in langs %}
+        {% for name, display_name, flag in langs %}
         <div>
           <input type="checkbox" class="jf-cb jf-lang-m"
             id="lm-{{ loop.index }}" value="{{ name }}">
           <label for="lm-{{ loop.index }}" class="jf-label">
             <span class="jf-box"></span>
-            <span class="text-xs">{{ flag }} {{ name }}</span>
+            <span class="text-xs">{{ flag }} {{ display_name }}</span>
           </label>
         </div>
         {% endfor %}
@@ -350,14 +364,14 @@
 
     <!-- Mức giá mobile -->
     <div class="jf-sec mt-3">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mức ngân sách</h4>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_budget') }}</h4>
       <div class="space-y-1">
         {% set prices = [
-          ('Dưới 500.000đ','p1'),
-          ('500.000 – 1.000.000đ','p2'),
-          ('1.000.000 – 3.000.000đ','p3'),
-          ('3.000.000 – 5.000.000đ','p4'),
-          ('Trên 5.000.000đ','p5')
+          (t('job_list_page.budget_under_1m'), 'p1'),
+          ('500.000 – 1.000.000đ' if current_lang == 'vi' else '500,000 – 1,000,000 VND', 'p2'),
+          ('1.000.000 – 3.000.000đ' if current_lang == 'vi' else '1,000,000 – 3,000,000 VND', 'p3'),
+          ('3.000.000 – 5.000.000đ' if current_lang == 'vi' else '3,000,000 – 5,000,000 VND', 'p4'),
+          ('Trên 5.000.000đ' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
         ] %}
         {% for label, val in prices %}
         <div>
@@ -373,12 +387,14 @@
 
     <!-- Ngày đăng mobile -->
     <div class="jf-sec mt-3">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Thời gian đăng</h4>
+      <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_time') }}</h4>
       <div class="space-y-1">
         {% set dates = [
-          ('Hôm nay','1'),('3 ngày gần nhất','3'),
-          ('7 ngày gần nhất','7'),('30 ngày gần nhất','30'),
-          ('Tất cả','0')
+          (t('job_list_page.time_today'), '1'),
+          (t('job_list_page.time_3days'), '3'),
+          (t('job_list_page.time_7days'), '7'),
+          (t('job_list_page.time_30days'), '30'),
+          (t('job_list_page.time_all'), '0')
         ] %}
         {% for label, val in dates %}
         <div>
@@ -396,11 +412,11 @@
   <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex gap-3 z-10 shadow-lg">
     <button onclick="clearFilters()"
       class="flex-1 text-xs font-bold border border-slate-200 text-slate-700 rounded-xl py-3 hover:bg-slate-50 transition">
-      Xóa bộ lọc
+      {{ t('job_list_page.reset_filter') }}
     </button>
     <button onclick="closeDrawer()"
       class="flex-1 text-xs font-bold bg-brand-600 text-white rounded-xl py-3 hover:bg-brand-700 transition shadow-sm">
-      Áp dụng
+      {{ t('job_list_page.apply_filter') }}
     </button>
   </div>
 </div>

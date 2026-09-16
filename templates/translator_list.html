@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Tìm Phiên Dịch Viên Chuyên Nghiệp | VietTranslate{% endblock %}
+{% block title %}{{ t('translator_list_page.title') }}{% endblock %}
 
 {% block head %}
 <style>
@@ -86,13 +86,13 @@
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <span class="inline-block text-xs font-bold uppercase tracking-wider text-brand-600 bg-white/80 border border-brand-200/60 px-3 py-1 rounded-full mb-3">
-      Hồ sơ năng lực & kinh nghiệm
+      {{ t('featured_translators.badge') }}
     </span>
     <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
-      Tìm Phiên Dịch Viên Chuyên Nghiệp
+      {{ t('translator_list_page.header_title') }}
     </h1>
     <p class="text-slate-600 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-      Lựa chọn từ các chuyên gia ngôn ngữ hàng đầu đã được xác minh năng lực, chứng chỉ quốc tế và đánh giá minh bạch.
+      {{ t('translator_list_page.header_subtitle') }}
     </p>
   </div>
 </div>
@@ -106,10 +106,10 @@
         <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <h3 class="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
             <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-            Bộ lọc tìm kiếm
+            {{ t('translator_list_page.filter_language_title') }}
           </h3>
           <button id="clear-filters-desktop" class="text-xs text-brand-600 hover:text-brand-800 font-semibold hidden transition">
-            Xóa lọc
+            {{ t('translator_list_page.filter_btn_reset') }}
           </button>
         </div>
         <div id="filter-form-desktop"></div>
@@ -123,7 +123,7 @@
       <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft">
         <div class="flex items-center gap-2">
           <p class="text-slate-600 text-xs sm:text-sm font-medium">
-            Tìm thấy <span id="result-count-badge">...</span> phiên dịch viên
+            {{ t('translator_list_page.showing_count') }} <span id="result-count-badge">...</span> {{ t('translator_list_page.translators_count_label') }}
           </p>
         </div>
         
@@ -132,19 +132,19 @@
           <div class="relative lg:hidden">
             <button id="mobile-filter-btn" class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100 transition">
               <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-              Bộ lọc
+              {{ t('translator_list_page.filter_language_title') }}
             </button>
             <span id="mobile-filter-count"></span>
           </div>
 
           <!-- Sorter -->
           <div class="flex items-center gap-1.5">
-            <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">Sắp xếp:</label>
+            <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">{{ t('translator_list_page.sort_by_label') }}</label>
             <select id="sort-select" class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
-              <option value="rating">Đánh giá cao nhất</option>
-              <option value="reviews">Nhiều đánh giá nhất</option>
-              <option value="price_asc">Mức giá: Thấp → Cao</option>
-              <option value="price_desc">Mức giá: Cao → Thấp</option>
+              <option value="rating">{{ t('translator_list_page.sort_rating_high') }}</option>
+              <option value="reviews">{{ t('translator_list_page.sort_reviews_many') }}</option>
+              <option value="price_asc">{{ t('translator_list_page.sort_price_low') }}</option>
+              <option value="price_desc">{{ t('translator_list_page.sort_price_high') }}</option>
             </select>
           </div>
         </div>
@@ -158,12 +158,12 @@
         <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
           🔍
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5">Không tìm thấy phiên dịch viên phù hợp</h3>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('translator_list_page.no_results_title') }}</h3>
         <p class="text-slate-500 text-xs sm:text-sm max-w-sm mx-auto mb-5 leading-relaxed">
-          Hãy thử xóa hoặc nới lỏng các điều kiện lọc để khám phá thêm nhiều chuyên gia ngôn ngữ.
+          {{ t('translator_list_page.no_results_desc') }}
         </p>
         <button onclick="clearAllFilters()" class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
-          Xóa tất cả bộ lọc
+          {{ t('translator_list_page.filter_btn_reset') }}
         </button>
       </div>
 
@@ -178,7 +178,7 @@
     <div class="w-12 h-1 bg-slate-200 rounded-full"></div>
   </div>
   <div class="flex justify-between items-center px-5 py-3 border-b border-slate-100 sticky top-0 bg-white z-10">
-    <h3 class="font-bold text-slate-900 text-base">Bộ lọc tìm kiếm</h3>
+    <h3 class="font-bold text-slate-900 text-base">{{ t('translator_list_page.filter_language_title') }}</h3>
     <button id="close-drawer" aria-label="Đóng bộ lọc" class="p-2 rounded-xl hover:bg-slate-100 transition text-slate-400 hover:text-slate-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
@@ -186,10 +186,10 @@
   <div id="filter-form-mobile" class="px-5 py-4 pb-32"></div>
   <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex gap-3 z-10 shadow-lg">
     <button onclick="clearAllFilters()" class="flex-1 text-xs font-bold border border-slate-200 text-slate-700 rounded-xl py-3 hover:bg-slate-50 transition">
-      Xóa bộ lọc
+      {{ t('translator_list_page.filter_btn_reset') }}
     </button>
     <button id="apply-drawer" class="flex-1 text-xs font-bold bg-brand-600 text-white rounded-xl py-3 hover:bg-brand-700 transition shadow-sm">
-      Áp dụng
+      {{ t('translator_list_page.filter_btn_apply') }}
     </button>
   </div>
 </div>
@@ -197,24 +197,32 @@
 
 {% block scripts %}
 <script>
+const CURRENT_LANG = "{{ current_lang }}";
+
 let filters = { languages: [], priceRange: null, minRating: null, completionTime: null, badges: [] };
 let allFreelancers = [];
 let sortBy = 'rating';
 
 const LANG_LIST = [
-  { name: 'Tiếng Anh', flag: '🇬🇧' },
-  { name: 'Tiếng Nhật', flag: '🇯🇵' },
-  { name: 'Tiếng Hàn', flag: '🇰🇷' },
-  { name: 'Tiếng Trung', flag: '🇨🇳' },
-  { name: 'Tiếng Pháp', flag: '🇫🇷' },
-  { name: 'Tiếng Đức', flag: '🇩🇪' },
-  { name: 'Tiếng Nga', flag: '🇷🇺' },
-  { name: 'Tiếng Thái', flag: '🇹🇭' },
-  { name: 'Tiếng Bồ Đào Nha', flag: '🇵🇹' },
-  { name: 'Tiếng Tây Ban Nha', flag: '🇪🇸' },
+  { name: 'Tiếng Anh', enName: 'English', flag: '🇬🇧' },
+  { name: 'Tiếng Nhật', enName: 'Japanese', flag: '🇯🇵' },
+  { name: 'Tiếng Hàn', enName: 'Korean', flag: '🇰🇷' },
+  { name: 'Tiếng Trung', enName: 'Chinese', flag: '🇨🇳' },
+  { name: 'Tiếng Pháp', enName: 'French', flag: '🇫🇷' },
+  { name: 'Tiếng Đức', enName: 'German', flag: '🇩🇪' },
+  { name: 'Tiếng Nga', enName: 'Russian', flag: '🇷🇺' },
+  { name: 'Tiếng Thái', enName: 'Thai', flag: '🇹🇭' },
+  { name: 'Tiếng Bồ Đào Nha', enName: 'Portuguese', flag: '🇵🇹' },
+  { name: 'Tiếng Tây Ban Nha', enName: 'Spanish', flag: '🇪🇸' },
 ];
 
-const PRICE_RANGES = [
+const PRICE_RANGES = CURRENT_LANG === 'en' ? [
+  { label: 'Under 500,000 VND', value: 'under500', min: 0, max: 499999 },
+  { label: '500,000 – 1,000,000 VND', value: '500-1m', min: 500000, max: 1000000 },
+  { label: '1,000,000 – 3,000,000 VND', value: '1m-3m', min: 1000000, max: 3000000 },
+  { label: '3,000,000 – 5,000,000 VND', value: '3m-5m', min: 3000000, max: 5000000 },
+  { label: 'Over 5,000,000 VND', value: 'over5m', min: 5000001, max: Infinity },
+] : [
   { label: 'Dưới 500.000đ', value: 'under500', min: 0, max: 499999 },
   { label: '500.000 – 1.000.000đ', value: '500-1m', min: 500000, max: 1000000 },
   { label: '1.000.000 – 3.000.000đ', value: '1m-3m', min: 1000000, max: 3000000 },
@@ -222,13 +230,21 @@ const PRICE_RANGES = [
   { label: 'Trên 5.000.000đ', value: 'over5m', min: 5000001, max: Infinity },
 ];
 
-const RATINGS = [
+const RATINGS = CURRENT_LANG === 'en' ? [
+  { label: '5.0 rating', value: 5 },
+  { label: 'From 4.0 stars & up', value: 4 },
+  { label: 'From 3.0 stars & up', value: 3 },
+] : [
   { label: '5.0 tuyệt đối', value: 5 },
   { label: 'Từ 4.0 sao trở lên', value: 4 },
   { label: 'Từ 3.0 sao trở lên', value: 3 },
 ];
 
-const BADGES = [
+const BADGES = CURRENT_LANG === 'en' ? [
+  { name: 'Rising Star', desc: 'Outstanding new talent', key: 'rising', cls: 'badge-rising' },
+  { name: 'Local Champion', desc: 'Numerous successful projects', key: 'local', cls: 'badge-local' },
+  { name: 'Rehire Badge', desc: 'Frequently rehired by clients', key: 'rehire', cls: 'badge-rehire' },
+] : [
   { name: 'Rising Star', desc: 'Chuyên gia mới xuất sắc', key: 'rising', cls: 'badge-rising' },
   { name: 'Local Champion', desc: 'Nhiều dự án thành công', key: 'local', cls: 'badge-local' },
   { name: 'Rehire Badge', desc: 'Khách hàng thuê lại nhiều', key: 'rehire', cls: 'badge-rehire' },
@@ -243,16 +259,19 @@ function renderStarsSmall(count) {
 function buildFilterForm(s) {
   let html = '';
   // Languages
-  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Ngôn ngữ</h4><div class="space-y-1">`;
+  const langHeader = CURRENT_LANG === 'en' ? 'Languages' : 'Ngôn ngữ';
+  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${langHeader}</h4><div class="space-y-1">`;
   LANG_LIST.forEach(l => {
     const id = `lang-${l.name.replace(/\s/g,'-')}-${s}`;
+    const displayName = CURRENT_LANG === 'en' ? l.enName : l.name;
     html += `<div><input type="checkbox" class="filter-cb lang-cb-${s}" id="${id}" value="${l.name}">
-    <label for="${id}" class="filter-label"><span class="filter-indicator"></span><span class="text-xs">${l.flag} ${l.name}</span></label></div>`;
+    <label for="${id}" class="filter-label"><span class="filter-indicator"></span><span class="text-xs">${l.flag} ${displayName}</span></label></div>`;
   });
   html += `</div></div>`;
 
   // Price
-  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mức giá tham khảo</h4><div class="space-y-1">`;
+  const priceHeader = CURRENT_LANG === 'en' ? 'Price Range' : 'Mức giá tham khảo';
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${priceHeader}</h4><div class="space-y-1">`;
   PRICE_RANGES.forEach(p => {
     const id = `price-${p.value}-${s}`;
     html += `<div><input type="radio" class="filter-rb price-rb-${s}" id="${id}" name="price-${s}" value="${p.value}">
@@ -261,7 +280,8 @@ function buildFilterForm(s) {
   html += `</div></div>`;
 
   // Rating
-  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Đánh giá tối thiểu</h4><div class="space-y-1">`;
+  const ratingHeader = CURRENT_LANG === 'en' ? 'Minimum Rating' : 'Đánh giá tối thiểu';
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${ratingHeader}</h4><div class="space-y-1">`;
   RATINGS.forEach(r => {
     const id = `rating-${r.value}-${s}`;
     html += `<div><input type="radio" class="filter-rb rating-rb-${s}" id="${id}" name="rating-${s}" value="${r.value}">
@@ -271,7 +291,8 @@ function buildFilterForm(s) {
   html += `</div></div>`;
 
   // Badges
-  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Huy hiệu năng lực</h4><div class="space-y-1">`;
+  const badgeHeader = CURRENT_LANG === 'en' ? 'Badges & Qualifications' : 'Huy hiệu năng lực';
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${badgeHeader}</h4><div class="space-y-1">`;
   BADGES.forEach(b => {
     const id = `badge-${b.key}-${s}`;
     html += `<div><input type="checkbox" class="filter-cb badge-cb-${s}" id="${id}" value="${b.name}">
@@ -287,7 +308,11 @@ function buildFilterForm(s) {
 function filterFreelancers(list, f) {
   return list.filter(fl => {
     if (f.languages.length > 0) {
-      if (!f.languages.some(lang => fl.languages.some(l => l.toLowerCase().includes(lang.toLowerCase())))) return false;
+      if (!f.languages.some(lang => {
+        const langItem = LANG_LIST.find(l => l.name === lang || l.enName === lang);
+        const matchTerms = langItem ? [langItem.name.toLowerCase(), langItem.enName.toLowerCase()] : [lang.toLowerCase()];
+        return fl.languages.some(l => matchTerms.some(term => l.toLowerCase().includes(term)));
+      })) return false;
     }
     if (f.priceRange) {
       const r = PRICE_RANGES.find(p => p.value === f.priceRange);
@@ -325,9 +350,16 @@ function badgeClass(name) {
 }
 
 function renderCard(fl) {
-  const priceStr = fl.min_price != null ? `Từ ${fl.min_price.toLocaleString('vi-VN')}đ` : 'Thỏa thuận';
+  const fromText = CURRENT_LANG === 'en' ? 'From ' : 'Từ ';
+  const negoText = CURRENT_LANG === 'en' ? 'Negotiable' : 'Thỏa thuận';
+  const priceStr = fl.min_price != null ? `${fromText}${fl.min_price.toLocaleString('vi-VN')}đ` : negoText;
   const badgesHtml = fl.badges.length ? fl.badges.map(b => `<span class="text-[10px] px-2 py-0.5 rounded-md font-semibold ${badgeClass(b)}">${b}</span>`).join('') : '';
-  const verifiedHtml = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"><svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Xác minh</span>` : '';
+  const verifiedText = CURRENT_LANG === 'en' ? 'Verified' : 'Xác minh';
+  const verifiedHtml = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"><svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>${verifiedText}</span>` : '';
+  const defaultTitle = CURRENT_LANG === 'en' ? 'Professional Translator' : 'Phiên dịch viên chuyên nghiệp';
+  const reviewsCountText = CURRENT_LANG === 'en' ? 'reviews' : 'đánh giá';
+  const priceLabel = CURRENT_LANG === 'en' ? 'Rates' : 'Mức giá';
+  const viewProfileText = CURRENT_LANG === 'en' ? 'View Profile' : 'Xem hồ sơ';
   
   return `<div class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
     <div class="p-5 sm:p-6 flex-grow">
@@ -338,12 +370,12 @@ function renderCard(fl) {
       <h3 class="font-bold text-slate-900 text-base mb-1">
         <a href="${fl.profile_url}" class="hover:text-brand-600 transition-colors">${fl.name}</a>
       </h3>
-      <p class="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem] leading-relaxed">${fl.title || 'Phiên dịch viên chuyên nghiệp'}</p>
+      <p class="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem] leading-relaxed">${fl.title || defaultTitle}</p>
       
       <div class="flex items-center gap-1.5 text-xs mb-3">
         <div class="flex text-amber-500">${renderStars(fl.rating)}</div>
         <span class="font-bold text-slate-800 text-xs">${fl.rating.toFixed(1)}</span>
-        <span class="text-slate-400 text-xs font-normal">(${fl.total_reviews} đánh giá)</span>
+        <span class="text-slate-400 text-xs font-normal">(${fl.total_reviews} ${reviewsCountText})</span>
       </div>
 
       <div class="flex flex-wrap gap-1.5 mb-3">
@@ -355,11 +387,11 @@ function renderCard(fl) {
 
     <div class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
       <div>
-        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Mức giá</span>
+        <span class="text-[10px] text-slate-400 uppercase font-semibold block">${priceLabel}</span>
         <span class="text-xs font-bold text-slate-800">${priceStr}</span>
       </div>
       <div class="flex items-center gap-2">
-        <a href="${fl.profile_url}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">Xem hồ sơ</a>
+        <a href="${fl.profile_url}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">${viewProfileText}</a>
         <a href="${fl.chat_url}" class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">Chat</a>
       </div>
     </div>

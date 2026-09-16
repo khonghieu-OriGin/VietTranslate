@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Về VietTranslate | Clean Global Language Platform{% endblock %}
+{% block title %}{{ t('about_page.title') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
@@ -8,13 +8,13 @@
     <!-- Hero Statement -->
     <div class="text-center max-w-3xl mx-auto mb-16">
         <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3.5 py-1 rounded-full mb-3">
-            Sứ mệnh của chúng tôi
+            {{ t('about_page.badge') }}
         </span>
         <h1 class="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight mb-4">
-            Kết Nối Ngôn Ngữ <br><span class="text-brand-600">Mở Lối Cơ Hội.</span>
+            {{ t('about_page.headline') | safe }}
         </h1>
         <p class="text-slate-500 text-sm sm:text-base leading-relaxed max-w-2xl mx-auto">
-            VietTranslate là nền tảng marketplace kết nối trực tiếp giữa các doanh nghiệp, tổ chức và chuyên gia phiên dịch hàng đầu trên toàn cầu.
+            {{ t('about_page.intro') }}
         </p>
     </div>
     
@@ -24,9 +24,9 @@
             <div class="w-12 h-12 bg-brand-50 rounded-xl mb-5 flex items-center justify-center text-xl">
                 🌍
             </div>
-            <h3 class="text-base font-bold text-slate-900 mb-2">Mạng lưới quốc tế</h3>
+            <h3 class="text-base font-bold text-slate-900 mb-2">{{ t('about_page.pillar1_title') }}</h3>
             <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-                Hơn 5,000+ chuyên gia phiên dịch Cabin, tháp tùng, đàm phán thương mại đã qua thẩm định hồ sơ và chứng chỉ (JLPT N1, IELTS 8.0+, TOPIK 6...).
+                {{ t('about_page.pillar1_desc') }}
             </p>
         </div>
         
@@ -34,9 +34,9 @@
             <div class="w-12 h-12 bg-emerald-50 rounded-xl mb-5 flex items-center justify-center text-xl">
                 🛡️
             </div>
-            <h3 class="text-base font-bold text-slate-900 mb-2">Bảo vệ quỹ Escrow</h3>
+            <h3 class="text-base font-bold text-slate-900 mb-2">{{ t('about_page.pillar2_title') }}</h3>
             <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-                100% hợp đồng được ký quỹ tạm giữ an toàn. Giải ngân chuẩn xác sau khi khách hàng hài lòng và nghiệm thu kết quả.
+                {{ t('about_page.pillar2_desc') }}
             </p>
         </div>
         
@@ -44,9 +44,9 @@
             <div class="w-12 h-12 bg-indigo-50 rounded-xl mb-5 flex items-center justify-center text-xl">
                 ⚡
             </div>
-            <h3 class="text-base font-bold text-slate-900 mb-2">Nhanh chóng & Trực tiếp</h3>
+            <h3 class="text-base font-bold text-slate-900 mb-2">{{ t('about_page.pillar3_title') }}</h3>
             <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-                Trao đổi 1-on-1 trực tiếp, không qua trung gian đôn giá, xem lịch khả dụng realtime và chốt hợp đồng chỉ trong vài phút.
+                {{ t('about_page.pillar3_desc') }}
             </p>
         </div>
     </div>
@@ -56,19 +56,19 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
                 <p class="text-3xl sm:text-4xl font-black">10+</p>
-                <p class="text-xs text-blue-100 mt-1">Ngôn ngữ toàn cầu</p>
+                <p class="text-xs text-blue-100 mt-1">{{ t('about_page.stat_languages') }}</p>
             </div>
             <div>
-                <p class="text-3xl sm:text-4xl font-black">5,200+</p>
-                <p class="text-xs text-blue-100 mt-1">Chuyên gia ngôn ngữ</p>
+                <p class="text-3xl sm:text-4xl font-black">{{ t('stats.translators_count') }}</p>
+                <p class="text-xs text-blue-100 mt-1">{{ t('about_page.stat_experts') }}</p>
             </div>
             <div>
-                <p class="text-3xl sm:text-4xl font-black">12,400+</p>
-                <p class="text-xs text-blue-100 mt-1">Dự án hoàn thành</p>
+                <p class="text-3xl sm:text-4xl font-black">{{ t('stats.contracts_count') }}</p>
+                <p class="text-xs text-blue-100 mt-1">{{ t('about_page.stat_projects') }}</p>
             </div>
             <div>
-                <p class="text-3xl sm:text-4xl font-black">99.4%</p>
-                <p class="text-xs text-blue-100 mt-1">Đánh giá hài lòng</p>
+                <p class="text-3xl sm:text-4xl font-black">{{ t('stats.satisfaction_rate') }}</p>
+                <p class="text-xs text-blue-100 mt-1">{{ t('about_page.stat_satisfaction') }}</p>
             </div>
         </div>
     </div>
