@@ -470,7 +470,8 @@ LANGUAGE_PAGES = {
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'dev-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
+# Tạm thời sử dụng database trên bộ nhớ (không lưu lại file) theo yêu cầu
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
@@ -484,6 +485,10 @@ else:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 db.init_app(app)
+
+# Khởi tạo các bảng để có thể đăng ký và đăng nhập mà không bị lỗi
+with app.app_context():
+    db.create_all()
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
