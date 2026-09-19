@@ -502,11 +502,22 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-with app.app_context():
+import sys
+
+def _init_db():
     db.create_all()
     if not User.query.first():
         from seed_data import seed_data as _run_seed
         _run_seed()
+        print(f"[SEED] Done. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
+    else:
+        print(f"[SEED] Already seeded. Users={User.query.count()}", file=sys.stderr)
+
+try:
+    with app.app_context():
+        _init_db()
+except Exception as e:
+    print(f"[SEED ERROR] {e}", file=sys.stderr)
 
 _db_ready = False
 
@@ -514,10 +525,10 @@ _db_ready = False
 def _ensure_db():
     global _db_ready
     if not _db_ready:
-        db.create_all()
-        if not User.query.first():
-            from seed_data import seed_data as _run_seed
-            _run_seed()
+        try:
+            _init_db()
+        except Exception as e:
+            print(f"[SEED before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
