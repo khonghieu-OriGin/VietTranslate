@@ -502,12 +502,34 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-# Khởi tạo các bảng và nạp dữ liệu mẫu nếu database trống (cần thiết vì dùng sqlite :memory:)
-with app.app_context():
+import sys
+
+def _init_db():
     db.create_all()
     if not User.query.first():
         from seed_data import seed_data as _run_seed
         _run_seed()
+        print(f"[SEED] Done. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
+    else:
+        print(f"[SEED] Already seeded. Users={User.query.count()}", file=sys.stderr)
+
+try:
+    with app.app_context():
+        _init_db()
+except Exception as e:
+    print(f"[SEED ERROR] {e}", file=sys.stderr)
+
+_db_ready = False
+
+@app.before_request
+def _ensure_db():
+    global _db_ready
+    if not _db_ready:
+        try:
+            _init_db()
+        except Exception as e:
+            print(f"[SEED before_request ERROR] {e}", file=sys.stderr)
+        _db_ready = True
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
@@ -845,6 +867,19 @@ def translator_list():
     pagination = query.order_by(TranslatorProfile.rating.desc()).paginate(page=page, per_page=per_page, error_out=False)
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
+
+@app.route('/api/health')
+def api_health():
+    user_count = User.query.count()
+    profile_count = TranslatorProfile.query.count()
+    service_count = Service.query.count()
+    return jsonify({
+        'db_uri': app.config['SQLALCHEMY_DATABASE_URI'],
+        'vercel': os.environ.get('VERCEL', '0'),
+        'users': user_count,
+        'profiles': profile_count,
+        'services': service_count,
+    })
 
 @app.route('/api/translators')
 def api_translators():
