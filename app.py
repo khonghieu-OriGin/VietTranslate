@@ -472,8 +472,8 @@ LANGUAGE_PAGES = {
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-# Tạm thời sử dụng database trên bộ nhớ (không lưu lại file) theo yêu cầu
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
