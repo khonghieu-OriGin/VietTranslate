@@ -41,7 +41,7 @@ LANGUAGES = [
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(256), nullable=False)
     phone = db.Column(db.String(20))
     role = db.Column(db.String(20), nullable=False)  # 'hirer', 'translator', 'admin'
@@ -49,9 +49,9 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    profile = db.relationship('TranslatorProfile', backref='user', uselist=False)
-    jobs_posted = db.relationship('Job', backref='hirer', lazy=True)
-    proposals = db.relationship('Proposal', backref='translator', lazy=True)
+    profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
+    jobs_posted = db.relationship('Job', backref='hirer', lazy=True, cascade='all, delete-orphan')
+    proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
     messages_sent = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True)
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
 
@@ -98,21 +98,23 @@ class Job(db.Model):
     budget_type = db.Column(db.String(20))
     budget_min = db.Column(db.Integer)
     budget_max = db.Column(db.Integer)
-    # Lịch và thời gian
-    event_date = db.Column(db.String(100))          # Ngày diễn ra sự kiện / cần dịch
-    event_time_start = db.Column(db.String(10))  # Giờ bắt đầu VD: "08:00"
-    event_time_end = db.Column(db.String(10))    # Giờ kết thúc VD: "17:00"
-    event_location = db.Column(db.String(200))   # Địa điểm hoặc "Online"
-    deadline = db.Column(db.Date)            # Hạn nộp hồ sơ đề xuất
-    status = db.Column(db.String(20), default='open')
-    is_flagged = db.Column(db.Boolean, default=False)  # Admin flag
+    event_date = db.Column(db.String(100))
+    event_time_start = db.Column(db.String(10))
+    event_time_end = db.Column(db.String(10))
+    event_location = db.Column(db.String(200))
+    deadline = db.Column(db.Date)
+    status = db.Column(db.String(20), default='open', index=True)
+    is_flagged = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    proposals = db.relationship('Proposal', backref='job', lazy=True)
-    contract = db.relationship('Contract', backref='job', uselist=False)
+    proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
+    contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
 
 
 class Proposal(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('job_id', 'translator_id', name='uq_proposal_job_translator'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -131,20 +133,19 @@ class Contract(db.Model):
     hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     agreed_price = db.Column(db.Integer, nullable=False)
-    # Lịch hẹn được chốt khi tạo Contract (lưu String vì có thể là khoảng ngày)
     scheduled_date = db.Column(db.String(100))
     scheduled_time_start = db.Column(db.String(10))
     scheduled_time_end = db.Column(db.String(10))
     location = db.Column(db.String(200))
-    status = db.Column(db.String(50), default='escrow_pending')
+    status = db.Column(db.String(50), default='escrow_pending', index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     hirer = db.relationship('User', foreign_keys=[hirer_id], backref='contracts_as_hirer')
     translator = db.relationship('User', foreign_keys=[translator_id], backref='contracts_as_translator')
-    messages = db.relationship('Message', backref='contract', lazy=True)
-    deliverables = db.relationship('Deliverable', backref='contract', lazy=True)
-    reviews = db.relationship('Review', backref='contract', lazy=True)
+    messages = db.relationship('Message', backref='contract', lazy=True, cascade='all, delete-orphan')
+    deliverables = db.relationship('Deliverable', backref='contract', lazy=True, cascade='all, delete-orphan')
+    reviews = db.relationship('Review', backref='contract', lazy=True, cascade='all, delete-orphan')
     service = db.relationship('Service', backref='contracts')
 
 
@@ -176,6 +177,9 @@ class Deliverable(db.Model):
 
 
 class Review(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint('contract_id', 'reviewer_id', name='uq_review_contract_reviewer'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)
     reviewer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
