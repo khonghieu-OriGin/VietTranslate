@@ -5,6 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date
 from functools import wraps
+import re
 from translations import t as t_lookup, get_localized_languages
 
 # ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
@@ -470,7 +471,7 @@ LANGUAGE_PAGES = {
 }
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev-secret-key'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 # Tạm thời sử dụng database trên bộ nhớ (không lưu lại file) theo yêu cầu
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -484,6 +485,12 @@ else:
     except OSError:
         UPLOAD_FOLDER = '/tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'zip', 'rar', 'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db.init_app(app)
 
@@ -647,6 +654,11 @@ def register():
         password = request.form.get('password')
         phone = request.form.get('phone')
         role = request.form.get('role')
+
+        if role not in ('hirer', 'translator'):
+            flash('Vai trò không hợp lệ.', 'error')
+            return redirect(url_for('register'))
+
         hashed_pw = generate_password_hash(password)
 
         # ── Dùng MongoDB khi MONGO_URI được cấu hình (Vercel) ──
@@ -696,7 +708,62 @@ def logout():
 @app.route('/account', methods=['GET', 'POST'])
 @login_required
 def account_profile():
-    user = User.query.get(session['user_id'])
+    uid = session['user_id']
+
+    # MongoDB user
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        mongo_id = uid[len('mongo:'):]
+        mongo_data = mongo_find_user_by_id(mongo_id)
+        if not mongo_data:
+            flash('Không tìm thấy tài khoản.', 'error')
+            return redirect(url_for('index'))
+        user = SimpleMongoUser(mongo_data)
+
+        if request.method == 'POST':
+            action = request.form.get('action', 'basic')
+            col = get_mongo_users()
+            if col is None:
+                flash('MongoDB chưa được cấu hình.', 'error')
+                return redirect(url_for('account_profile'))
+
+            from bson import ObjectId
+            if action == 'basic':
+                col.update_one(
+                    {"_id": ObjectId(mongo_id)},
+                    {"$set": {
+                        "name": request.form.get('name', user.name).strip(),
+                        "phone": request.form.get('phone', user.phone or '').strip(),
+                    }}
+                )
+                session['user_name'] = request.form.get('name', user.name).strip()
+                flash('Đã cập nhật thông tin cơ bản!', 'success')
+
+            elif action == 'change_password':
+                old_pw = request.form.get('old_password', '')
+                new_pw = request.form.get('new_password', '')
+                confirm_pw = request.form.get('confirm_password', '')
+                if not check_password_hash(mongo_data['password_hash'], old_pw):
+                    flash('Mật khẩu hiện tại không đúng.', 'error')
+                elif new_pw != confirm_pw:
+                    flash('Mật khẩu mới không khớp.', 'error')
+                elif len(new_pw) < 6:
+                    flash('Mật khẩu mới phải ít nhất 6 ký tự.', 'error')
+                else:
+                    col.update_one(
+                        {"_id": ObjectId(mongo_id)},
+                        {"$set": {"password_hash": generate_password_hash(new_pw)}}
+                    )
+                    flash('Đã đổi mật khẩu thành công!', 'success')
+
+            return redirect(url_for('account_profile'))
+        return render_template('account_profile.html', user=user)
+
+    # SQLite user
+    user = User.query.get(uid)
+    if not user:
+        flash('Không tìm thấy tài khoản.', 'error')
+        return redirect(url_for('index'))
+
     if request.method == 'POST':
         action = request.form.get('action', 'basic')
 
@@ -759,7 +826,8 @@ def translator_list():
 
     query = TranslatorProfile.query
     if lang:
-        query = query.filter(TranslatorProfile.languages.ilike(f'%{lang}%'))
+        safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
+        query = query.filter(TranslatorProfile.languages.ilike(f'%{safe_lang}%'))
     if rating_filter:
         query = query.filter(TranslatorProfile.rating >= float(rating_filter))
 
@@ -785,7 +853,6 @@ def api_translators():
             for s in p.services:
                 for field in [s.basic_delivery, s.standard_delivery, s.premium_delivery]:
                     if field:
-                        import re
                         nums = re.findall(r'\d+', field)
                         if nums:
                             d = int(nums[0])
@@ -925,8 +992,7 @@ def book_service(service_id):
         s = delivery_str.lower()
         if 'nửa ngày' in s or 'trong ngày' in s:
             fixed_days = 1
-        elif 'theo' not in s:  # Not "theo yêu cầu", "theo lịch"
-            import re
+        elif 'theo' not in s:
             match = re.search(r'(\d+)', s)
             if match:
                 fixed_days = int(match.group(1))
@@ -951,6 +1017,7 @@ def post_job():
             target_lang=request.form.get('target_lang'),
             budget_type=request.form.get('budget_type'),
             budget_min=int(request.form.get('budget_min') or 0),
+            budget_max=int(request.form.get('budget_max') or 0) or None,
             event_date=request.form.get('event_date', ''),
             event_time_start=request.form.get('event_time_start', ''),
             event_time_end=request.form.get('event_time_end', ''),
@@ -973,7 +1040,8 @@ def job_list():
 
     query = Job.query.filter_by(status='open', is_flagged=False)
     if lang:
-        query = query.filter(db.or_(Job.source_lang.ilike(f'%{lang}%'), Job.target_lang.ilike(f'%{lang}%')))
+        safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
+        query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
 
     if sort == 'budget_desc':
         query = query.order_by(Job.budget_min.desc())
@@ -991,6 +1059,11 @@ def job_detail(job_id):
         if 'user_id' not in session:
             flash('Vui lòng đăng nhập để gửi đề xuất.', 'warning')
             return redirect(url_for('login'))
+        existing_proposal = Proposal.query.filter_by(job_id=job.id, translator_id=session['user_id']).first()
+        if existing_proposal:
+            flash('Bạn đã gửi đề xuất cho công việc này rồi.', 'warning')
+            return redirect(url_for('job_detail', job_id=job.id))
+
         proposal = Proposal(
             job_id=job.id,
             translator_id=session['user_id'],
@@ -1059,10 +1132,13 @@ def transaction_detail(contract_id):
     if request.method == 'POST' and 'file' in request.files:
         if contract.status == 'in_progress' and session['user_id'] == contract.translator_id:
             file = request.files['file']
-            if file.filename != '':
+            if file.filename != '' and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
+            elif file.filename != '' and not allowed_file(file.filename):
+                flash('Loại tệp không được hỗ trợ.', 'error')
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
                 db.session.add(Deliverable(contract_id=contract.id, filename=filename, filepath=filename))
                 db.session.add(Message(contract_id=contract.id, sender_id=session['user_id'],
                                        content=f'📎 Đã gửi tệp: {filename}'))
@@ -1171,7 +1247,7 @@ def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
     db.session.commit()
-    action = 'Đã gỡ bỏ' if job.is_flagged else 'Đã khôi phục'
+    action = 'Đã gắn cờ vi phạm' if job.is_flagged else 'Đã khôi phục'
     flash(f'{action} bài đăng "{job.title}".', 'success')
     return redirect(url_for('admin_jobs'))
 
