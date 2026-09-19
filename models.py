@@ -7,7 +7,7 @@ class LanguageItem(dict):
     def __init__(self, name, flag, cert, code, short_name=None):
         short = short_name or name.replace('Tiếng ', '')
         code_lower = code.lower()
-        flag_svg = f"/static/flags/{code_lower}.svg"
+        flag_svg = f"https://flagcdn.com/{code_lower}.svg"
         flag_alt = f"Quốc kỳ {short}"
         super().__init__(
             name=name,
