@@ -7,6 +7,7 @@ from datetime import datetime, date
 from functools import wraps
 import re
 from translations import t as t_lookup, get_localized_languages
+from sqlalchemy.pool import StaticPool
 
 # ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
 MONGO_URI = os.getenv("MONGO_URI")
@@ -475,6 +476,10 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-pro
 basedir = os.path.abspath(os.path.dirname(__file__))
 if os.environ.get('VERCEL') == '1':
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'poolclass': StaticPool,
+        'connect_args': {'check_same_thread': False},
+    }
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
