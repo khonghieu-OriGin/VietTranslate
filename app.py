@@ -494,9 +494,12 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-# Khởi tạo các bảng để có thể đăng ký và đăng nhập mà không bị lỗi
+# Khởi tạo các bảng và nạp dữ liệu mẫu nếu database trống (cần thiết vì dùng sqlite :memory:)
 with app.app_context():
     db.create_all()
+    if not User.query.first():
+        from seed_data import seed_data as _run_seed
+        _run_seed()
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
