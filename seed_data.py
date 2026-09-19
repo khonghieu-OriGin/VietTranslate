@@ -160,9 +160,9 @@ def seed_data():
         db.session.add_all(all_profiles)
         db.session.commit()
 
-        # === SERVICES (2 per language) ===
+        # === SERVICES (chuyên ngành + du lịch theo ngày + du lịch theo tour) ===
         services = [
-            # Tiếng Anh
+            # ── Tiếng Anh ──
             Service(profile_id=prof_en.id, name='Phiên dịch cabin hội thảo tiếng Anh',
                     description='Dịch cabin đồng thời trong hội nghị quốc tế, đảm bảo tốc độ và chính xác.',
                     category='Cabin', languages='Việt ↔ Anh',
@@ -173,8 +173,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Anh',
                     basic_price=350000, standard_price=550000, premium_price=900000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_en.id, name='Phiên dịch du lịch theo ngày - Tiếng Anh',
+                    description='Đồng hành cùng khách nói tiếng Anh tham quan thành phố, di tích, chợ, bảo tàng. Hỗ trợ giao tiếp mua sắm, ẩm thực, di chuyển.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Anh',
+                    basic_price=800000, standard_price=1200000, premium_price=2000000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_en.id, name='Phiên dịch du lịch theo tour - Tiếng Anh',
+                    description='Tháp tùng đoàn khách Anh/Mỹ/Úc xuyên suốt tour nhiều ngày: Hà Nội - Hạ Long - Huế - Hội An - HCM. Hỗ trợ check-in, đặt vé, thuyết minh di tích.',
+                    category='Du lịch theo tour', languages='Việt ↔ Anh',
+                    basic_price=3500000, standard_price=5000000, premium_price=8000000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Nhật
+            # ── Tiếng Nhật ──
             Service(profile_id=prof_jp.id, name='Phiên dịch tháp tùng tiếng Nhật',
                     description='Đi cùng đoàn khách Nhật tại sự kiện, hội nghị, thăm quan nhà máy.',
                     category='Tháp tùng', languages='Việt ↔ Nhật',
@@ -185,8 +195,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Nhật',
                     basic_price=300000, standard_price=500000, premium_price=900000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_jp.id, name='Phiên dịch du lịch theo ngày - Tiếng Nhật',
+                    description='Đồng hành cùng du khách Nhật Bản khám phá phố cổ, đền chùa, ẩm thực đường phố Việt Nam. Giới thiệu văn hóa theo phong cách omotenashi.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Nhật',
+                    basic_price=1000000, standard_price=1500000, premium_price=2500000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_jp.id, name='Phiên dịch du lịch theo tour - Tiếng Nhật',
+                    description='Tháp tùng đoàn khách Nhật tour dài ngày: Hà Nội - Ninh Bình - Đà Nẵng - Hội An. Thuyết minh di tích, hỗ trợ onsen, ryokan style, trải nghiệm ẩm thực.',
+                    category='Du lịch theo tour', languages='Việt ↔ Nhật',
+                    basic_price=4000000, standard_price=6000000, premium_price=9000000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Hàn
+            # ── Tiếng Hàn ──
             Service(profile_id=prof_kr.id, name='Phiên dịch hội nghị tiếng Hàn',
                     description='Dịch hội nghị kỹ thuật, đào tạo nội bộ, meeting doanh nghiệp Hàn Quốc.',
                     category='Hội nghị', languages='Việt ↔ Hàn',
@@ -197,8 +217,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Hàn',
                     basic_price=280000, standard_price=450000, premium_price=800000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_kr.id, name='Phiên dịch du lịch theo ngày - Tiếng Hàn',
+                    description='Đồng hành cùng du khách Hàn Quốc tham quan, mua sắm, trải nghiệm ẩm thực và làm đẹp tại Việt Nam. Hỗ trợ đặt spa, quán ăn, chợ đêm.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Hàn',
+                    basic_price=900000, standard_price=1400000, premium_price=2200000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_kr.id, name='Phiên dịch du lịch theo tour - Tiếng Hàn',
+                    description='Tháp tùng đoàn khách Hàn tour Đà Nẵng - Hội An - Bà Nà Hills, hoặc Phú Quốc. Hỗ trợ quay vlog, check-in, trải nghiệm K-beauty & K-food Việt Nam.',
+                    category='Du lịch theo tour', languages='Việt ↔ Hàn',
+                    basic_price=3800000, standard_price=5500000, premium_price=8500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Trung
+            # ── Tiếng Trung ──
             Service(profile_id=prof_cn.id, name='Phiên dịch tháp tùng tiếng Trung',
                     description='Tháp tùng đoàn khách Trung Quốc, hội chợ, đàm phán thương mại.',
                     category='Tháp tùng', languages='Việt ↔ Trung',
@@ -209,8 +239,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Trung',
                     basic_price=250000, standard_price=400000, premium_price=700000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_cn.id, name='Phiên dịch du lịch theo ngày - Tiếng Trung',
+                    description='Đồng hành cùng du khách Trung Quốc tham quan, mua sắm, thưởng thức ẩm thực. Hỗ trợ thanh toán WeChat/Alipay, đặt xe, giao tiếp chợ.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Trung',
+                    basic_price=800000, standard_price=1300000, premium_price=2000000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_cn.id, name='Phiên dịch du lịch theo tour - Tiếng Trung',
+                    description='Tháp tùng đoàn khách Trung Quốc tour Hạ Long - Sapa - Hà Nội, hoặc Nha Trang - Đà Lạt. Thuyết minh di tích, hỗ trợ livestream bán hàng.',
+                    category='Du lịch theo tour', languages='Việt ↔ Trung',
+                    basic_price=3200000, standard_price=5000000, premium_price=7500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Pháp
+            # ── Tiếng Pháp ──
             Service(profile_id=prof_fr.id, name='Phiên dịch hội nghị ngoại giao tiếng Pháp',
                     description='Dịch cabin và nối tiếp cho hội nghị ngoại giao, sự kiện Pháp ngữ, hợp tác song phương.',
                     category='Hội nghị', languages='Việt ↔ Pháp',
@@ -221,8 +261,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Pháp',
                     basic_price=350000, standard_price=550000, premium_price=950000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_fr.id, name='Phiên dịch du lịch theo ngày - Tiếng Pháp',
+                    description='Đồng hành cùng du khách Pháp khám phá kiến trúc Đông Dương, phố cổ Hà Nội, Hội An. Giới thiệu di sản Pháp thuộc và ẩm thực fusion.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Pháp',
+                    basic_price=900000, standard_price=1400000, premium_price=2200000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_fr.id, name='Phiên dịch du lịch theo tour - Tiếng Pháp',
+                    description='Tháp tùng du khách Pháp tour văn hóa: Hà Nội - Huế - Hội An - Sài Gòn. Thuyết minh lịch sử Đông Dương, thăm nhà thờ, dinh thự cổ, trải nghiệm café Việt.',
+                    category='Du lịch theo tour', languages='Việt ↔ Pháp',
+                    basic_price=4000000, standard_price=6000000, premium_price=9000000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Đức
+            # ── Tiếng Đức ──
             Service(profile_id=prof_de.id, name='Phiên dịch kỹ thuật tiếng Đức',
                     description='Phiên dịch tại nhà máy, chuyển giao công nghệ, đào tạo kỹ thuật từ chuyên gia Đức.',
                     category='Tháp tùng', languages='Việt ↔ Đức',
@@ -233,8 +283,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Đức',
                     basic_price=350000, standard_price=550000, premium_price=950000,
                     basic_delivery='4 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_de.id, name='Phiên dịch du lịch theo ngày - Tiếng Đức',
+                    description='Đồng hành cùng du khách Đức tham quan, đạp xe khám phá nông thôn, làng nghề truyền thống. Hỗ trợ thuê xe, giao tiếp nhà hàng, hiệu thuốc.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Đức',
+                    basic_price=900000, standard_price=1400000, premium_price=2200000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_de.id, name='Phiên dịch du lịch theo tour - Tiếng Đức',
+                    description='Tháp tùng du khách Đức/Áo/Thụy Sĩ tour mạo hiểm: trekking Sapa, kayak Hạ Long, phượt Hà Giang. Hỗ trợ bảo hiểm, y tế, thuê trang bị.',
+                    category='Du lịch theo tour', languages='Việt ↔ Đức',
+                    basic_price=4000000, standard_price=6000000, premium_price=9500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Nga
+            # ── Tiếng Nga ──
             Service(profile_id=prof_ru.id, name='Phiên dịch hội nghị dầu khí tiếng Nga',
                     description='Dịch cabin và nối tiếp cho hội nghị dầu khí, năng lượng, khai khoáng Nga-Việt.',
                     category='Hội nghị', languages='Việt ↔ Nga',
@@ -245,10 +305,20 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Nga',
                     basic_price=400000, standard_price=600000, premium_price=1000000,
                     basic_delivery='4 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_ru.id, name='Phiên dịch du lịch theo ngày - Tiếng Nga',
+                    description='Đồng hành cùng du khách Nga tắm biển, tham quan, mua sắm tại Nha Trang, Mũi Né, Phú Quốc. Hỗ trợ đặt massage, nhà hàng hải sản, tour biển.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Nga',
+                    basic_price=800000, standard_price=1300000, premium_price=2000000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_ru.id, name='Phiên dịch du lịch theo tour - Tiếng Nga',
+                    description='Tháp tùng đoàn khách Nga tour nghỉ dưỡng biển: Nha Trang - Đà Lạt - Phú Quốc, hoặc tour văn hóa Hà Nội - Hạ Long - Sapa. Hỗ trợ resort, spa, lặn biển.',
+                    category='Du lịch theo tour', languages='Việt ↔ Nga',
+                    basic_price=3500000, standard_price=5500000, premium_price=8500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Thái
-            Service(profile_id=prof_th.id, name='Phiên dịch tháp tùng du lịch tiếng Thái',
-                    description='Tháp tùng đoàn khách Thái Lan tham quan, mua sắm, khám phá Việt Nam.',
+            # ── Tiếng Thái ──
+            Service(profile_id=prof_th.id, name='Phiên dịch tháp tùng thương mại tiếng Thái',
+                    description='Tháp tùng đoàn khách Thái tại hội chợ, triển lãm, đàm phán thương mại ASEAN.',
                     category='Tháp tùng', languages='Việt ↔ Thái',
                     basic_price=1000000, standard_price=1800000, premium_price=3000000,
                     basic_delivery='1 ngày', standard_delivery='Nửa ngày', premium_delivery='Theo yêu cầu'),
@@ -257,8 +327,18 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Thái',
                     basic_price=250000, standard_price=400000, premium_price=700000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_th.id, name='Phiên dịch du lịch theo ngày - Tiếng Thái',
+                    description='Đồng hành cùng du khách Thái Lan tham quan chùa chiền, chợ nổi, phố ẩm thực. Giới thiệu nét tương đồng văn hóa Thái-Việt, hỗ trợ đặt xe grab, mua sắm.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Thái',
+                    basic_price=700000, standard_price=1100000, premium_price=1800000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_th.id, name='Phiên dịch du lịch theo tour - Tiếng Thái',
+                    description='Tháp tùng đoàn khách Thái Lan tour Đà Nẵng - Hội An - Bà Nà, hoặc HCM - Cần Thơ - Phú Quốc. Hỗ trợ trải nghiệm Muay Thai Việt, chùa Việt, chợ đêm.',
+                    category='Du lịch theo tour', languages='Việt ↔ Thái',
+                    basic_price=2800000, standard_price=4500000, premium_price=7000000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Bồ Đào Nha
+            # ── Tiếng Bồ Đào Nha ──
             Service(profile_id=prof_pt.id, name='Biên dịch hồ sơ xuất khẩu tiếng Bồ Đào Nha',
                     description='Dịch chứng nhận xuất xứ, hồ sơ xuất khẩu nông sản, thủy sản sang Brazil và Bồ Đào Nha.',
                     category='Dịch viết', languages='Việt ↔ Bồ Đào Nha',
@@ -269,8 +349,18 @@ def seed_data():
                     category='Hội nghị', languages='Việt ↔ Bồ Đào Nha',
                     basic_price=1800000, standard_price=3000000, premium_price=5000000,
                     basic_delivery='Theo lịch', standard_delivery='Theo lịch', premium_delivery='Theo lịch'),
+            Service(profile_id=prof_pt.id, name='Phiên dịch du lịch theo ngày - Tiếng Bồ Đào Nha',
+                    description='Đồng hành cùng du khách Brazil/Bồ Đào Nha tham quan, trải nghiệm ẩm thực, khám phá phố cổ. Hỗ trợ giao tiếp chợ, nhà hàng, mua sắm.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Bồ Đào Nha',
+                    basic_price=900000, standard_price=1400000, premium_price=2200000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_pt.id, name='Phiên dịch du lịch theo tour - Tiếng Bồ Đào Nha',
+                    description='Tháp tùng du khách Brazil tour khám phá: HCM - Mekong Delta - Phú Quốc, hoặc Hà Nội - Hạ Long - Sapa. Giới thiệu cà phê Việt, ẩm thực đường phố.',
+                    category='Du lịch theo tour', languages='Việt ↔ Bồ Đào Nha',
+                    basic_price=3500000, standard_price=5500000, premium_price=8500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
 
-            # Tiếng Tây Ban Nha
+            # ── Tiếng Tây Ban Nha ──
             Service(profile_id=prof_es.id, name='Phiên dịch hội thảo y tế tiếng Tây Ban Nha',
                     description='Dịch hội thảo y tế, chương trình nhân đạo, hợp tác y tế quốc tế với đối tác Mỹ Latinh.',
                     category='Hội nghị', languages='Việt ↔ Tây Ban Nha',
@@ -281,6 +371,16 @@ def seed_data():
                     category='Dịch viết', languages='Việt ↔ Tây Ban Nha',
                     basic_price=350000, standard_price=550000, premium_price=900000,
                     basic_delivery='3 ngày', standard_delivery='2 ngày', premium_delivery='Trong ngày'),
+            Service(profile_id=prof_es.id, name='Phiên dịch du lịch theo ngày - Tiếng Tây Ban Nha',
+                    description='Đồng hành cùng du khách Tây Ban Nha/Mỹ Latinh tham quan, trải nghiệm văn hóa. Hỗ trợ giao tiếp tại chợ, quán ăn, điểm du lịch.',
+                    category='Du lịch theo ngày', languages='Việt ↔ Tây Ban Nha',
+                    basic_price=900000, standard_price=1400000, premium_price=2200000,
+                    basic_delivery='1 ngày (8h)', standard_delivery='1 ngày (8h)', premium_delivery='1 ngày (12h)'),
+            Service(profile_id=prof_es.id, name='Phiên dịch du lịch theo tour - Tiếng Tây Ban Nha',
+                    description='Tháp tùng du khách nói tiếng Tây Ban Nha tour Việt Nam: Hà Nội - Huế - Hội An - HCM. Thuyết minh lịch sử, giới thiệu ẩm thực, hỗ trợ homestay.',
+                    category='Du lịch theo tour', languages='Việt ↔ Tây Ban Nha',
+                    basic_price=3500000, standard_price=5500000, premium_price=8500000,
+                    basic_delivery='Tour 3 ngày', standard_delivery='Tour 5 ngày', premium_delivery='Tour 7+ ngày'),
         ]
         db.session.add_all(services)
         db.session.commit()
@@ -384,7 +484,7 @@ def seed_data():
 
         # Contract 3: Completed - Dịch vụ hội nghị tiếng Hàn
         c3 = Contract(
-            service_id=services[4].id,
+            service_id=services[8].id,
             hirer_id=hirer2.id,
             translator_id=trans_kr.id,
             agreed_price=2000000,
@@ -397,7 +497,7 @@ def seed_data():
 
         # Contract 4: Completed - Dịch vụ ngoại giao tiếng Pháp
         c4 = Contract(
-            service_id=services[8].id,
+            service_id=services[16].id,
             hirer_id=hirer3.id,
             translator_id=trans_fr.id,
             agreed_price=4000000,
@@ -410,7 +510,7 @@ def seed_data():
 
         # Contract 5: Completed - Dịch vụ kỹ thuật tiếng Đức
         c5 = Contract(
-            service_id=services[10].id,
+            service_id=services[20].id,
             hirer_id=hirer1.id,
             translator_id=trans_de.id,
             agreed_price=3500000,
