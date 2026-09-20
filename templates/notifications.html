@@ -163,6 +163,35 @@
         const isRead = item.dataset.isRead === 'true';
 
         if (!isRead) {
+            // Update UI instantly
+            item.dataset.isRead = 'true';
+            item.classList.remove('bg-brand-50/40', 'hover:bg-brand-50/70');
+            item.classList.add('bg-white', 'hover:bg-slate-50');
+            
+            const title = item.querySelector('h3');
+            if (title) title.classList.replace('text-slate-900', 'text-slate-700');
+            
+            const p = item.querySelector('p');
+            if (p) p.classList.replace('text-slate-700', 'text-slate-500');
+            if (p) p.classList.remove('font-medium');
+            
+            const dot = item.querySelector('.bg-brand-500');
+            if (dot) dot.remove();
+
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                let current = parseInt(badge.textContent);
+                if (!isNaN(current) && current > 0) {
+                    current--;
+                    if (current === 0) {
+                        badge.classList.add('hidden');
+                        badge.style.display = 'none';
+                    } else {
+                        badge.textContent = current;
+                    }
+                }
+            }
+
             fetch(`/api/notifications/${id}/read`, { method: 'POST' })
                 .then(() => {
                     if (url && url !== '#') window.location.href = url;

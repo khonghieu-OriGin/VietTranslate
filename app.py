@@ -1726,8 +1726,17 @@ def get_messages(contract_id):
     contract = Contract.query.get_or_404(contract_id)
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
-
+    
+    me = session['user_id']
     msgs = Message.query.filter_by(contract_id=contract_id).order_by(Message.created_at.asc()).all()
+    
+    # Mark messages from the other user as read
+    unread = [m for m in msgs if m.sender_id != me and not m.is_read]
+    for m in unread:
+        m.is_read = True
+    if unread:
+        db.session.commit()
+
     return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
                      'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
 
