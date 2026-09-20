@@ -1141,8 +1141,13 @@ def post_job():
         )
         db.session.add(job)
         db.session.commit()
-        flash('Đã đăng việc thành công!', 'success')
-        return redirect(url_for('job_list'))
+
+        # Notify matching translators (safe, won't block job creation if fails)
+        from services.matching import notify_matching_translators_for_new_job
+        notify_matching_translators_for_new_job(job)
+
+        flash('Đã đăng yêu cầu thành công!', 'success')
+        return redirect(url_for('job_detail', job_id=job.id))
     return render_template('post_job.html', LANGUAGES=LANGUAGES)
 
 @app.route('/jobs')
@@ -1171,14 +1176,42 @@ def job_list():
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
     if request.method == 'POST':
+        # ── 1. Login guard ────────────────────────────────────────────────────
         if 'user_id' not in session:
             flash('Vui lòng đăng nhập để gửi đề xuất.', 'warning')
             return redirect(url_for('login'))
-        existing_proposal = Proposal.query.filter_by(job_id=job.id, translator_id=session['user_id']).first()
+
+        # ── 2. Duplicate proposal guard ───────────────────────────────────────
+        existing_proposal = Proposal.query.filter_by(
+            job_id=job.id, translator_id=session['user_id']
+        ).first()
         if existing_proposal:
             flash('Bạn đã gửi đề xuất cho công việc này rồi.', 'warning')
             return redirect(url_for('job_detail', job_id=job.id))
 
+        # ── 3. Schedule conflict check ────────────────────────────────────────
+        from services.schedule import (
+            parse_job_datetime, is_schedule_complete,
+            check_translator_schedule_conflict,
+        )
+        parsed = parse_job_datetime(job)
+        if is_schedule_complete(parsed):
+            result = check_translator_schedule_conflict(
+                translator_id=session['user_id'],
+                scheduled_date=parsed['date'],
+                start_time=parsed['start_time'],
+                end_time=parsed['end_time'],
+            )
+            if result['conflict']:
+                flash(
+                    f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
+                    f'({result["start_time"]}–{result["end_time"]}). '
+                    f'Vui lòng kiểm tra lịch của bạn.',
+                    'error'
+                )
+                return redirect(url_for('job_detail', job_id=job.id))
+
+        # ── 4. Create Proposal (unchanged logic) ──────────────────────────────
         proposal = Proposal(
             job_id=job.id,
             translator_id=session['user_id'],
@@ -1188,50 +1221,168 @@ def job_detail(job_id):
         )
         db.session.add(proposal)
         db.session.commit()
-        # Notify the hirer about new applicant
-        applicant_count = Proposal.query.filter_by(job_id=job.id).count()
-        translator_name = session.get('user_name', 'Một phiên dịch viên')
-        create_notification(
-            user_id=job.hirer_id,
-            notification_type='JOB_APPLICATION',
-            title=f'Có ứng viên mới cho: {job.title}',
-            message=f'{translator_name} vừa ứng tuyển. Hiện có {applicant_count} ứng viên.',
-            url=url_for('job_detail', job_id=job.id),
-            related_job_id=job.id
-        )
+
+        # Notify the hirer about new applicant (avoid duplicate for same proposal)
+        from models import Notification
+        existing_notif = Notification.query.filter_by(
+            user_id=job.hirer_id, 
+            type='JOB_APPLICATION', 
+            related_proposal_id=proposal.id
+        ).first()
+
+        if not existing_notif:
+            create_notification(
+                user_id=job.hirer_id,
+                notification_type='JOB_APPLICATION',
+                title='Có ứng viên mới',
+                message=f'Một phiên dịch viên vừa ứng tuyển vào công việc "{job.title}".',
+                url=url_for('job_detail', job_id=job.id),
+                related_job_id=job.id,
+                related_proposal_id=proposal.id
+            )
         flash('Đề xuất của bạn đã được gửi!', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('job_detail.html', job=job)
+
+
+@app.route('/api/jobs/<int:job_id>/schedule-check', methods=['GET'])
+@login_required
+def api_schedule_check(job_id):
+    """Frontend pre-check: returns whether the logged-in translator has a
+    schedule conflict with this job's date/time.  Backend still re-validates
+    at proposal submission — this is for UI feedback only.
+    """
+    from services.schedule import (
+        parse_job_datetime, is_schedule_complete,
+        check_translator_schedule_conflict,
+    )
+    job = Job.query.get_or_404(job_id)
+    parsed = parse_job_datetime(job)
+
+    if not is_schedule_complete(parsed):
+        # Job has no fixed time → no conflict possible
+        return jsonify({'available': True, 'reason': 'no_schedule'})
+
+    result = check_translator_schedule_conflict(
+        translator_id=session['user_id'],
+        scheduled_date=parsed['date'],
+        start_time=parsed['start_time'],
+        end_time=parsed['end_time'],
+    )
+
+    if result['conflict']:
+        return jsonify({
+            'available': False,
+            'conflict_start': result['start_time'],
+            'conflict_end': result['end_time'],
+            'message': result['message'],
+        })
+    return jsonify({'available': True})
 
 # ─── CONTRACT / BUSINESS PROCESS ───────────────────────────────────────────────
 
 @app.route('/accept-proposal/<int:proposal_id>', methods=['POST'])
 @login_required
 def accept_proposal(proposal_id):
-    proposal = Proposal.query.get_or_404(proposal_id)
-    job = proposal.job
-    if job.hirer_id != session['user_id']:
-        flash('Không có quyền.', 'error')
-        return redirect(url_for('index'))
+    try:
+        # Lock Proposal and Job to prevent concurrent accepts for the same job/proposal
+        proposal = Proposal.query.with_for_update().get_or_404(proposal_id)
+        job = Job.query.with_for_update().get(proposal.job_id)
 
-    contract = Contract(
-        job_id=job.id,
-        proposal_id=proposal.id,
-        hirer_id=job.hirer_id,
-        translator_id=proposal.translator_id,
-        agreed_price=proposal.price,
-        scheduled_date=job.event_date,
-        scheduled_time_start=job.event_time_start,
-        scheduled_time_end=job.event_time_end,
-        location=job.event_location,
-        status='escrow_pending'
-    )
-    job.status = 'contracted'
-    proposal.status = 'accepted'
-    db.session.add(contract)
-    db.session.commit()
-    flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
-    return redirect(url_for('payment_mockup', contract_id=contract.id))
+        if not job or job.hirer_id != session['user_id']:
+            flash('Không có quyền.', 'error')
+            db.session.rollback()
+            return redirect(url_for('index'))
+
+        # Check Job open/active
+        if job.status != 'open':
+            flash('Công việc này không còn mở.', 'error')
+            db.session.rollback()
+            return redirect(url_for('job_detail', job_id=job.id))
+
+        # Check Proposal pending
+        if proposal.status != 'pending':
+            flash('Đề xuất này đã được xử lý.', 'error')
+            db.session.rollback()
+            return redirect(url_for('job_detail', job_id=job.id))
+
+        # Lock Translator to serialize schedule checks for the same translator
+        translator = User.query.with_for_update().get(proposal.translator_id)
+        if not translator or not getattr(translator, 'is_active', True):
+            flash('Phiên dịch viên này hiện không hoạt động.', 'error')
+            db.session.rollback()
+            return redirect(url_for('job_detail', job_id=job.id))
+
+        # Parse Job schedule & Check schedule conflict
+        from services.schedule import (
+            parse_job_datetime, is_schedule_complete,
+            check_translator_schedule_conflict,
+        )
+        from models import TranslatorSchedule
+
+        parsed = parse_job_datetime(job)
+        if is_schedule_complete(parsed):
+            result = check_translator_schedule_conflict(
+                translator_id=translator.id,
+                scheduled_date=parsed['date'],
+                start_time=parsed['start_time'],
+                end_time=parsed['end_time'],
+            )
+            if result['conflict']:
+                flash(
+                    'Phiên dịch viên vừa được đặt vào một lịch khác trong cùng khoảng thời gian. '
+                    'Vui lòng chọn ứng viên khác.',
+                    'error'
+                )
+                db.session.rollback()
+                return redirect(url_for('job_detail', job_id=job.id))
+
+        # Create Contract
+        contract = Contract(
+            job_id=job.id,
+            proposal_id=proposal.id,
+            hirer_id=job.hirer_id,
+            translator_id=proposal.translator_id,
+            agreed_price=proposal.price,
+            scheduled_date=job.event_date,
+            scheduled_time_start=job.event_time_start,
+            scheduled_time_end=job.event_time_end,
+            location=job.event_location,
+            status='escrow_pending'
+        )
+        
+        # Flush to get the contract ID for the schedule
+        db.session.add(contract)
+        db.session.flush()
+
+        # Create Schedule if applicable
+        if is_schedule_complete(parsed):
+            schedule = TranslatorSchedule(
+                translator_id=translator.id,
+                contract_id=contract.id,
+                job_id=job.id,
+                scheduled_date=parsed['date'],
+                start_time=parsed['start_time'],
+                end_time=parsed['end_time'],
+                status='reserved'
+            )
+            db.session.add(schedule)
+
+        job.status = 'contracted'
+        proposal.status = 'accepted'
+        db.session.commit()
+        flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
+        return redirect(url_for('payment_mockup', contract_id=contract.id))
+
+    except Exception as e:
+        db.session.rollback()
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            raise
+        import logging
+        logging.error("Exception in accept_proposal for proposal %s: %s", proposal_id, e)
+        flash('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/payment-mockup/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
@@ -1431,7 +1582,7 @@ def admin_verify_translator(profile_id):
 
 # ─── NOTIFICATION API ─────────────────────────────────────────────────────────
 
-def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None):
+def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None, related_proposal_id=None):
     from models import Notification
     notification = Notification(
         user_id=user_id,
@@ -1441,7 +1592,8 @@ def create_notification(user_id, notification_type, title, message, url=None, re
         url=url,
         related_job_id=related_job_id,
         related_contract_id=related_contract_id,
-        related_review_id=related_review_id
+        related_review_id=related_review_id,
+        related_proposal_id=related_proposal_id
     )
     db.session.add(notification)
     db.session.commit()

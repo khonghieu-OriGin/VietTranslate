@@ -197,17 +197,153 @@
                         </div>
                     </div>
                     
-                    <div class="pt-2">
-                        <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm py-3 px-8 rounded-xl transition shadow-sm">
+                    <!-- Schedule availability badge (filled by JS) -->
+                    <div id="schedule-status" class="hidden rounded-xl px-4 py-2.5 text-sm font-semibold flex items-center gap-2 border"></div>
+
+                    <div class="pt-2 flex items-center gap-3 flex-wrap">
+                        <button id="submit-proposal-btn" type="submit"
+                            class="bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs sm:text-sm py-3 px-8 rounded-xl transition shadow-sm">
                             Gửi Đề Xuất
                         </button>
+                        <span class="text-xs text-slate-400">Hệ thống đang kiểm tra lịch của bạn...</span>
                     </div>
                 </form>
             </div>
             {% endif %}
-            
+
+            <script>
+            (function() {
+                const badge = document.getElementById('schedule-status');
+                const btn   = document.getElementById('submit-proposal-btn');
+                if (!badge || !btn) return;
+
+                fetch('/api/jobs/{{ job.id }}/schedule-check')
+                    .then(r => r.json())
+                    .then(data => {
+                        badge.classList.remove('hidden');
+                        const hint = btn.nextElementSibling;
+                        if (hint) hint.remove();
+
+                        if (data.available) {
+                            badge.textContent = '\uD83D\uDFE2 Có thể ứng tuyển – lịch của bạn trống trong khung giờ này.';
+                            badge.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-200');
+                        } else {
+                            badge.innerHTML = '\uD83D\uDD34 Bạn đã có lịch vào thời gian này '
+                                + `(${data.conflict_start}–${data.conflict_end}). `
+                                + 'Bạn vẫn có thể ứng tuyển nhưng hệ thống sẽ từ chối khi gửi.';
+                            badge.classList.add('bg-red-50', 'text-red-800', 'border-red-200');
+                            btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                            btn.classList.remove('hover:bg-brand-700');
+                        }
+                    })
+                    .catch(() => {
+                        /* pre-check failed silently – backend will still validate */
+                        const hint = btn.nextElementSibling;
+                        if (hint) hint.remove();
+                    });
+            })();
+            </script>
             <!-- List proposals (If hirer) -->
             {% if current_user and current_user.id == job.hirer_id %}
+            
+            {% if job.status == 'open' %}
+            <!-- Recommended Translators Section -->
+            <div id="recommended-translators-container" class="bg-gradient-to-br from-brand-50 to-white rounded-2xl shadow-soft border border-brand-200 p-6 sm:p-8 mb-8 hidden">
+                <h2 class="text-lg font-bold text-brand-900 mb-6 flex items-center gap-2 pb-3 border-b border-brand-100">
+                    <span class="text-brand-600">✨</span>
+                    Các phiên dịch viên phù hợp với yêu cầu của bạn
+                </h2>
+                <div id="recommended-list" class="space-y-4">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <script>
+            (function() {
+                const container = document.getElementById('recommended-translators-container');
+                const list = document.getElementById('recommended-list');
+                if (!container || !list) return;
+
+                fetch('/api/jobs/{{ job.id }}/recommended-translators')
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            container.classList.remove('hidden');
+                            list.innerHTML = data.map(t => `
+                                <div class="bg-white border border-brand-100 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                                    <div class="flex items-start gap-4">
+                                        <div class="w-12 h-12 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shrink-0">
+                                            ${t.avatar_initial}
+                                        </div>
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <a href="/profile/${t.profile_id}" target="_blank" class="font-bold text-slate-900 text-base hover:text-brand-600 transition">${t.name}</a>
+                                                ${t.is_verified ? '<span class="text-emerald-500" title="Đã xác minh"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>' : ''}
+                                            </div>
+                                            <p class="text-xs text-slate-500 mt-0.5">${t.title || 'Phiên dịch viên'}</p>
+                                            
+                                            <div class="flex flex-wrap gap-2 mt-2.5">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-brand-50 text-brand-700 border border-brand-100">
+                                                    ${t.match_score.toFixed(0)}% phù hợp
+                                                </span>
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                    ★ ${t.rating.toFixed(1)} (${t.total_reviews} đánh giá)
+                                                </span>
+                                                ${t.min_price ? `
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                                    Từ ${t.min_price.toLocaleString()}đ
+                                                </span>` : ''}
+                                            </div>
+                                            
+                                            <div class="mt-3 space-y-1">
+                                                ${t.reasons.map(r => `<div class="text-xs text-emerald-700 flex items-center gap-1.5"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>${r}</div>`).join('')}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex sm:flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
+                                        <a href="/profile/${t.profile_id}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition">
+                                            Xem hồ sơ
+                                        </a>
+                                        <button onclick="inviteTranslator(${t.translator_id}, this)" class="flex-1 sm:flex-none px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
+                                            Mời ứng tuyển
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('');
+                        }
+                    })
+                    .catch(e => console.error('Failed to load recommended translators:', e));
+            })();
+
+            function inviteTranslator(translatorId, btn) {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                const originalText = btn.innerText;
+                btn.innerText = 'Đang mời...';
+                btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                btn.classList.remove('hover:bg-brand-700');
+
+                fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            btn.innerText = '✓ Đã mời';
+                            btn.classList.replace('bg-slate-400', 'bg-emerald-600');
+                        } else {
+                            throw new Error('API failed');
+                        }
+                    })
+                    .catch(e => {
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                        btn.classList.replace('bg-slate-400', 'bg-brand-600');
+                        btn.classList.add('hover:bg-brand-700');
+                        alert('Không thể gửi lời mời. Vui lòng thử lại sau.');
+                    });
+            }
+            </script>
+            {% endif %}
+            
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                 <h2 class="text-lg font-bold text-slate-900 mb-6 flex items-center justify-between pb-3 border-b border-slate-100">
                     <span>Đề xuất đã nhận ({{ job.proposals|length }})</span>

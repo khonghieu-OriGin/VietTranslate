@@ -266,6 +266,7 @@ class Notification(db.Model):
     related_job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     related_contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
     related_review_id = db.Column(db.Integer, db.ForeignKey('review.id'), nullable=True)
+    related_proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 # Notification types constants
@@ -282,3 +283,28 @@ NOTIFICATION_TYPES = {
     'NEW_REVIEW': 'NEW_REVIEW'
 }
 
+
+SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
+
+
+class TranslatorSchedule(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True, unique=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
+
+    scheduled_date = db.Column(db.Date, nullable=False, index=True)
+    start_time = db.Column(db.Time, nullable=False)
+    end_time = db.Column(db.Time, nullable=False)
+
+    buffer_before_minutes = db.Column(db.Integer, default=0)
+    buffer_after_minutes = db.Column(db.Integer, default=30)
+
+    # reserved | active | completed | cancelled
+    status = db.Column(db.String(20), default='reserved', index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
+    contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))

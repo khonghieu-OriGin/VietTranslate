@@ -214,3 +214,73 @@ def get_recommended_translators_for_job(job_id, limit=10):
         })
         
     return results
+
+def notify_matching_translators_for_new_job(job):
+    """
+    Find eligible translators for a newly created job and send them a notification.
+    Must not crash the job creation process.
+    """
+    try:
+        from models import User, Notification, Proposal
+        from app import translator_accepts_job, create_notification, db
+        from services.schedule import parse_job_datetime, is_schedule_complete, check_translator_schedule_conflict
+        from flask import url_for
+
+        active_translators = User.query.filter_by(role='translator', is_active=True).all()
+        parsed_schedule = parse_job_datetime(job)
+        has_schedule = is_schedule_complete(parsed_schedule)
+
+        for translator in active_translators:
+            try:
+                # 1. Check Preference
+                if not translator_accepts_job(translator, job):
+                    continue
+
+                # 2. Check Proposal
+                if Proposal.query.filter_by(job_id=job.id, translator_id=translator.id).first():
+                    continue
+
+                # 3. Check Schedule
+                if has_schedule:
+                    conflict_res = check_translator_schedule_conflict(
+                        translator_id=translator.id,
+                        scheduled_date=parsed_schedule['date'],
+                        start_time=parsed_schedule['start_time'],
+                        end_time=parsed_schedule['end_time']
+                    )
+                    if conflict_res.get('conflict'):
+                        continue
+
+                # 4. Check Score >= 70
+                score, _ = calculate_translator_match_score(translator, job)
+                if score < 70:
+                    continue
+
+                # 5. Check if notification already exists
+                existing_notif = Notification.query.filter_by(
+                    user_id=translator.id,
+                    type='JOB_MATCH',
+                    related_job_id=job.id
+                ).first()
+                if existing_notif:
+                    continue
+
+                # 6. Create Notification
+                target_lang_display = job.target_lang or "Khác"
+                create_notification(
+                    user_id=translator.id,
+                    notification_type='JOB_MATCH',
+                    title='Có việc mới phù hợp với bạn',
+                    message=f'Khách hàng đang tìm Phiên dịch {target_lang_display} cho một công việc phù hợp với hồ sơ của bạn.',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception as inner_e:
+                import logging
+                logging.error(f"Error notifying translator {translator.id} for job {job.id}: {inner_e}")
+                continue
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in notify_matching_translators_for_new_job for job {getattr(job, 'id', '?')}: {e}")
+
