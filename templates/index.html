@@ -352,7 +352,7 @@
                                 <span>{{ job.target_lang }}</span>
                             </span>
                             <span class="text-xs text-slate-400">
-                                {% if job.category %}{{ job.category }} · {% endif %}
+                                {% if job.category %}{{ job.display_category_text }} · {% endif %}
                                 {{ job.created_at.strftime('%d/%m/%Y') }}
                             </span>
                         </div>

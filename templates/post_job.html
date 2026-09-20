@@ -60,14 +60,16 @@
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Loại hình phiên dịch</label>
-                            <select name="category" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50">
-                                <option value="Hội nghị">Phiên dịch Hội nghị / Song song (Cabin)</option>
-                                <option value="Tháp tùng">Phiên dịch Tháp tùng / Sự kiện / Nhà máy</option>
-                                <option value="Đàm phán">Phiên dịch Đàm phán thương mại</option>
-                                <option value="Dịch viết">Biên dịch tài liệu / Hợp đồng</option>
-                                <option value="Pháp lý">Phiên dịch Pháp lý / Tòa án</option>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Nhóm dịch vụ <span class="text-red-500">*</span></label>
+                            <select id="category_group" name="category_group" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 mb-3" onchange="updateServiceTypes()">
+                                <option value="translation">Dịch thuật</option>
+                                <option value="interpretation_other">Phiên dịch & Dịch vụ khác</option>
                             </select>
+                            
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Loại dịch vụ <span class="text-red-500">*</span></label>
+                            <select id="service_type" name="service_type" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" onchange="updateCategory()">
+                            </select>
+                            <input type="hidden" id="category" name="category" value="">
                         </div>
                         
                         <div>
@@ -232,6 +234,53 @@ flatpickr('#time-end-input', {
     onChange: function(sel, str) {
         document.getElementById('event-time-end-hidden').value = str;
     }
+});
+
+const serviceData = {
+    translation: {
+        document_translation: "Dịch tài liệu",
+        website_translation: "Dịch website",
+        subtitle: "Dịch phụ đề",
+        proofreading: "Hiệu đính",
+        localization: "Bản địa hóa",
+        other_translation: "Dịch thuật khác"
+    },
+    interpretation_other: {
+        conference: "Phiên dịch hội nghị / Cabin",
+        meeting: "Phiên dịch họp / Đàm phán",
+        business: "Phiên dịch kinh doanh / Thương mại",
+        travel: "Phiên dịch du lịch",
+        escort: "Phiên dịch tháp tùng",
+        event: "Phiên dịch sự kiện",
+        other_interpretation: "Dịch vụ khác"
+    }
+};
+
+function updateServiceTypes() {
+    const group = document.getElementById('category_group').value;
+    const typeSelect = document.getElementById('service_type');
+    typeSelect.innerHTML = '';
+    
+    if (serviceData[group]) {
+        for (const [key, val] of Object.entries(serviceData[group])) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = val;
+            typeSelect.appendChild(opt);
+        }
+    }
+    updateCategory();
+}
+
+function updateCategory() {
+    const typeSelect = document.getElementById('service_type');
+    const selectedText = typeSelect.options[typeSelect.selectedIndex]?.textContent || '';
+    document.getElementById('category').value = selectedText;
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', function() {
+    updateServiceTypes();
 });
 </script>
 {% endblock %}

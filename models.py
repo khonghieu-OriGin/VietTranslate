@@ -93,6 +93,8 @@ class Job(db.Model):
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
     category = db.Column(db.String(100))
+    category_group = db.Column(db.String(50))
+    service_type = db.Column(db.String(100))
     source_lang = db.Column(db.String(50))
     target_lang = db.Column(db.String(50))
     budget_type = db.Column(db.String(20))
@@ -109,6 +111,48 @@ class Job(db.Model):
 
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
+
+    @property
+    def display_category_group(self):
+        if self.category_group:
+            return self.category_group
+        if self.category in ['Dịch viết']:
+            return 'translation'
+        return 'interpretation_other'
+
+    @property
+    def display_service_type(self):
+        if self.service_type:
+            return self.service_type
+        mapping = {
+            'Dịch viết': 'document_translation',
+            'Hội nghị': 'conference',
+            'Tháp tùng': 'escort',
+            'Đàm phán': 'meeting',
+            'Pháp lý': 'other_interpretation'
+        }
+        return mapping.get(self.category, 'other_interpretation')
+
+    @property
+    def display_category_text(self):
+        group_text = 'Dịch thuật' if self.display_category_group == 'translation' else 'Phiên dịch & Khác'
+        mapping = {
+            'document_translation': "Dịch tài liệu",
+            'website_translation': "Dịch website",
+            'subtitle': "Dịch phụ đề",
+            'proofreading': "Hiệu đính",
+            'localization': "Bản địa hóa",
+            'other_translation': "Dịch thuật khác",
+            'conference': "Hội nghị / Cabin",
+            'meeting': "Họp / Đàm phán",
+            'business': "Kinh doanh / Thương mại",
+            'travel': "Du lịch",
+            'escort': "Tháp tùng",
+            'event': "Sự kiện",
+            'other_interpretation': "Dịch vụ khác"
+        }
+        type_text = mapping.get(self.display_service_type, self.category or 'Khác')
+        return f"{group_text} - {type_text}"
 
 
 class Proposal(db.Model):

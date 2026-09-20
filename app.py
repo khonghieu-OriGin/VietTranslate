@@ -1059,6 +1059,8 @@ def post_job():
             title=request.form.get('title'),
             description=request.form.get('description'),
             category=request.form.get('category'),
+            category_group=request.form.get('category_group'),
+            service_type=request.form.get('service_type'),
             source_lang=request.form.get('source_lang'),
             target_lang=request.form.get('target_lang'),
             budget_type=request.form.get('budget_type'),

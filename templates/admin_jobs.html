@@ -39,7 +39,7 @@
                         <tr class="hover:bg-slate-50/60 transition {% if job.is_flagged %}bg-rose-50/20{% endif %}">
                             <td class="px-6 py-4">
                                 <div class="font-bold text-slate-900 max-w-xs truncate" title="{{ job.title }}">{{ job.title }}</div>
-                                <div class="text-[11px] text-slate-400 mt-0.5">{{ job.category }} • {{ job.source_lang }} → {{ job.target_lang }}</div>
+                                <div class="text-[11px] text-slate-400 mt-0.5">{{ job.display_category_text }} • {{ job.source_lang }} → {{ job.target_lang }}</div>
                             </td>
                             <td class="px-6 py-4 text-slate-700 font-medium">{{ job.hirer.name }}</td>
                             <td class="px-6 py-4">

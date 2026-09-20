@@ -248,7 +248,7 @@
                   {{ job.source_lang }} → {{ job.target_lang }}
                 </span>
                 <span class="text-xs text-slate-400">·</span>
-                <span class="text-xs text-slate-500 font-medium">{{ job.category or ('Phiên dịch' if current_lang == 'vi' else 'Interpretation') }}</span>
+                <span class="text-xs text-slate-500 font-medium">{{ job.display_category_text }}</span>
               </div>
               <h2 class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition">
                 <a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a>
