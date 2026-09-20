@@ -1265,7 +1265,7 @@ def get_localized_languages(lang='vi'):
             'code': item['code'],
             'short_name': short_name,
             'code_lower': item['code_lower'],
-            'flag_svg': f"https://flagcdn.com/{item['code_lower']}.svg",
+            'flag_svg': f"/static/flags/{item['code_lower']}.svg",
             'flag_alt': flag_alt,
             'slug': item['slug']
         }
