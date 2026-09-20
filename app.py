@@ -1647,20 +1647,29 @@ def submit_review(contract_id):
             return redirect(url_for('transaction_detail', contract_id=contract.id))
 
         existing = Review.query.filter_by(contract_id=contract.id, reviewer_id=reviewer_id).first()
+        is_edit = False
+        old_rating = 0
         if existing:
-            flash('Bạn đã đánh giá giao dịch này rồi.', 'warning')
-            return redirect(url_for('transaction_detail', contract_id=contract.id))
-
-        review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
-                        reviewee_id=reviewee_id, rating=rating, comment=comment)
-        db.session.add(review)
+            is_edit = True
+            old_rating = existing.rating
+            existing.rating = rating
+            existing.comment = comment
+            review = existing
+        else:
+            review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
+                            reviewee_id=reviewee_id, rating=rating, comment=comment)
+            db.session.add(review)
 
         if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
             if prof:
-                total = (prof.rating * prof.total_reviews) + rating
-                prof.total_reviews += 1
-                prof.rating = round(total / prof.total_reviews, 1)
+                if is_edit:
+                    total = (prof.rating * prof.total_reviews) - old_rating + rating
+                    prof.rating = round(total / prof.total_reviews, 1) if prof.total_reviews > 0 else rating
+                else:
+                    total = (prof.rating * prof.total_reviews) + rating
+                    prof.total_reviews += 1
+                    prof.rating = round(total / prof.total_reviews, 1)
 
         db.session.flush() # Để lấy review.id cho notification
 
@@ -1669,22 +1678,44 @@ def submit_review(contract_id):
             from services.notifications import should_notify
             reviewee = User.query.get(reviewee_id)
             if reviewee and should_notify(reviewee, 'NEW_REVIEW'):
+                from models import Notification
                 try:
-                    create_notification(
-                        user_id=reviewee_id,
-                        notification_type='NEW_REVIEW',
-                        title='Bạn nhận được đánh giá mới',
-                        message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
-                        url=url_for('transaction_detail', contract_id=contract.id),
-                        related_review_id=review.id,
-                        related_contract_id=contract.id
-                    )
+                    if is_edit:
+                        existing_notif = Notification.query.filter_by(
+                            user_id=reviewee_id, 
+                            type='NEW_REVIEW', 
+                            related_contract_id=contract.id
+                        ).first()
+                        if existing_notif:
+                            existing_notif.is_read = False
+                            existing_notif.created_at = datetime.utcnow()
+                            existing_notif.message = f'{reviewer.name} vừa cập nhật đánh giá {rating}/5.'
+                        else:
+                            create_notification(
+                                user_id=reviewee_id,
+                                notification_type='NEW_REVIEW',
+                                title='Bạn nhận được đánh giá mới',
+                                message=f'{reviewer.name} vừa cập nhật đánh giá {rating}/5.',
+                                url=url_for('transaction_detail', contract_id=contract.id),
+                                related_review_id=review.id,
+                                related_contract_id=contract.id
+                            )
+                    else:
+                        create_notification(
+                            user_id=reviewee_id,
+                            notification_type='NEW_REVIEW',
+                            title='Bạn nhận được đánh giá mới',
+                            message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
+                            url=url_for('transaction_detail', contract_id=contract.id),
+                            related_review_id=review.id,
+                            related_contract_id=contract.id
+                        )
                 except Exception as e:
                     print(f"Error creating review notification: {e}")
                     pass
 
         db.session.commit()
-        flash('Cảm ơn bạn đã đánh giá!', 'success')
+        flash('Đánh giá đã được lưu thành công!', 'success')
     return redirect(url_for('transaction_detail', contract_id=contract.id))
 
 # ─── CHAT API (CONTRACT) ────────────────────────────────────────────────────────
