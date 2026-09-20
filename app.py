@@ -1480,7 +1480,51 @@ def api_unread_notifications_count():
     from models import Notification
     count = Notification.query.filter_by(user_id=session['user_id'], is_read=False).count()
     return jsonify({'count': count})
+@app.route('/api/jobs/recommended', methods=['GET'])
+@login_required
+def api_recommended_jobs():
+    from services.matching import get_recommended_jobs_for_translator
+    limit = request.args.get('limit', 10, type=int)
+    recommended = get_recommended_jobs_for_translator(session['user_id'], limit)
+    return jsonify(recommended)
 
+@app.route('/api/jobs/<int:job_id>/recommended-translators', methods=['GET'])
+@login_required
+def api_recommended_translators(job_id):
+    job = Job.query.get_or_404(job_id)
+    if job.hirer_id != session['user_id']:
+        abort(403)
+        
+    from services.matching import get_recommended_translators_for_job
+    limit = request.args.get('limit', 10, type=int)
+    # Safe execute
+    try:
+        recommended = get_recommended_translators_for_job(job_id, limit)
+        return jsonify(recommended)
+    except Exception as e:
+        print(f"Error fetching recommended translators: {e}")
+        return jsonify([])
+
+@app.route('/api/jobs/<int:job_id>/invite/<int:translator_id>', methods=['POST'])
+@login_required
+def api_invite_translator(job_id, translator_id):
+    job = Job.query.get_or_404(job_id)
+    if job.hirer_id != session['user_id']:
+        abort(403)
+        
+    translator = User.query.get_or_404(translator_id)
+    
+    # Notify the translator using our Notification system
+    from app import create_notification
+    create_notification(
+        user_id=translator.id,
+        notification_type='JOB_MATCH',
+        title=f"Lời mời ứng tuyển: {job.title}",
+        message=f"Khách hàng {session.get('user_name')} đã mời bạn ứng tuyển vào công việc này vì hồ sơ của bạn rất phù hợp.",
+        url=url_for('job_detail', job_id=job.id),
+        related_job_id=job.id
+    )
+    return jsonify({'status': 'success'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
