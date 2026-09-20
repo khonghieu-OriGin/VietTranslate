@@ -851,7 +851,7 @@ def account_profile():
                 flash('Đã đổi mật khẩu thành công!', 'success')
 
         return redirect(url_for('account_profile'))
-    return render_template('account_profile.html', user=user)
+    return render_template('account_profile.html', user=user, LANGUAGES=LANGUAGES)
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()
@@ -1470,6 +1470,20 @@ def accept_proposal(proposal_id):
                 db.session.rollback()
                 return redirect(url_for('job_detail', job_id=job.id))
 
+        # ── Critical section: update proposal status first to prevent concurrent accepts ──
+        # Check again inside transaction if proposal is still pending
+        # (handles SQLite which doesn't support FOR UPDATE properly)
+        proposal.status = 'accepted'
+        job.status = 'contracted'
+        db.session.flush()  # Push status changes to detect any unique constraint violation early
+
+        # Double-check: abort if a contract already exists for this proposal
+        existing_contract = Contract.query.filter_by(proposal_id=proposal.id).first()
+        if existing_contract:
+            db.session.rollback()
+            flash('Đề xuất này đã được chấp nhận bởi yêu cầu khác.', 'warning')
+            return redirect(url_for('job_detail', job_id=job.id))
+
         # Create Contract
         contract = Contract(
             job_id=job.id,
@@ -1483,7 +1497,7 @@ def accept_proposal(proposal_id):
             location=job.event_location,
             status='escrow_pending'
         )
-        
+
         # Flush to get the contract ID for the schedule
         db.session.add(contract)
         db.session.flush()
@@ -1501,8 +1515,6 @@ def accept_proposal(proposal_id):
             )
             db.session.add(schedule)
 
-        job.status = 'contracted'
-        proposal.status = 'accepted'
         db.session.commit()
         flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
         return redirect(url_for('payment_mockup', contract_id=contract.id))

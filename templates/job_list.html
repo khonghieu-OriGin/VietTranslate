@@ -232,6 +232,18 @@
         </div>
       </div>
 
+      <!-- Recommended Jobs Section -->
+      {% if current_user.is_authenticated and current_user.role == 'translator' %}
+      <div id="recommended-jobs-section" class="hidden mb-8">
+        <h2 class="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight flex items-center gap-2 mb-4">
+          <span class="text-xl">🔥</span> Việc phù hợp với bạn
+        </h2>
+        <div id="recommended-jobs-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Job Cards -->
       <div id="jf-grid" class="space-y-4">
         {% for job in jobs %}
@@ -249,6 +261,11 @@
                 </span>
                 <span class="text-xs text-slate-400">·</span>
                 <span class="text-xs text-slate-500 font-medium">{{ job.display_category_text }}</span>
+                <span class="text-xs text-slate-400">·</span>
+                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                  {{ job.proposals|length }} ứng tuyển
+                </span>
               </div>
               <h2 class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition">
                 <a href="{{ url_for('job_detail', job_id=job.id) }}">{{ job.title }}</a>
@@ -428,6 +445,50 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+// Load Recommended Jobs
+{% if current_user.is_authenticated and current_user.role == 'translator' %}
+document.addEventListener('DOMContentLoaded', () => {
+    fetch('/api/jobs/recommended?limit=4')
+        .then(r => r.json())
+        .then(jobs => {
+            if (jobs && jobs.length > 0) {
+                document.getElementById('recommended-jobs-section').classList.remove('hidden');
+                const grid = document.getElementById('recommended-jobs-grid');
+                grid.innerHTML = jobs.map(j => `
+                    <div class="bg-white rounded-2xl border border-brand-200 p-4 shadow-sm hover:shadow-md hover:border-brand-300 transition relative overflow-hidden">
+                        <div class="absolute top-0 right-0 bg-brand-50 text-brand-700 text-[10px] font-extrabold px-2 py-1 rounded-bl-xl border-b border-l border-brand-100 flex items-center gap-1 shadow-xs">
+                           ⭐ ${j.match_score}% MATCH
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-2 mt-1">
+                            <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                  ${j.category_group}
+                </span>
+                <span class="text-xs text-slate-400">·</span>
+                <span class="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                  ${j.applicant_count} ứng tuyển
+                </span>
+              </div>
+              <a href="/job/${j.id}" class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition block">
+                ${j.title}
+              </a>
+            </div>
+            <div class="text-[11px] text-slate-500 mb-2 line-clamp-2">${j.match_reason}</div>
+                        <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
+                            <span class="text-xs font-bold text-slate-900">
+                                ${j.budget_min ? new Intl.NumberFormat('vi-VN').format(j.budget_min) + 'đ' : 'Thoả thuận'}
+                            </span>
+                            <a href="/job/${j.id}" class="text-[11px] font-bold text-brand-600 hover:text-brand-700">Xem ngay &rarr;</a>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        })
+        .catch(console.error);
+});
+{% endif %}
+</script>
 <script>
 var PRICE_CFG = {
   p1: { min: 0,       max: 499999   },

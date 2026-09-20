@@ -197,9 +197,19 @@ def check_translator_schedule_conflict(
     from models import TranslatorSchedule
 
     try:
+        from datetime import time as dt_time
+        # Normalize: accept both 'HH:MM' strings and datetime.time objects
+        def _to_time(t):
+            if isinstance(t, dt_time):
+                return t
+            if isinstance(t, str):
+                h, m = t.strip().split(':')
+                return dt_time(int(h), int(m))
+            raise ValueError(f'Unsupported time type: {type(t)}')
+
         # Apply buffers to the *new* slot so we detect near-misses
-        dt_start = datetime.combine(scheduled_date, start_time)
-        dt_end   = datetime.combine(scheduled_date, end_time)
+        dt_start = datetime.combine(scheduled_date, _to_time(start_time))
+        dt_end   = datetime.combine(scheduled_date, _to_time(end_time))
 
         effective_start = (dt_start - timedelta(minutes=buffer_before_minutes)).time()
         effective_end   = (dt_end   + timedelta(minutes=buffer_after_minutes)).time()
