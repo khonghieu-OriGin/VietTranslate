@@ -189,6 +189,12 @@ class Proposal(db.Model):
 
 
 class Contract(db.Model):
+    __table_args__ = (
+        db.UniqueConstraint(
+            'job_id',
+            name='uq_contract_job'
+        ),
+    )
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)

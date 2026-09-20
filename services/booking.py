@@ -24,10 +24,21 @@ def create_contract_booking(
     proposal_id=None,
 ):
     from app import db
+    from sqlalchemy.exc import IntegrityError
     
+    # Production concurrency safety requires PostgreSQL
+    # or another DB backend supporting row-level locking.
     try:
         current_user = User.query.get(hirer_id)
-        translator = User.query.get(translator_id)
+        if not current_user:
+            raise BookingValidationError("Người thuê không tồn tại.")
+
+        translator = (
+            User.query
+            .with_for_update()
+            .filter_by(id=translator_id)
+            .first()
+        )
 
         if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
             raise BookingValidationError("Phiên dịch viên này hiện không hoạt động hoặc không tồn tại.")
@@ -35,7 +46,19 @@ def create_contract_booking(
         if current_user.id == translator.id:
             raise BookingValidationError("Bạn không thể tự thuê chính mình.")
 
+        job = None
         if job_id:
+            job = (
+                Job.query
+                .with_for_update()
+                .filter_by(id=job_id)
+                .first()
+            )
+            if not job:
+                raise BookingValidationError("Công việc không tồn tại.")
+            if job.status != 'open':
+                raise BookingConflictError("Công việc này không còn mở.")
+                
             existing = Contract.query.filter_by(job_id=job_id).first()
             if existing:
                 raise BookingConflictError("Công việc này đã được tạo hợp đồng.")
@@ -78,10 +101,8 @@ def create_contract_booking(
             if proposal:
                 proposal.status = 'accepted'
 
-        if job_id:
-            job = Job.query.get(job_id)
-            if job:
-                job.status = 'contracted'
+        if job:
+            job.status = 'contracted'
 
         db.session.flush()
 
@@ -114,9 +135,13 @@ def create_contract_booking(
         db.session.commit()
         return contract
 
+    except IntegrityError:
+        db.session.rollback()
+        raise BookingConflictError("Công việc này vừa được người khác đặt.")
     except (BookingConflictError, BookingValidationError, ScheduleCheckError):
         db.session.rollback()
         raise
+
     except Exception as e:
         db.session.rollback()
         logger.exception("Unexpected error during create_contract_booking: %s", e)

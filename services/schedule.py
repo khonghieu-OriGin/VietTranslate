@@ -157,71 +157,76 @@ def is_schedule_complete(parsed: dict) -> bool:
 
 # ─── Conflict Checker ─────────────────────────────────────────────────────────
 
-def intervals_overlap(new_start, new_end, existing_start, existing_end) -> bool:
+def build_effective_interval(
+    scheduled_date,
+    start_time,
+    end_time,
+    buffer_before_minutes=0,
+    buffer_after_minutes=0,
+):
     """
-    Return True when two half-open time intervals [new_start, new_end) and
-    [existing_start, existing_end) overlap.
-
-    Boundary-exact meetings are NOT considered overlapping:
-        14:00-17:00  vs  17:00-19:00  → False   (touch, no overlap)
-        14:00-17:00  vs  16:00-18:00  → True    (genuine overlap)
+    Return datetime start/end sau khi áp dụng buffer.
+    Không dùng .time() để tránh lỗi vượt ngày.
     """
-    return new_start < existing_end and new_end > existing_start
+    from datetime import datetime, timedelta
+    from datetime import time as dt_time
 
+    def _to_time(t):
+        if isinstance(t, dt_time):
+            return t
+        if isinstance(t, str):
+            h, m = t.strip().split(':')
+            return dt_time(int(h), int(m))
+        raise ValueError(f'Unsupported time type: {type(t)}')
+
+    dt_start = datetime.combine(scheduled_date, _to_time(start_time))
+    dt_end = datetime.combine(scheduled_date, _to_time(end_time))
+
+    effective_start = dt_start - timedelta(minutes=buffer_before_minutes)
+    effective_end = dt_end + timedelta(minutes=buffer_after_minutes)
+
+    return effective_start, effective_end
+
+def datetime_intervals_overlap(
+    new_start,
+    new_end,
+    existing_start,
+    existing_end,
+):
+    return (
+        new_start < existing_end
+        and new_end > existing_start
+    )
 
 def check_translator_schedule_conflict(
     translator_id,
     scheduled_date,
     start_time,
     end_time,
-    buffer_before_minutes=0,
-    buffer_after_minutes=0,
+    buffer_before_minutes=None,
+    buffer_after_minutes=None,
     exclude_contract_id=None,
 ):
     """
     Check whether a proposed time-slot conflicts with an existing
     TranslatorSchedule entry for the same translator on the same date.
-
-    Parameters
-    ----------
-    translator_id        : int
-    scheduled_date       : date  – the calendar day to check
-    start_time           : time  – proposed start (wall-clock)
-    end_time             : time  – proposed end   (wall-clock)
-    buffer_before_minutes: int   – grace period before the new slot
-    buffer_after_minutes : int   – grace period after the new slot
-    exclude_contract_id  : int | None – skip this contract (use when
-                            rescheduling an existing booking)
-
-    Returns
-    -------
-    dict  {"conflict": False}
-    or    {"conflict": True,
-           "existing_contract_id": int | None,
-           "start_time": str,
-           "end_time": str,
-           "message": str}
     """
-    from datetime import datetime, timedelta
     from models import TranslatorSchedule
 
+    if buffer_before_minutes is None:
+        buffer_before_minutes = 0
+    if buffer_after_minutes is None:
+        buffer_after_minutes = 30
+
     try:
-        from datetime import time as dt_time
-        # Normalize: accept both 'HH:MM' strings and datetime.time objects
-        def _to_time(t):
-            if isinstance(t, dt_time):
-                return t
-            if isinstance(t, str):
-                h, m = t.strip().split(':')
-                return dt_time(int(h), int(m))
-            raise ValueError(f'Unsupported time type: {type(t)}')
-
         # Apply buffers to the *new* slot so we detect near-misses
-        dt_start = datetime.combine(scheduled_date, _to_time(start_time))
-        dt_end   = datetime.combine(scheduled_date, _to_time(end_time))
-
-        effective_start = (dt_start - timedelta(minutes=buffer_before_minutes)).time()
-        effective_end   = (dt_end   + timedelta(minutes=buffer_after_minutes)).time()
+        effective_start, effective_end = build_effective_interval(
+            scheduled_date,
+            start_time,
+            end_time,
+            buffer_before_minutes,
+            buffer_after_minutes
+        )
 
         # Fetch all non-cancelled schedules for this translator on that date
         existing = (
@@ -236,8 +241,16 @@ def check_translator_schedule_conflict(
             if exclude_contract_id and entry.contract_id == exclude_contract_id:
                 continue
 
-            if intervals_overlap(effective_start, effective_end,
-                                 entry.start_time, entry.end_time):
+            entry_effective_start, entry_effective_end = build_effective_interval(
+                entry.scheduled_date,
+                entry.start_time,
+                entry.end_time,
+                getattr(entry, 'buffer_before_minutes', 0),
+                getattr(entry, 'buffer_after_minutes', 30)
+            )
+
+            if datetime_intervals_overlap(effective_start, effective_end,
+                                          entry_effective_start, entry_effective_end):
                 return {
                     'conflict': True,
                     'existing_contract_id': entry.contract_id,
