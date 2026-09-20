@@ -900,6 +900,10 @@ def translator_accepts_job(translator, job):
     return True
 
 
+def get_job_applicant_count(job_id):
+    return Proposal.query.filter_by(job_id=job_id).count()
+
+
 @app.route('/account/history')
 @login_required
 def account_history():
@@ -1184,6 +1188,17 @@ def job_detail(job_id):
         )
         db.session.add(proposal)
         db.session.commit()
+        # Notify the hirer about new applicant
+        applicant_count = Proposal.query.filter_by(job_id=job.id).count()
+        translator_name = session.get('user_name', 'Một phiên dịch viên')
+        create_notification(
+            user_id=job.hirer_id,
+            notification_type='JOB_APPLICATION',
+            title=f'Có ứng viên mới cho: {job.title}',
+            message=f'{translator_name} vừa ứng tuyển. Hiện có {applicant_count} ứng viên.',
+            url=url_for('job_detail', job_id=job.id),
+            related_job_id=job.id
+        )
         flash('Đề xuất của bạn đã được gửi!', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('job_detail.html', job=job)

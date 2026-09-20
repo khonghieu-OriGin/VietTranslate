@@ -107,7 +107,13 @@
                             {% for job in open_jobs %}
                                 <tr class="hover:bg-slate-50/60 transition">
                                     <td class="py-4 font-bold text-slate-900">{{ job.title }}</td>
-                                    <td class="py-4 text-slate-500 font-semibold">{{ job.proposals|length }} đề xuất</td>
+                                    <td class="py-4">
+                                        {% set cnt = job.applicant_count %}
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold {% if cnt > 0 %}bg-indigo-50 text-indigo-800 border border-indigo-200/60{% else %}bg-slate-50 text-slate-500 border border-slate-200/60{% endif %}">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            {{ cnt }} ứng viên
+                                        </span>
+                                    </td>
                                     <td class="py-4">
                                         <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">Đang tuyển</span>
                                     </td>

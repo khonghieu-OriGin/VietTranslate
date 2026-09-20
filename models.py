@@ -169,6 +169,10 @@ class Job(db.Model):
         type_text = mapping.get(self.display_service_type, self.category or 'Khác')
         return f"{group_text} - {type_text}"
 
+    @property
+    def applicant_count(self):
+        return Proposal.query.filter_by(job_id=self.id).count()
+
 
 class Proposal(db.Model):
     __table_args__ = (
