@@ -1632,7 +1632,12 @@ def submit_review(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
     if contract.status == 'completed':
-        rating = int(request.form.get('rating', 5))
+        try:
+            rating = int(request.form.get('rating', 5))
+        except ValueError:
+            flash('Vui lòng chọn số sao đánh giá hợp lệ.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+        
         comment = request.form.get('comment', '')
         reviewer_id = session['user_id']
         reviewee_id = contract.translator_id if reviewer_id == contract.hirer_id else contract.hirer_id
