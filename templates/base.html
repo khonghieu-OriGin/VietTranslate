@@ -290,6 +290,14 @@
                         </svg>
                         <span id="msg-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
                     </a>
+
+                    <!-- Notifications icon with badge -->
+                    <a href="{{ url_for('notifications_page') }}" id="nav-notif-btn" class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition" title="Thông báo">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                        </svg>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
+                    </a>
                     {% endif %}
 
                     <!-- User Dropdown -->
@@ -373,6 +381,10 @@
             <a href="{{ url_for('messages_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
                 Tin nhắn
+            </a>
+            <a href="{{ url_for('notifications_page') }}" class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                Thông báo
             </a>
             {% endif %}
             {% if current_user and current_user.is_admin %}
@@ -507,18 +519,33 @@
     // Load unread message count badge
     {% if current_user %}
     (function() {
-        const badge = document.getElementById('msg-badge');
-        if (!badge) return;
-        fetch('/api/messages/unread-count')
-            .then(r => r.json())
-            .then(data => {
-                if (data.count > 0) {
-                    badge.textContent = data.count > 99 ? '99+' : data.count;
-                    badge.classList.remove('hidden');
-                    badge.style.display = 'flex';
-                }
-            })
-            .catch(() => {});
+        const msgBadge = document.getElementById('msg-badge');
+        if (msgBadge) {
+            fetch('/api/messages/unread-count')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.count > 0) {
+                        msgBadge.textContent = data.count > 99 ? '99+' : data.count;
+                        msgBadge.classList.remove('hidden');
+                        msgBadge.style.display = 'flex';
+                    }
+                })
+                .catch(() => {});
+        }
+
+        const notifBadge = document.getElementById('notif-badge');
+        if (notifBadge) {
+            fetch('/api/notifications/unread-count')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.count > 0) {
+                        notifBadge.textContent = data.count > 99 ? '99+' : data.count;
+                        notifBadge.classList.remove('hidden');
+                        notifBadge.style.display = 'flex';
+                    }
+                })
+                .catch(() => {});
+        }
     })();
     {% endif %}
 </script>

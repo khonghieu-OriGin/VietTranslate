@@ -1071,29 +1071,35 @@ def get_direct_messages(other_user_id):
 @login_required
 def send_direct_message(other_user_id):
     content = request.json.get('content', '').strip()
-    if content:
-        me = session['user_id']
-        msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
-        db.session.add(msg)
-        db.session.commit()
+    me = session['user_id']
+    
+    if not content or other_user_id == me:
+        return jsonify({'status': 'error'}), 400
+        
+    receiver = User.query.get(other_user_id)
+    if not receiver:
+        return jsonify({'status': 'error'}), 400
+        
+    msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
+    db.session.add(msg)
+    db.session.commit()
 
-        # Notify receiver
-        receiver = User.query.get(other_user_id)
-        sender = User.query.get(me)
-        if receiver and sender:
-            try:
-                create_notification(
-                    user_id=other_user_id,
-                    notification_type='NEW_MESSAGE',
-                    title='Tin nhắn mới',
-                    message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
-                    url=url_for('direct_chat', translator_user_id=me)
-                )
-            except Exception:
-                pass  # Don't fail the send if notification fails
+    # Notify receiver
+    sender = User.query.get(me)
+    if sender:
+        try:
+            create_notification(
+                user_id=other_user_id,
+                notification_type='NEW_MESSAGE',
+                title='Bạn có tin nhắn mới',
+                message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
+                url=url_for('direct_chat', translator_user_id=me)
+            )
+        except Exception as e:
+            print(f"Error creating notification: {e}")
+            pass
 
-        return jsonify({'status': 'ok'})
-    return jsonify({'status': 'error'}), 400
+    return jsonify({'status': 'ok'})
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -1573,22 +1579,46 @@ def submit_review(contract_id):
     if contract.status == 'completed':
         rating = int(request.form.get('rating', 5))
         comment = request.form.get('comment', '')
-        reviewee_id = contract.translator_id if session['user_id'] == contract.hirer_id else contract.hirer_id
+        reviewer_id = session['user_id']
+        reviewee_id = contract.translator_id if reviewer_id == contract.hirer_id else contract.hirer_id
 
-        existing = Review.query.filter_by(contract_id=contract.id, reviewer_id=session['user_id']).first()
+        if reviewer_id == reviewee_id:
+            flash('Bạn không thể tự đánh giá chính mình.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        existing = Review.query.filter_by(contract_id=contract.id, reviewer_id=reviewer_id).first()
         if existing:
             flash('Bạn đã đánh giá giao dịch này rồi.', 'warning')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-        db.session.add(Review(contract_id=contract.id, reviewer_id=session['user_id'],
-                              reviewee_id=reviewee_id, rating=rating, comment=comment))
+        review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
+                        reviewee_id=reviewee_id, rating=rating, comment=comment)
+        db.session.add(review)
 
-        if session['user_id'] == contract.hirer_id:
+        if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
             if prof:
                 total = (prof.rating * prof.total_reviews) + rating
                 prof.total_reviews += 1
                 prof.rating = round(total / prof.total_reviews, 1)
+
+        db.session.flush() # Để lấy review.id cho notification
+
+        reviewer = User.query.get(reviewer_id)
+        if reviewer:
+            try:
+                create_notification(
+                    user_id=reviewee_id,
+                    notification_type='NEW_REVIEW',
+                    title='Bạn nhận được đánh giá mới',
+                    message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
+                    url=url_for('transaction_detail', contract_id=contract.id),
+                    related_review_id=review.id,
+                    related_contract_id=contract.id
+                )
+            except Exception as e:
+                print(f"Error creating review notification: {e}")
+                pass
 
         db.session.commit()
         flash('Cảm ơn bạn đã đánh giá!', 'success')
@@ -1725,6 +1755,11 @@ def create_notification(user_id, notification_type, title, message, url=None, re
     db.session.add(notification)
     db.session.commit()
     return notification
+
+@app.route('/notifications')
+@login_required
+def notifications_page():
+    return render_template('notifications.html')
 
 @app.route('/api/notifications', methods=['GET'])
 @login_required

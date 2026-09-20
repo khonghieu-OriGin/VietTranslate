@@ -1,0 +1,202 @@
+﻿{% extends "base.html" %}
+{% block title %}Thông báo – VietTranslate{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/60">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Thông báo</h1>
+            <p class="text-slate-500 text-sm mt-1">Cập nhật mới nhất về tài khoản của bạn</p>
+        </div>
+        <button id="mark-all-read" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 px-4 py-2 rounded-xl transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Đánh dấu tất cả đã đọc
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="flex overflow-x-auto hide-scrollbar gap-2 mb-6 pb-2 border-b border-slate-200">
+        <button class="filter-btn active px-4 py-2 text-sm font-bold border-b-2 border-brand-600 text-brand-600 whitespace-nowrap" data-filter="all">Tất cả</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="job">Việc làm</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="message">Tin nhắn</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="contract">Hợp đồng</button>
+        <button class="filter-btn px-4 py-2 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-700 whitespace-nowrap" data-filter="review">Đánh giá</button>
+    </div>
+
+    <!-- Notifications List -->
+    <div id="notif-loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
+        <svg class="animate-spin w-7 h-7 mb-3 text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-sm font-medium">Đang tải...</span>
+    </div>
+
+    <div id="notif-empty" class="hidden flex-col items-center justify-center py-20 text-slate-400">
+        <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
+            <svg class="w-9 h-9 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+        </div>
+        <p class="font-semibold text-slate-500 text-base">Bạn không có thông báo nào</p>
+    </div>
+
+    <div id="notif-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
+        <!-- Populated by JS -->
+    </div>
+
+</div>
+</div>
+
+<script>
+(function() {
+    const loading = document.getElementById("notif-loading");
+    const empty   = document.getElementById("notif-empty");
+    const list    = document.getElementById("notif-list");
+    const markAllBtn = document.getElementById("mark-all-read");
+    
+    let notifications = [];
+    let currentFilter = 'all';
+
+    const getIcon = (type) => {
+        if (type.includes('JOB')) return '🔵';
+        if (type.includes('MESSAGE')) return '💬';
+        if (type.includes('REVIEW')) return '⭐';
+        if (type.includes('CONTRACT') || type === 'PAYMENT') return '📄';
+        return '🔔';
+    };
+
+    const getTypeCategory = (type) => {
+        if (type.includes('JOB')) return 'job';
+        if (type.includes('MESSAGE')) return 'message';
+        if (type.includes('REVIEW')) return 'review';
+        if (type.includes('CONTRACT') || type === 'PAYMENT') return 'contract';
+        return 'other';
+    };
+
+    function timeAgo(dateStr) {
+        const date = new Date(dateStr + "Z"); // assumes UTC from backend
+        const seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return "Vừa xong";
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes} phút trước`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} giờ trước`;
+        const days = Math.floor(hours / 24);
+        if (days < 30) return `${days} ngày trước`;
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    const render = () => {
+        const filtered = notifications.filter(n => currentFilter === 'all' || getTypeCategory(n.type) === currentFilter);
+        
+        if (filtered.length === 0) {
+            list.classList.add("hidden");
+            empty.classList.remove("hidden");
+            empty.style.display = "flex";
+            return;
+        }
+
+        empty.classList.add("hidden");
+        empty.style.display = "none";
+        list.classList.remove("hidden");
+
+        list.innerHTML = filtered.map(n => `
+            <div data-id="${n.id}" data-url="${n.url || '#'}" data-is-read="${n.is_read}" class="notif-item block px-5 py-4 transition cursor-pointer ${n.is_read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/40 hover:bg-brand-50/70'}">
+                <div class="flex gap-4">
+                    <div class="text-2xl mt-0.5 shrink-0">${getIcon(n.type)}</div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <h3 class="text-sm font-bold ${n.is_read ? 'text-slate-700' : 'text-slate-900'}">${n.title}</h3>
+                            ${!n.is_read ? '<span class="w-2 h-2 rounded-full bg-brand-500 shrink-0"></span>' : ''}
+                        </div>
+                        <p class="text-sm ${n.is_read ? 'text-slate-500' : 'text-slate-700 font-medium'} leading-snug mb-1.5">${n.message}</p>
+                        <span class="text-[11px] font-semibold text-slate-400">${timeAgo(n.created_at)}</span>
+                    </div>
+                </div>
+            </div>
+        `).join("");
+    };
+
+    const loadNotifications = () => {
+        fetch("/api/notifications?page=1")
+            .then(r => r.json())
+            .then(data => {
+                loading.classList.add("hidden");
+                if (data.notifications) {
+                    notifications = data.notifications;
+                }
+                render();
+            })
+            .catch(err => {
+                console.error("Failed to load notifications", err);
+                loading.classList.add("hidden");
+            });
+    };
+
+    // Filters
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('active', 'font-bold', 'border-brand-600', 'text-brand-600');
+                b.classList.add('font-medium', 'border-transparent', 'text-slate-500');
+            });
+            const t = e.currentTarget;
+            t.classList.remove('font-medium', 'border-transparent', 'text-slate-500');
+            t.classList.add('active', 'font-bold', 'border-brand-600', 'text-brand-600');
+            
+            currentFilter = t.dataset.filter;
+            render();
+        });
+    });
+
+    // Handle Clicks
+    list.addEventListener('click', (e) => {
+        const item = e.target.closest('.notif-item');
+        if (!item) return;
+
+        const id = item.dataset.id;
+        const url = item.dataset.url;
+        const isRead = item.dataset.isRead === 'true';
+
+        if (!isRead) {
+            fetch(`/api/notifications/${id}/read`, { method: 'POST' })
+                .then(() => {
+                    if (url && url !== '#') window.location.href = url;
+                });
+        } else {
+            if (url && url !== '#') window.location.href = url;
+        }
+    });
+
+    markAllBtn.addEventListener('click', () => {
+        fetch('/api/notifications/read-all', { method: 'POST' })
+            .then(() => {
+                notifications.forEach(n => n.is_read = true);
+                render();
+                const badge = document.getElementById('notif-badge');
+                if (badge) {
+                    badge.classList.add('hidden');
+                    badge.style.display = 'none';
+                }
+            });
+    });
+
+    loadNotifications();
+
+})();
+</script>
+
+<style>
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+{% endblock %}
