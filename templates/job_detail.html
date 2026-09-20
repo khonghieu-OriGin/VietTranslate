@@ -199,7 +199,7 @@
                                         </div>
                                         <div>
                                             <div class="flex items-center gap-2">
-                                                <a href="/profile/${t.profile_id}" target="_blank" class="font-bold text-slate-900 text-base hover:text-brand-600 transition">${t.name}</a>
+                                                <a href="/translator/${t.profile_id}" target="_blank" class="font-bold text-slate-900 text-base hover:text-brand-600 transition">${t.name}</a>
                                                 ${t.is_verified ? '<span class="text-emerald-500" title="Đã xác minh"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>' : ''}
                                             </div>
                                             <p class="text-xs text-slate-500 mt-0.5">${t.title || 'Phiên dịch viên'}</p>
@@ -223,7 +223,7 @@
                                         </div>
                                     </div>
                                     <div class="flex sm:flex-col gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-                                        <a href="/profile/${t.profile_id}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition">
+                                        <a href="/translator/${t.profile_id}" target="_blank" class="flex-1 sm:flex-none text-center px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-700 transition">
                                             Xem hồ sơ
                                         </a>
                                         <button onclick="inviteTranslator(${t.translator_id}, this)" class="flex-1 sm:flex-none px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-sm">
