@@ -50,51 +50,82 @@ def calculate_job_match_score(translator, job):
     pref = translator.preference
     prof = translator.profile
     
-    translator_langs = []
-    if pref and pref.languages:
-        translator_langs = [normalize_text(l) for l in pref.languages.split(',')]
-    elif prof and prof.languages:
-        translator_langs = [normalize_text(l) for l in prof.languages.split(',')]
-        
     source_norm = normalize_text(job.source_lang)
     target_norm = normalize_text(job.target_lang)
+    exact_pair = f"{source_norm}>{target_norm}".replace(' ', '')
+    reverse_pair = f"{target_norm}>{source_norm}".replace(' ', '')
     
-    if source_norm in translator_langs and target_norm in translator_langs:
-        score += 40
-        reasons.append("Khớp ngôn ngữ")
-    elif source_norm in translator_langs or target_norm in translator_langs:
-        score += 20
-        reasons.append("Khớp một phần ngôn ngữ")
+    if pref and getattr(pref, 'language_pairs', None):
+        pairs_str = pref.language_pairs
+        pairs = [normalize_text(p).replace(' ', '') for p in pairs_str.split(',')]
+        
+        if exact_pair in pairs:
+            score += 40
+            reasons.append("Khớp cặp ngôn ngữ chính xác")
+        elif reverse_pair in pairs:
+            score += 20
+            reasons.append("Khớp cặp ngôn ngữ (đảo chiều)")
+        else:
+            translator_langs = set()
+            for p in pairs:
+                if '>' in p:
+                    src, tgt = p.split('>', 1)
+                    translator_langs.add(src)
+                    translator_langs.add(tgt)
+            if source_norm in translator_langs or target_norm in translator_langs:
+                score += 10
+                reasons.append("Khớp một phần ngôn ngữ")
+    else:
+        translator_langs = []
+        if pref and getattr(pref, 'languages', None):
+            translator_langs = [normalize_text(l) for l in pref.languages.split(',')]
+        elif prof and prof.languages:
+            translator_langs = [normalize_text(l) for l in prof.languages.split(',')]
+            
+        if source_norm in translator_langs and target_norm in translator_langs:
+            score += 40
+            reasons.append("Khớp ngôn ngữ")
+        elif source_norm in translator_langs or target_norm in translator_langs:
+            score += 20
+            reasons.append("Khớp một phần ngôn ngữ")
 
     # 2. Service Type (25 points)
     job_group = job.display_category_group
     job_type = job.display_service_type
     
     pref_services = []
-    if pref and pref.service_types:
+    if pref and getattr(pref, 'service_types', None):
         pref_services = [normalize_text(s) for s in pref.service_types.split(',')]
         
-    job_service_matches = []
+    exact_match_texts = []
+    group_match_texts = []
+    
     if job_group == 'translation':
-        job_service_matches.append(normalize_text('Dịch thuật'))
+        group_match_texts.append(normalize_text('Dịch thuật'))
     else:
-        if job_type in ['conference', 'meeting', 'escort']:
-            job_service_matches.append(normalize_text('Phiên dịch'))
-        if job_type in ['meeting']:
-            job_service_matches.append(normalize_text('Hội họp'))
-        if job_type in ['business']:
-            job_service_matches.append(normalize_text('Kinh doanh'))
-        if job_type in ['travel']:
-            job_service_matches.append(normalize_text('Du lịch'))
-        if job_type in ['event']:
-            job_service_matches.append(normalize_text('Sự kiện'))
-        if not job_service_matches or job_type == 'other_interpretation':
-            job_service_matches.append(normalize_text('Khác'))
+        group_match_texts.append(normalize_text('Phiên dịch'))
+        
+    if job_type in ['meeting']:
+        exact_match_texts.append(normalize_text('Hội họp'))
+    elif job_type in ['business']:
+        exact_match_texts.append(normalize_text('Kinh doanh'))
+    elif job_type in ['travel']:
+        exact_match_texts.append(normalize_text('Du lịch'))
+    elif job_type in ['event']:
+        exact_match_texts.append(normalize_text('Sự kiện'))
+    elif job_type in ['conference', 'escort']:
+        group_match_texts.append(normalize_text('Phiên dịch'))
+    elif job_type == 'other_interpretation':
+        exact_match_texts.append(normalize_text('Khác'))
 
-    if pref_services and any(s in pref_services for s in job_service_matches):
-        score += 25
-        reasons.append("Khớp loại công việc")
-    elif not pref_services:
+    if pref_services:
+        if any(s in pref_services for s in exact_match_texts):
+            score += 25
+            reasons.append("Khớp loại công việc (chính xác)")
+        elif any(s in pref_services for s in group_match_texts):
+            score += 15
+            reasons.append("Khớp nhóm hình thức làm việc")
+    else:
         score += 25
         
     # 3. Experience (15 points)

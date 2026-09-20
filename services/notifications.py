@@ -6,6 +6,7 @@ def should_notify(user, notification_type):
 
     mapping = {
         'JOB_MATCH': 'notify_new_jobs',
+        'JOB_INVITATION': 'notify_new_jobs',
         'NEW_MESSAGE': 'notify_messages',
         'CONTRACT_CREATED': 'notify_contracts',
         'NEW_REVIEW': 'notify_reviews',

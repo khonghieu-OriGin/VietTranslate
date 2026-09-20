@@ -52,7 +52,6 @@ class User(db.Model):
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     jobs_posted = db.relationship('Job', backref='hirer', lazy=True, cascade='all, delete-orphan')
     proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
-    messages_sent = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True)
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
@@ -78,6 +77,7 @@ class TranslatorPreference(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
     languages = db.Column(db.Text, default='')
+    language_pairs = db.Column(db.Text, default='')
     service_types = db.Column(db.Text, default='')
     notify_new_jobs = db.Column(db.Boolean, default=True)
     notify_messages = db.Column(db.Boolean, default=True)
@@ -226,6 +226,12 @@ class Message(db.Model):
     is_read = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    sender = db.relationship(
+        'User',
+        foreign_keys=[sender_id],
+        backref='contract_messages_sent'
+    )
+
 
 class DirectMessage(db.Model):
     """Tin nhắn trực tiếp không gắn với contract - dùng khi chat hỏi thăm"""
@@ -280,6 +286,7 @@ class Notification(db.Model):
 # Notification types constants
 NOTIFICATION_TYPES = {
     'JOB_MATCH': 'JOB_MATCH',
+    'JOB_INVITATION': 'JOB_INVITATION',
     'JOB_APPLICATION': 'JOB_APPLICATION',
     'APPLICATION_COUNT': 'APPLICATION_COUNT',
     'PROPOSAL_ACCEPTED': 'PROPOSAL_ACCEPTED',

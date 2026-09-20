@@ -1541,20 +1541,70 @@ def transaction_detail(contract_id):
     require_contract_access(session['user_id'], contract)
 
     if request.method == 'POST' and 'file' in request.files:
-        if contract.status == 'in_progress' and session['user_id'] == contract.translator_id:
-            file = request.files['file']
-            if file.filename != '' and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-            elif file.filename != '' and not allowed_file(file.filename):
-                flash('Loại tệp không được hỗ trợ.', 'error')
-                return redirect(url_for('transaction_detail', contract_id=contract.id))
-                db.session.add(Deliverable(contract_id=contract.id, filename=filename, filepath=filename))
-                db.session.add(Message(contract_id=contract.id, sender_id=session['user_id'],
-                                       content=f'📎 Đã gửi tệp: {filename}'))
-                db.session.commit()
-                flash('Đã gửi tài liệu thành công.', 'success')
+        if contract.status != 'in_progress':
+            flash('Hợp đồng chưa ở trạng thái thực hiện.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        if session['user_id'] != contract.translator_id:
+            abort(403)
+
+        file = request.files.get('file')
+        if not file or file.filename == '':
+            flash('Vui lòng chọn file.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        if not allowed_file(file.filename):
+            flash('Loại tệp không được hỗ trợ.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        filename = secure_filename(file.filename)
+        if not filename:
+            flash('Tên file không hợp lệ.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+        try:
+            file.save(filepath)
+        except Exception:
+            flash('Lỗi khi tải file lên máy chủ.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+
+        try:
+            deliverable = Deliverable(
+                contract_id=contract.id,
+                filename=filename,
+                filepath=filename
+            )
+            message = Message(
+                contract_id=contract.id,
+                sender_id=session['user_id'],
+                content=f'📎 Đã gửi tệp: {filename}'
+            )
+
+            db.session.add(deliverable)
+            db.session.add(message)
+            db.session.flush()
+
+            from services.notifications import should_notify
+            hirer = User.query.get(contract.hirer_id)
+            if hirer and should_notify(hirer, 'NEW_MESSAGE'):
+                create_notification(
+                    user_id=contract.hirer_id,
+                    notification_type='NEW_MESSAGE',
+                    title='Bạn có tin nhắn mới',
+                    message=f'{contract.translator.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
+                    url=url_for('transaction_detail', contract_id=contract.id),
+                    related_contract_id=contract.id
+                )
+
+            db.session.commit()
+            flash('Đã gửi tài liệu thành công.', 'success')
+        except Exception:
+            db.session.rollback()
+            flash('Lỗi hệ thống khi lưu tài liệu.', 'error')
+
+        return redirect(url_for('transaction_detail', contract_id=contract.id))
 
     return render_template('transaction_detail.html', contract=contract)
 
@@ -1901,7 +1951,7 @@ def api_invite_translator(job_id, translator_id):
     from models import Notification
     existing = Notification.query.filter_by(
         user_id=translator.id,
-        type='JOB_MATCH',
+        type='JOB_INVITATION',
         related_job_id=job.id
     ).first()
     
@@ -1909,13 +1959,13 @@ def api_invite_translator(job_id, translator_id):
         return jsonify({'status': 'already_invited'})
         
     from services.notifications import should_notify
-    if should_notify(translator, 'JOB_MATCH'):
+    if should_notify(translator, 'JOB_INVITATION'):
         from app import create_notification
         create_notification(
             user_id=translator.id,
-            notification_type='JOB_MATCH',
-            title=f"Lời mời ứng tuyển: {job.title}",
-            message=f"Khách hàng {session.get('user_name')} đã mời bạn ứng tuyển vào công việc này vì hồ sơ của bạn rất phù hợp.",
+            notification_type='JOB_INVITATION',
+            title='Bạn được mời ứng tuyển',
+            message=f'Khách hàng {session.get("user_name")} đã mời bạn ứng tuyển vào công việc "{job.title}".',
             url=url_for('job_detail', job_id=job.id),
             related_job_id=job.id
         )
