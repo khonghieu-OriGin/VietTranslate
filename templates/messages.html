@@ -1,0 +1,105 @@
+﻿{% extends "base.html" %}
+{% block title %}Tin nhắn – VietTranslate{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-slate-50/60">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Tin nhắn</h1>
+        <p class="text-slate-500 text-sm mt-1">Tất cả các cuộc trò chuyện của bạn</p>
+    </div>
+
+    <!-- Conversation List -->
+    <div id="conv-loading" class="flex flex-col items-center justify-center py-20 text-slate-400">
+        <svg class="animate-spin w-7 h-7 mb-3 text-brand-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-sm font-medium">Đang tải...</span>
+    </div>
+
+    <div id="conv-empty" class="hidden flex-col items-center justify-center py-20 text-slate-400">
+        <div class="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mb-5">
+            <svg class="w-9 h-9 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+            </svg>
+        </div>
+        <p class="font-semibold text-slate-500 text-base">Chưa có cuộc trò chuyện nào</p>
+        <p class="text-sm text-slate-400 mt-1">Bắt đầu trao đổi với một phiên dịch viên!</p>
+    </div>
+
+    <div id="conv-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
+        <!-- Populated by JS -->
+    </div>
+
+</div>
+</div>
+
+<script>
+(function() {
+    const loading  = document.getElementById("conv-loading");
+    const empty    = document.getElementById("conv-empty");
+    const list     = document.getElementById("conv-list");
+
+    function truncate(str, len) {
+        if (!str) return "";
+        return str.length > len ? str.slice(0, len) + "…" : str;
+    }
+
+    function typeLabel(type) {
+        return type === "contract"
+            ? '<span class="text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 mr-2">Hợp đồng</span>'
+            : "";
+    }
+
+    fetch("/api/messages/conversations")
+        .then(r => r.json())
+        .then(data => {
+            loading.classList.add("hidden");
+
+            if (!data || data.length === 0) {
+                empty.classList.remove("hidden");
+                empty.style.display = "flex";
+                return;
+            }
+
+            list.classList.remove("hidden");
+            list.innerHTML = data.map(conv => `
+                <a href="${conv.url}" class="flex items-center gap-4 px-5 py-4 hover:bg-brand-50/50 transition group cursor-pointer">
+                    <div class="relative shrink-0">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm group-hover:scale-105 transition-transform">
+                            ${conv.other_initial}
+                        </div>
+                        ${conv.unread_count > 0
+                            ? `<span class="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center shadow">${conv.unread_count > 9 ? "9+" : conv.unread_count}</span>`
+                            : ""}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-1.5 min-w-0">
+                                ${typeLabel(conv.type)}
+                                <span class="font-bold text-sm truncate ${conv.unread_count > 0 ? "text-slate-900" : "text-slate-700"}">${conv.other_name}</span>
+                            </div>
+                            <span class="text-[11px] text-slate-400 font-medium shrink-0">${conv.last_time_str}</span>
+                        </div>
+                        <p class="text-xs mt-0.5 truncate ${conv.unread_count > 0 ? "text-slate-700 font-semibold" : "text-slate-500 font-normal"}">
+                            ${truncate(conv.last_message, 80)}
+                        </p>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-300 group-hover:text-brand-400 transition shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            `).join("");
+        })
+        .catch(err => {
+            loading.classList.add("hidden");
+            empty.classList.remove("hidden");
+            empty.style.display = "flex";
+            console.error("Could not load conversations:", err);
+        });
+})();
+</script>
+{% endblock %}

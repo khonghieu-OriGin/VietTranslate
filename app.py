@@ -1054,6 +1054,14 @@ def get_direct_messages(other_user_id):
             db.and_(DirectMessage.sender_id == other_user_id, DirectMessage.receiver_id == me)
         )
     ).order_by(DirectMessage.created_at.asc()).all()
+
+    # Mark messages from the other user as read
+    unread = [m for m in msgs if m.receiver_id == me and not m.is_read]
+    for m in unread:
+        m.is_read = True
+    if unread:
+        db.session.commit()
+
     return jsonify([{
         'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
         'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')
@@ -1064,11 +1072,130 @@ def get_direct_messages(other_user_id):
 def send_direct_message(other_user_id):
     content = request.json.get('content', '').strip()
     if content:
-        msg = DirectMessage(sender_id=session['user_id'], receiver_id=other_user_id, content=content)
+        me = session['user_id']
+        msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
         db.session.add(msg)
         db.session.commit()
+
+        # Notify receiver
+        receiver = User.query.get(other_user_id)
+        sender = User.query.get(me)
+        if receiver and sender:
+            try:
+                create_notification(
+                    user_id=other_user_id,
+                    notification_type='NEW_MESSAGE',
+                    title='Tin nhắn mới',
+                    message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
+                    url=url_for('direct_chat', translator_user_id=me)
+                )
+            except Exception:
+                pass  # Don't fail the send if notification fails
+
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error'}), 400
+
+
+# ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
+
+@app.route('/messages')
+@login_required
+def messages_page():
+    return render_template('messages.html')
+
+@app.route('/api/messages/conversations')
+@login_required
+def api_conversations():
+    """Return all conversations (DirectMessage + Contract Message) for current user."""
+    me = session['user_id']
+    conversations = {}  # keyed by other_user_id
+
+    # ── 1. DirectMessage conversations ─────────────────────────────────────────
+    all_dm = DirectMessage.query.filter(
+        db.or_(DirectMessage.sender_id == me, DirectMessage.receiver_id == me)
+    ).order_by(DirectMessage.created_at.desc()).all()
+
+    for dm in all_dm:
+        other_id = dm.receiver_id if dm.sender_id == me else dm.sender_id
+        if other_id not in conversations:
+            other = User.query.get(other_id)
+            if not other:
+                continue
+            conversations[other_id] = {
+                'type': 'direct',
+                'other_user_id': other_id,
+                'other_name': other.name,
+                'other_initial': other.name[0].upper(),
+                'last_message': dm.content,
+                'last_time': dm.created_at,
+                'last_time_str': dm.created_at.strftime('%H:%M %d/%m'),
+                'unread_count': 0,
+                'url': url_for('direct_chat', translator_user_id=other_id),
+            }
+        # Count unread DMs from that person
+        if dm.receiver_id == me and not dm.is_read:
+            conversations[other_id]['unread_count'] = conversations[other_id].get('unread_count', 0) + 1
+
+    # ── 2. Contract Message conversations ──────────────────────────────────────
+    my_contracts = Contract.query.filter(
+        db.or_(Contract.hirer_id == me, Contract.translator_id == me)
+    ).all()
+
+    for contract in my_contracts:
+        other_id = contract.translator_id if contract.hirer_id == me else contract.hirer_id
+        last_msg = Message.query.filter_by(contract_id=contract.id).order_by(Message.created_at.desc()).first()
+        if not last_msg:
+            continue
+
+        other = User.query.get(other_id)
+        if not other:
+            continue
+
+        # Use max(last_time) if this person already exists from DM
+        if other_id not in conversations or last_msg.created_at > conversations[other_id]['last_time']:
+            unread = Message.query.filter_by(contract_id=contract.id, is_read=False).filter(
+                Message.sender_id != me
+            ).count()
+            conversations[other_id] = {
+                'type': 'contract',
+                'other_user_id': other_id,
+                'other_name': other.name,
+                'other_initial': other.name[0].upper(),
+                'last_message': last_msg.content,
+                'last_time': last_msg.created_at,
+                'last_time_str': last_msg.created_at.strftime('%H:%M %d/%m'),
+                'unread_count': unread,
+                'url': url_for('transaction_detail', contract_id=contract.id),
+                'contract_id': contract.id,
+            }
+
+    # Sort by last_time descending, strip datetime object before json
+    sorted_convs = sorted(conversations.values(), key=lambda x: x['last_time'], reverse=True)
+    for c in sorted_convs:
+        del c['last_time']
+
+    return jsonify(sorted_convs)
+
+@app.route('/api/messages/unread-count')
+@login_required
+def api_messages_unread_count():
+    """Total unread messages across DMs + Contract messages."""
+    me = session['user_id']
+
+    dm_unread = DirectMessage.query.filter_by(receiver_id=me, is_read=False).count()
+
+    my_contract_ids = [c.id for c in Contract.query.filter(
+        db.or_(Contract.hirer_id == me, Contract.translator_id == me)
+    ).all()]
+    contract_unread = 0
+    if my_contract_ids:
+        contract_unread = Message.query.filter(
+            Message.contract_id.in_(my_contract_ids),
+            Message.sender_id != me,
+            Message.is_read == False
+        ).count()
+
+    return jsonify({'count': dm_unread + contract_unread})
 
 # ─── DIRECT BOOKING ────────────────────────────────────────────────────────────
 
