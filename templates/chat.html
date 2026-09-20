@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Trò chuyện với {{ other_user.name }} | VietTranslate{% endblock %}
+{% block title %}{{ other_user.name }} – {{ t('nav.find_translators') }} | VietTranslate{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 flex-grow flex flex-col h-[calc(100vh-64px)]">
@@ -15,14 +15,14 @@
                 <div>
                     <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ other_user.name }}</h2>
                     <p class="text-[11px] text-slate-400 font-medium">
-                        {{ 'Phiên dịch viên chuyên nghiệp' if other_user.role == 'translator' else 'Khách hàng' }}
+                        {{ t('chat_page.role_translator') if other_user.role == 'translator' else t('chat_page.role_hirer') }}
                     </p>
                 </div>
             </div>
             
             {% if other_user.role == 'translator' and other_user.profile %}
             <a href="{{ url_for('translator_profile', profile_id=other_user.profile.id) }}" class="text-xs text-brand-600 font-bold hover:text-brand-700 border border-brand-200/70 px-3.5 py-1.5 rounded-xl bg-brand-50/60 transition">
-                Xem hồ sơ
+                {{ t('chat_page.view_profile') }}
             </a>
             {% endif %}
         </div>
@@ -37,7 +37,7 @@
         <!-- Chat Input Footer -->
         <div class="bg-white rounded-b-2xl shadow-soft border border-slate-200/90 p-3.5 z-10">
             <div class="flex gap-2">
-                <input type="text" id="chat-input" class="flex-grow bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-800 transition" placeholder="Nhập tin nhắn trao đổi công việc...">
+                <input type="text" id="chat-input" class="flex-grow bg-slate-50 border border-slate-200 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-slate-800 transition" placeholder="{{ t('chat_page.input_placeholder') }}">
                 <button id="send-btn" class="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl transition shadow-sm flex items-center justify-center shrink-0">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                 </button>
@@ -52,6 +52,7 @@
 <script>
     const otherUserId = {{ other_user.id }};
     const currentUserId = {{ current_user.id }};
+    const isEn = "{{ current_lang }}" === "en";
     const chatBox = document.getElementById('chat-box');
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
@@ -73,7 +74,7 @@
                     chatBox.innerHTML = `
                         <div class="flex flex-col items-center justify-center h-full text-center text-slate-400 space-y-2 py-12">
                             <span class="text-3xl">💬</span>
-                            <p class="text-xs sm:text-sm font-medium">Chưa có tin nhắn nào.<br>Hãy gửi lời chào để bắt đầu kết nối ngôn ngữ!</p>
+                            <p class="text-xs sm:text-sm font-medium">${isEn ? 'No messages yet.<br>Send a greeting to begin communicating!' : 'Chưa có tin nhắn nào.<br>Hãy gửi lời chào để bắt đầu kết nối ngôn ngữ!'}</p>
                         </div>
                     `;
                     return;

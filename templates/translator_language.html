@@ -126,20 +126,20 @@
     <ol class="flex items-center gap-2 text-xs font-medium text-slate-500" itemscope itemtype="https://schema.org/BreadcrumbList">
       <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
         <a href="{{ url_for('index') }}" itemprop="item" class="hover:text-brand-600 transition">
-          <span itemprop="name">Trang chủ</span>
+          <span itemprop="name">{{ t('lang_landing.breadcrumb_home') }}</span>
         </a>
         <meta itemprop="position" content="1">
       </li>
       <li class="text-slate-300">/</li>
       <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
         <a href="{{ url_for('translator_list') }}" itemprop="item" class="hover:text-brand-600 transition">
-          <span itemprop="name">Phiên dịch viên</span>
+          <span itemprop="name">{{ t('lang_landing.breadcrumb_translators') }}</span>
         </a>
         <meta itemprop="position" content="2">
       </li>
       <li class="text-slate-300">/</li>
       <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" class="text-slate-900 font-semibold">
-        <span itemprop="name">{{ lang.title }}</span>
+        <span itemprop="name">{{ lang.title if current_lang == 'vi' else (lang.slug | capitalize ~ ' Translators & Interpreters') }}</span>
         <meta itemprop="position" content="3">
       </li>
     </ol>
@@ -150,8 +150,12 @@
 <div class="mesh-hero-bg border-b border-slate-200/70 py-12 md:py-16">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <div class="inline-flex items-center justify-center text-4xl mb-3" aria-hidden="true">{{ lang.flag }}</div>
-    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">{{ lang.title }}</h1>
-    <p class="text-slate-600 max-w-2xl mx-auto text-sm md:text-base leading-relaxed mb-6">{{ lang.subtitle }}</p>
+    <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight mb-3">
+      {{ lang.title if current_lang == 'vi' else (lang.slug | capitalize ~ ' Professional Interpreters & Translators') }}
+    </h1>
+    <p class="text-slate-600 max-w-2xl mx-auto text-sm md:text-base leading-relaxed mb-6">
+      {{ lang.subtitle if current_lang == 'vi' else ('Find top certified ' ~ (lang.slug | capitalize) ~ ' translators and interpreters for conferences, business negotiations, and document translation.') }}
+    </p>
     <div class="flex flex-wrap justify-center gap-2">
       {% for uc in lang.use_cases %}
       <span class="bg-white/90 border border-slate-200/80 text-slate-700 text-xs px-3 py-1 rounded-full font-medium shadow-xs">{{ uc }}</span>
@@ -170,16 +174,16 @@
         <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-100">
           <h3 class="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
             <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-            Bộ lọc
+            {{ t('lang_landing.filter_title') }}
           </h3>
           <button id="clear-filters-desktop" class="text-xs text-brand-600 hover:text-brand-800 font-semibold hidden transition">
-            Xóa lọc
+            {{ t('lang_landing.clear_filters') }}
           </button>
         </div>
 
         {# Language context badge – locked #}
         <div class="mb-4 px-3.5 py-2.5 bg-brand-50 border border-brand-200/70 rounded-xl flex items-center justify-between">
-          <span class="text-xs text-brand-800 font-medium">Đang chọn: <strong>{{ lang.name }}</strong></span>
+          <span class="text-xs text-brand-800 font-medium">{{ t('lang_landing.currently_selected') }} <strong>{{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }}</strong></span>
           <span class="text-lg">{{ lang.flag }}</span>
         </div>
 
@@ -193,7 +197,7 @@
       <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft">
         <div class="flex items-center gap-2">
           <p class="text-slate-600 text-xs sm:text-sm font-medium">
-            Tìm thấy <span id="result-count-badge">...</span> phiên dịch viên {{ lang.name }}
+            {{ t('lang_landing.found_count_prefix') }} <span id="result-count-badge">...</span> {{ t('lang_landing.found_count_suffix') }} ({{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }})
           </p>
         </div>
         
@@ -202,18 +206,18 @@
           <div class="relative lg:hidden">
             <button id="mobile-filter-btn" class="flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 hover:bg-slate-100 transition">
               <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"/></svg>
-              Bộ lọc
+              {{ t('lang_landing.filter_title') }}
             </button>
             <span id="mobile-filter-count"></span>
           </div>
 
           <div class="flex items-center gap-1.5">
-            <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">Sắp xếp:</label>
+            <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">{{ t('lang_landing.sort_label') }}</label>
             <select id="sort-select" class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
-              <option value="rating">Đánh giá cao nhất</option>
-              <option value="reviews">Nhiều đánh giá nhất</option>
-              <option value="price_asc">Mức giá: Thấp → Cao</option>
-              <option value="price_desc">Mức giá: Cao → Thấp</option>
+              <option value="rating">{{ t('lang_landing.sort_rating') }}</option>
+              <option value="reviews">{{ t('lang_landing.sort_reviews') }}</option>
+              <option value="price_asc">{{ t('lang_landing.sort_price_asc') }}</option>
+              <option value="price_desc">{{ t('lang_landing.sort_price_desc') }}</option>
             </select>
           </div>
         </div>
@@ -225,12 +229,12 @@
         <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-2xl">
           🔍
         </div>
-        <h3 class="text-base font-bold text-slate-900 mb-1.5">Không tìm thấy phiên dịch viên {{ lang.name }} phù hợp</h3>
+        <h3 class="text-base font-bold text-slate-900 mb-1.5">{{ t('lang_landing.no_results_title') }}</h3>
         <p class="text-slate-500 text-xs sm:text-sm max-w-sm mx-auto mb-5 leading-relaxed">
-          Hãy thử xóa hoặc nới lỏng các điều kiện lọc để mở rộng kết quả tìm kiếm.
+          {{ t('lang_landing.no_results_desc') }}
         </p>
         <button onclick="clearAllFilters()" class="text-xs font-bold text-white bg-brand-600 px-5 py-2.5 rounded-xl hover:bg-brand-700 transition shadow-sm">
-          Xóa tất cả bộ lọc
+          {{ t('lang_landing.clear_all') }}
         </button>
       </div>
     </div>
@@ -239,37 +243,37 @@
   {# ── PRICING SECTION ── #}
   <section class="mt-14 bg-white rounded-2xl border border-slate-200/90 p-6 md:p-8 shadow-soft">
     <div class="flex items-center justify-between mb-2">
-      <h2 class="text-xl sm:text-2xl font-bold text-slate-900">Bảng giá phiên dịch {{ lang.name }}</h2>
-      <span class="text-xs text-brand-600 font-semibold bg-brand-50 px-3 py-1 rounded-full">Minh bạch 100%</span>
+      <h2 class="text-xl sm:text-2xl font-bold text-slate-900">{{ t('lang_landing.pricing_title') }} {{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }}</h2>
+      <span class="text-xs text-brand-600 font-semibold bg-brand-50 px-3 py-1 rounded-full">{{ t('lang_landing.pricing_badge') }}</span>
     </div>
-    <p class="text-slate-500 text-xs sm:text-sm mb-6">Mức giá tham khảo thị trường, chi phí thực tế tùy theo thỏa thuận chi tiết giữa các bên.</p>
+    <p class="text-slate-500 text-xs sm:text-sm mb-6">{{ t('lang_landing.pricing_subtitle') }}</p>
     
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-brand-50/70 border border-brand-100 rounded-2xl p-5 text-center flex flex-col justify-center">
-        <p class="text-xs text-brand-700 font-medium mb-1">Mức giá khởi điểm</p>
+        <p class="text-xs text-brand-700 font-medium mb-1">{{ t('lang_landing.starting_price_label') }}</p>
         <p class="text-2xl font-extrabold text-brand-700">{{ '{:,}'.format(lang.starting_price) }}đ</p>
-        <p class="text-[11px] text-slate-400 mt-1">/ trang hoặc giờ</p>
+        <p class="text-[11px] text-slate-400 mt-1">{{ t('lang_landing.starting_price_unit') }}</p>
       </div>
       <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-        <p class="text-xs font-bold text-slate-700 mb-2">📄 Phiên dịch tài liệu</p>
-        <p class="text-xs text-slate-500 leading-relaxed">Tính theo khối lượng trang hoặc từ vựng, từ {{ '{:,}'.format(lang.starting_price) }}đ/trang</p>
+        <p class="text-xs font-bold text-slate-700 mb-2">{{ t('lang_landing.service_doc_title') }}</p>
+        <p class="text-xs text-slate-500 leading-relaxed">{{ t('lang_landing.service_doc_desc', price='{:,}'.format(lang.starting_price)) }}</p>
       </div>
       <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-        <p class="text-xs font-bold text-slate-700 mb-2">🎙️ Phiên dịch đuổi / tháp tùng</p>
-        <p class="text-xs text-slate-500 leading-relaxed">Tính theo ca làm việc / ngày, từ {{ '{:,}'.format(lang.starting_price * 10) }}đ/buổi</p>
+        <p class="text-xs font-bold text-slate-700 mb-2">{{ t('lang_landing.service_consecutive_title') }}</p>
+        <p class="text-xs text-slate-500 leading-relaxed">{{ t('lang_landing.service_consecutive_desc', price='{:,}'.format(lang.starting_price * 10)) }}</p>
       </div>
       <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
-        <p class="text-xs font-bold text-slate-700 mb-2">🎤 Phiên dịch song song (Cabin)</p>
-        <p class="text-xs text-slate-500 leading-relaxed">Hội nghị quốc tế cấp cao, thỏa thuận trực tiếp theo yêu cầu chuyên ngành</p>
+        <p class="text-xs font-bold text-slate-700 mb-2">{{ t('lang_landing.service_simultaneous_title') }}</p>
+        <p class="text-xs text-slate-500 leading-relaxed">{{ t('lang_landing.service_simultaneous_desc') }}</p>
       </div>
     </div>
   </section>
 
   {# ── CERTIFICATES SECTION ── #}
   <section class="mt-8 bg-white rounded-2xl border border-slate-200/90 p-6 md:p-8 shadow-soft">
-    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">Yêu cầu & Chứng chỉ phiên dịch {{ lang.name }}</h2>
+    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-2">{{ t('lang_landing.cert_title') }} {{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }}</h2>
     {% if lang.certificates %}
-    <p class="text-slate-600 text-xs sm:text-sm mb-4">Các chuyên gia {{ lang.name }} uy tín trên nền tảng VietTranslate thường sở hữu các chứng chỉ sau:</p>
+    <p class="text-slate-600 text-xs sm:text-sm mb-4">{{ t('lang_landing.cert_desc') }}</p>
     <div class="flex flex-wrap gap-2.5">
       {% for cert in lang.certificates %}
       <span class="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs px-3.5 py-2 rounded-xl font-semibold">
@@ -281,13 +285,13 @@
       {% endfor %}
     </div>
     {% else %}
-    <p class="text-slate-500 text-xs sm:text-sm">Yêu cầu chuyên môn tùy theo từng dự án cụ thể. Khách hàng có thể trao đổi trực tiếp trong phần chat.</p>
+    <p class="text-slate-500 text-xs sm:text-sm">{{ t('lang_landing.cert_flexible') }}</p>
     {% endif %}
   </section>
 
   {# ── SEO CONTENT ── #}
   <section class="mt-8 bg-white rounded-2xl border border-slate-200/90 p-6 md:p-8 shadow-soft">
-    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-3">Về dịch vụ phiên dịch {{ lang.name }} tại VietTranslate</h2>
+    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-3">{{ t('lang_landing.seo_about_title') }}</h2>
     <div class="seo-content text-slate-600 text-xs sm:text-sm max-w-4xl leading-relaxed">
       <p>{{ lang.seo_content }}</p>
     </div>
@@ -295,7 +299,7 @@
 
   {# ── FAQ ACCORDION ── #}
   <section class="mt-8 bg-white rounded-2xl border border-slate-200/90 p-6 md:p-8 shadow-soft">
-    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-6">Câu hỏi thường gặp về phiên dịch {{ lang.name }}</h2>
+    <h2 class="text-xl sm:text-2xl font-bold text-slate-900 mb-6">{{ t('lang_landing.faq_title') }} {{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }}</h2>
     <div class="space-y-3 max-w-4xl">
       {% for faq in lang.faq %}
       <details class="group border border-slate-200/90 rounded-2xl overflow-hidden transition-colors">
@@ -315,13 +319,13 @@
 
   {# ── OTHER LANGUAGES ── #}
   <section class="mt-8 bg-slate-50 rounded-2xl border border-slate-200/90 p-6 md:p-8">
-    <h2 class="text-base font-bold text-slate-900 mb-4">Khám phá các ngôn ngữ khác</h2>
+    <h2 class="text-base font-bold text-slate-900 mb-4">{{ t('home_languages.title') }}</h2>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
       {% for slug, other in other_languages.items() %}
       <a href="{{ url_for('translator_language', lang_slug=slug) }}"
          class="flex items-center gap-2 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:border-brand-300 hover:text-brand-600 hover:bg-white shadow-xs transition">
         <span class="text-base">{{ other.flag }}</span>
-        <span>{{ other.name }}</span>
+        <span>{{ other.name if current_lang == 'vi' else (slug | capitalize) }}</span>
       </a>
       {% endfor %}
     </div>
@@ -331,26 +335,26 @@
 
 {# ── MOBILE FILTER DRAWER ── #}
 <div id="drawer-overlay"></div>
-<div id="filter-drawer" role="dialog" aria-modal="true" aria-label="Bộ lọc">
+<div id="filter-drawer" role="dialog" aria-modal="true" aria-label="{{ t('lang_landing.filter_title') }}">
   <div class="flex justify-center pt-3 pb-1">
     <div class="w-12 h-1 bg-slate-200 rounded-full"></div>
   </div>
   <div class="flex justify-between items-center px-5 py-3 border-b border-slate-100 sticky top-0 bg-white z-10">
     <div>
-      <h3 class="font-bold text-slate-900 text-base">Bộ lọc</h3>
-      <p class="text-xs text-brand-600 font-semibold">Đang xem: {{ lang.flag }} {{ lang.name }}</p>
+      <h3 class="font-bold text-slate-900 text-base">{{ t('lang_landing.filter_title') }}</h3>
+      <p class="text-xs text-brand-600 font-semibold">{{ t('lang_landing.currently_selected') }} {{ lang.name if current_lang == 'vi' else (lang.slug | capitalize) }}</p>
     </div>
-    <button id="close-drawer" aria-label="Đóng bộ lọc" class="p-2 rounded-xl hover:bg-slate-100 transition text-slate-400 hover:text-slate-600">
+    <button id="close-drawer" aria-label="Close" class="p-2 rounded-xl hover:bg-slate-100 transition text-slate-400 hover:text-slate-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
   </div>
   <div id="filter-form-mobile" class="px-5 py-4 pb-32"></div>
   <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-100 px-5 py-3.5 flex gap-3 z-10 shadow-lg">
     <button onclick="clearAllFilters()" class="flex-1 text-xs font-bold border border-slate-200 text-slate-700 rounded-xl py-3 hover:bg-slate-50 transition">
-      Xóa bộ lọc
+      {{ t('lang_landing.clear_filters') }}
     </button>
     <button id="apply-drawer" class="flex-1 text-xs font-bold bg-brand-600 text-white rounded-xl py-3 hover:bg-brand-700 transition shadow-sm">
-      Áp dụng
+      {{ t('translator_list_page.filter_btn_apply') }}
     </button>
   </div>
 </div>
@@ -360,27 +364,29 @@
 <script>
 // Locked Language
 const LOCKED_LANGUAGE = {{ lang.name | tojson }};
+const CURRENT_LANG = "{{ current_lang }}";
+const IS_EN = CURRENT_LANG === 'en';
 
 let filters = { languages: [LOCKED_LANGUAGE], priceRange: null, minRating: null, badges: [] };
 let allFreelancers = [];
 let sortBy = 'rating';
 
 const PRICE_RANGES = [
-  { label: 'Dưới 500.000đ', value: 'under500', min: 0, max: 499999 },
-  { label: '500.000 – 1.000.000đ', value: '500-1m', min: 500000, max: 1000000 },
-  { label: '1.000.000 – 3.000.000đ', value: '1m-3m', min: 1000000, max: 3000000 },
-  { label: '3.000.000 – 5.000.000đ', value: '3m-5m', min: 3000000, max: 5000000 },
-  { label: 'Trên 5.000.000đ', value: 'over5m', min: 5000001, max: Infinity },
+  { label: IS_EN ? 'Under 500,000 VND' : 'Dưới 500.000đ', value: 'under500', min: 0, max: 499999 },
+  { label: IS_EN ? '500,000 – 1,000,000 VND' : '500.000 – 1.000.000đ', value: '500-1m', min: 500000, max: 1000000 },
+  { label: IS_EN ? '1,000,000 – 3,000,000 VND' : '1.000.000 – 3.000.000đ', value: '1m-3m', min: 1000000, max: 3000000 },
+  { label: IS_EN ? '3,000,000 – 5,000,000 VND' : '3.000.000 – 5.000.000đ', value: '3m-5m', min: 3000000, max: 5000000 },
+  { label: IS_EN ? 'Over 5,000,000 VND' : 'Trên 5.000.000đ', value: 'over5m', min: 5000001, max: Infinity },
 ];
 const RATINGS = [
-  { label: '5.0 tuyệt đối', value: 5 },
-  { label: 'Từ 4.0 sao trở lên', value: 4 },
-  { label: 'Từ 3.0 sao trở lên', value: 3 },
+  { label: IS_EN ? '5.0 stars' : '5.0 tuyệt đối', value: 5 },
+  { label: IS_EN ? '4.0 stars & up' : 'Từ 4.0 sao trở lên', value: 4 },
+  { label: IS_EN ? '3.0 stars & up' : 'Từ 3.0 sao trở lên', value: 3 },
 ];
 const BADGES = [
-  { name: 'Rising Star', desc: 'Chuyên gia mới xuất sắc', key: 'rising', cls: 'badge-rising' },
-  { name: 'Local Champion', desc: 'Nhiều dự án thành công', key: 'local', cls: 'badge-local' },
-  { name: 'Rehire Badge', desc: 'Khách hàng thuê lại nhiều', key: 'rehire', cls: 'badge-rehire' },
+  { name: 'Rising Star', desc: IS_EN ? 'Outstanding new talent' : 'Chuyên gia mới xuất sắc', key: 'rising', cls: 'badge-rising' },
+  { name: 'Local Champion', desc: IS_EN ? 'Proven track record' : 'Nhiều dự án thành công', key: 'local', cls: 'badge-local' },
+  { name: 'Rehire Badge', desc: IS_EN ? 'Frequently rehired by clients' : 'Khách hàng thuê lại nhiều', key: 'rehire', cls: 'badge-rehire' },
 ];
 
 function renderStarsSmall(count) {
@@ -392,7 +398,7 @@ function renderStarsSmall(count) {
 function buildFilterForm(s) {
   let html = '';
   // Price
-  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Mức giá tham khảo</h4><div class="space-y-1">`;
+  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${IS_EN ? 'Reference Price' : 'Mức giá tham khảo'}</h4><div class="space-y-1">`;
   PRICE_RANGES.forEach(p => {
     const id = `price-${p.value}-${s}`;
     html += `<div><input type="radio" class="filter-rb price-rb-${s}" id="${id}" name="price-${s}" value="${p.value}">
@@ -401,7 +407,7 @@ function buildFilterForm(s) {
   html += `</div></div>`;
 
   // Rating
-  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Đánh giá tối thiểu</h4><div class="space-y-1">`;
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${IS_EN ? 'Minimum Rating' : 'Đánh giá tối thiểu'}</h4><div class="space-y-1">`;
   RATINGS.forEach(r => {
     const id = `rating-${r.value}-${s}`;
     html += `<div><input type="radio" class="filter-rb rating-rb-${s}" id="${id}" name="rating-${s}" value="${r.value}">
@@ -411,7 +417,7 @@ function buildFilterForm(s) {
   html += `</div></div>`;
 
   // Badges
-  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">Huy hiệu năng lực</h4><div class="space-y-1">`;
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${IS_EN ? 'Skill Badges' : 'Huy hiệu năng lực'}</h4><div class="space-y-1">`;
   BADGES.forEach(b => {
     const id = `badge-${b.key}-${s}`;
     html += `<div><input type="checkbox" class="filter-cb badge-cb-${s}" id="${id}" value="${b.name}">
@@ -463,9 +469,9 @@ function badgeClass(name) {
 }
 
 function renderCard(fl) {
-  const priceStr = fl.min_price != null ? `Từ ${fl.min_price.toLocaleString('vi-VN')}đ` : 'Thỏa thuận';
+  const priceStr = fl.min_price != null ? (IS_EN ? `From ${fl.min_price.toLocaleString('en-US')} VND` : `Từ ${fl.min_price.toLocaleString('vi-VN')}đ`) : (IS_EN ? 'Negotiable' : 'Thỏa thuận');
   const badgesHtml = fl.badges.length ? fl.badges.map(b => `<span class="text-[10px] px-2 py-0.5 rounded-md font-semibold ${badgeClass(b)}">${b}</span>`).join('') : '';
-  const verifiedHtml = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"><svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>Xác minh</span>` : '';
+  const verifiedHtml = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold flex items-center gap-1"><svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>${IS_EN ? 'Verified' : 'Xác minh'}</span>` : '';
   
   return `<div class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
     <div class="p-5 sm:p-6 flex-grow">
@@ -476,12 +482,12 @@ function renderCard(fl) {
       <h3 class="font-bold text-slate-900 text-base mb-1">
         <a href="${fl.profile_url}" class="hover:text-brand-600 transition-colors">${fl.name}</a>
       </h3>
-      <p class="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem] leading-relaxed">${fl.title || 'Phiên dịch viên chuyên nghiệp'}</p>
+      <p class="text-xs text-slate-500 mb-3 line-clamp-2 min-h-[2rem] leading-relaxed">${fl.title || (IS_EN ? 'Professional Interpreter' : 'Phiên dịch viên chuyên nghiệp')}</p>
       
       <div class="flex items-center gap-1.5 text-xs mb-3">
         <div class="flex text-amber-500">${renderStars(fl.rating)}</div>
         <span class="font-bold text-slate-800 text-xs">${fl.rating.toFixed(1)}</span>
-        <span class="text-slate-400 text-xs font-normal">(${fl.total_reviews} đánh giá)</span>
+        <span class="text-slate-400 text-xs font-normal">(${fl.total_reviews} ${IS_EN ? 'reviews' : 'đánh giá'})</span>
       </div>
 
       <div class="flex flex-wrap gap-1.5 mb-3">
@@ -493,11 +499,11 @@ function renderCard(fl) {
 
     <div class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
       <div>
-        <span class="text-[10px] text-slate-400 uppercase font-semibold block">Mức giá</span>
+        <span class="text-[10px] text-slate-400 uppercase font-semibold block">${IS_EN ? 'Rates' : 'Mức giá'}</span>
         <span class="text-xs font-bold text-slate-800">${priceStr}</span>
       </div>
       <div class="flex items-center gap-2">
-        <a href="${fl.profile_url}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">Xem hồ sơ</a>
+        <a href="${fl.profile_url}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">${IS_EN ? 'View Profile' : 'Xem hồ sơ'}</a>
         <a href="${fl.chat_url}" class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">Chat</a>
       </div>
     </div>

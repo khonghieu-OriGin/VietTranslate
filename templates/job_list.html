@@ -124,24 +124,24 @@
           <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
           <div class="space-y-1" id="lang-desk">
             {% set langs = [
-              ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh', '🇬🇧'),
-              ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật', '🇯🇵'),
-              ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn', '🇰🇷'),
-              ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung', '🇨🇳'),
-              ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp', '🇫🇷'),
-              ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức', '🇩🇪'),
-              ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga', '🇷🇺'),
-              ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái', '🇹🇭'),
-              ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha', '🇵🇹'),
-              ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha', '🇪🇸')
+              ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
+              ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
+              ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
+              ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
+              ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
+              ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
+              ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
+              ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
+              ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
+              ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
             ] %}
-            {% for name, display_name, flag in langs %}
+            {% for name, display_name in langs %}
             <div>
               <input type="checkbox" class="jf-cb jf-lang"
                 id="ld-{{ loop.index }}" value="{{ name }}">
               <label for="ld-{{ loop.index }}" class="jf-label">
                 <span class="jf-box"></span>
-                <span class="text-xs">{{ flag }} {{ display_name }}</span>
+                <span class="text-xs">{{ display_name }}</span>
               </label>
             </div>
             {% endfor %}
@@ -202,9 +202,18 @@
 
       <!-- Toolbar -->
       <div class="flex flex-wrap justify-between items-center mb-6 gap-3 bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-soft">
-        <p class="text-slate-600 text-xs sm:text-sm font-medium">
-          {{ t('job_list_page.showing_count') }} <span id="jf-count">{{ jobs|length }}</span> {{ t('job_list_page.open_jobs_label') }}
-        </p>
+        <div class="flex items-center gap-3 flex-wrap">
+          <p class="text-slate-600 text-xs sm:text-sm font-medium">
+            {{ t('job_list_page.showing_count') }} <span id="jf-count">{{ jobs|length }}</span> {{ t('job_list_page.open_jobs_label') }}
+          </p>
+          <!-- Search input -->
+          <div class="relative w-full sm:w-64">
+            <input type="text" id="jf-search" oninput="applyFilters()"
+              placeholder="{{ t('job_list_page.search_placeholder') }}"
+              class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-2 text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
         <div class="flex items-center gap-2.5">
 
           <!-- Mobile filter button -->
@@ -248,6 +257,8 @@
       <div id="jf-grid" class="space-y-4">
         {% for job in jobs %}
         <div class="jf-card bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-soft"
+          data-title="{{ job.title|lower }}"
+          data-desc="{{ job.description|lower }}"
           data-lang="{{ job.source_lang }}|||{{ job.target_lang }}"
           data-budget="{{ job.budget_min if job.budget_min else 0 }}"
           data-created="{{ job.created_at.isoformat() if job.created_at else '' }}"
@@ -359,24 +370,24 @@
       <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">{{ t('job_list_page.filter_lang') }}</h4>
       <div class="space-y-1">
         {% set langs = [
-          ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh', '🇬🇧'),
-          ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật', '🇯🇵'),
-          ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn', '🇰🇷'),
-          ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung', '🇨🇳'),
-          ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp', '🇫🇷'),
-          ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức', '🇩🇪'),
-          ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga', '🇷🇺'),
-          ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái', '🇹🇭'),
-          ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha', '🇵🇹'),
-          ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha', '🇪🇸')
+          ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
+          ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
+          ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
+          ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
+          ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
+          ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
+          ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
+          ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
+          ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
+          ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
         ] %}
-        {% for name, display_name, flag in langs %}
+        {% for name, display_name in langs %}
         <div>
           <input type="checkbox" class="jf-cb jf-lang-m"
             id="lm-{{ loop.index }}" value="{{ name }}">
           <label for="lm-{{ loop.index }}" class="jf-label">
             <span class="jf-box"></span>
-            <span class="text-xs">{{ flag }} {{ display_name }}</span>
+            <span class="text-xs">{{ display_name }}</span>
           </label>
         </div>
         {% endfor %}
@@ -511,7 +522,10 @@ function getFilters() {
   var dateM  = document.querySelector('.jf-date-m:checked');
   var days   = dateD ? parseInt(dateD.value) : (dateM ? parseInt(dateM.value) : 0);
 
-  return { langs: langs, price: price, days: days };
+  var searchEl = document.getElementById('jf-search');
+  var query = searchEl ? searchEl.value.trim().toLowerCase() : '';
+
+  return { langs: langs, price: price, days: days, query: query };
 }
 
 function applyFilters() {
@@ -526,12 +540,20 @@ function applyFilters() {
     var budget  = parseInt(card.dataset.budget) || 0;
     var created = card.dataset.created;
     var props   = parseInt(card.dataset.proposals) || 0;
+    var title   = (card.dataset.title || '').toLowerCase();
+    var desc    = (card.dataset.desc || '').toLowerCase();
 
     var ok = true;
 
     if (f.langs.length > 0) {
       var hit = f.langs.some(function(l) { return langStr.includes(l); });
       if (!hit) ok = false;
+    }
+
+    if (ok && f.query) {
+      if (!title.includes(f.query) && !desc.includes(f.query) && !langStr.includes(f.query)) {
+        ok = false;
+      }
     }
 
     if (ok && f.price && PRICE_CFG[f.price]) {
@@ -565,7 +587,7 @@ function applyFilters() {
   document.getElementById('jf-empty').style.display = shown.length === 0 ? 'block' : 'none';
   grid.style.display = shown.length === 0 ? 'none' : '';
 
-  var active = (f.langs.length > 0 ? 1 : 0) + (f.price ? 1 : 0) + (f.days > 0 ? 1 : 0);
+  var active = (f.langs.length > 0 ? 1 : 0) + (f.price ? 1 : 0) + (f.days > 0 ? 1 : 0) + (f.query ? 1 : 0);
   var clearD = document.getElementById('jf-clear-d');
   if (clearD) clearD.style.display = active > 0 ? '' : 'none';
   var badge = document.getElementById('jf-mob-badge');
@@ -579,6 +601,8 @@ function clearFilters() {
   document.querySelectorAll('.jf-lang, .jf-lang-m').forEach(function(e){ e.checked = false; });
   document.querySelectorAll('.jf-price, .jf-price-m').forEach(function(e){ e.checked = false; });
   document.querySelectorAll('.jf-date, .jf-date-m').forEach(function(e){ e.checked = false; });
+  var searchEl = document.getElementById('jf-search');
+  if (searchEl) searchEl.value = '';
   applyFilters();
 }
 

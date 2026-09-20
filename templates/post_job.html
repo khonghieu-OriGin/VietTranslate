@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Đăng Yêu Cầu Dịch Thuật | VietTranslate{% endblock %}
+{% block title %}{{ t('post_job_page.title') }} | VietTranslate{% endblock %}
 
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -23,13 +23,13 @@
     
     <div class="text-center max-w-xl mx-auto mb-8">
         <span class="inline-block text-xs font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-            Đăng tin tuyển dụng
+            {{ t('post_job_page.badge') }}
         </span>
         <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">
-            Đăng Yêu Cầu Dịch Thuật
+            {{ t('post_job_page.title') }}
         </h1>
         <p class="text-slate-500 text-xs sm:text-sm leading-relaxed">
-            Nhận báo giá và đề xuất từ các chuyên gia ngôn ngữ hàng đầu trong vài phút.
+            {{ t('post_job_page.subtitle') }}
         </p>
     </div>
 
@@ -40,30 +40,30 @@
             <div class="border-b border-slate-100 pb-8">
                 <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-5 flex items-center gap-2.5">
                     <span class="w-7 h-7 rounded-xl bg-brand-600 text-white flex items-center justify-center text-xs font-black">01</span>
-                    Thông tin công việc
+                    {{ t('post_job_page.step1_title') }}
                 </h2>
                 
                 <div class="space-y-4">
                     <div>
                         <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                            Tiêu đề công việc <span class="text-red-500">*</span>
+                            {{ t('post_job_page.job_title_label') }} <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" name="title" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: Cần phiên dịch tiếng Nhật hội thảo công nghệ 2 ngày tại Hà Nội">
+                        <input type="text" name="title" required class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="{{ t('post_job_page.job_title_placeholder') }}">
                     </div>
                     
                     <div>
                         <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
-                            Mô tả chi tiết <span class="text-red-500">*</span>
+                            {{ t('post_job_page.desc_label') }} <span class="text-red-500">*</span>
                         </label>
-                        <textarea name="description" required rows="5" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 leading-relaxed" placeholder="Mô tả rõ nội dung cần dịch, yêu cầu chuyên môn, tài liệu đính kèm hoặc lịch trình..."></textarea>
+                        <textarea name="description" required rows="5" class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 leading-relaxed" placeholder="{{ t('post_job_page.desc_placeholder') }}"></textarea>
                     </div>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Nhóm dịch vụ <span class="text-red-500">*</span></label>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ 'Nhóm dịch vụ' if current_lang == 'vi' else 'Service Category' }} <span class="text-red-500">*</span></label>
                             <select id="category_group" name="category_group" class="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50 mb-3" onchange="updateServiceTypes()">
-                                <option value="translation">Dịch thuật</option>
-                                <option value="interpretation_other">Phiên dịch & Dịch vụ khác</option>
+                                <option value="translation">{{ 'Dịch thuật' if current_lang == 'vi' else 'Translation' }}</option>
+                                <option value="interpretation_other">{{ 'Phiên dịch & Dịch vụ khác' if current_lang == 'vi' else 'Interpretation & Other' }}</option>
                             </select>
                             
                             <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Loại dịch vụ <span class="text-red-500">*</span></label>
@@ -73,34 +73,31 @@
                         </div>
                         
                         <div>
-                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Cặp ngôn ngữ <span class="text-red-500">*</span></label>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('post_job_page.lang_pair_label') }} <span class="text-red-500">*</span></label>
+                            {% set lang_options = [
+                                ('Tiếng Việt', 'Vietnamese' if current_lang == 'en' else 'Tiếng Việt'),
+                                ('Tiếng Anh', 'English' if current_lang == 'en' else 'Tiếng Anh'),
+                                ('Tiếng Nhật', 'Japanese' if current_lang == 'en' else 'Tiếng Nhật'),
+                                ('Tiếng Hàn', 'Korean' if current_lang == 'en' else 'Tiếng Hàn'),
+                                ('Tiếng Trung', 'Chinese' if current_lang == 'en' else 'Tiếng Trung'),
+                                ('Tiếng Pháp', 'French' if current_lang == 'en' else 'Tiếng Pháp'),
+                                ('Tiếng Đức', 'German' if current_lang == 'en' else 'Tiếng Đức'),
+                                ('Tiếng Nga', 'Russian' if current_lang == 'en' else 'Tiếng Nga'),
+                                ('Tiếng Thái', 'Thai' if current_lang == 'en' else 'Tiếng Thái'),
+                                ('Tiếng Bồ Đào Nha', 'Portuguese' if current_lang == 'en' else 'Tiếng Bồ Đào Nha'),
+                                ('Tiếng Tây Ban Nha', 'Spanish' if current_lang == 'en' else 'Tiếng Tây Ban Nha')
+                            ] %}
                             <div class="flex items-center gap-2">
                                 <select name="source_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
-                                    <option>Tiếng Việt</option>
-                                    <option>Tiếng Anh</option>
-                                    <option>Tiếng Nhật</option>
-                                    <option>Tiếng Hàn</option>
-                                    <option>Tiếng Trung</option>
-                                    <option>Tiếng Pháp</option>
-                                    <option>Tiếng Đức</option>
-                                    <option>Tiếng Nga</option>
-                                    <option>Tiếng Thái</option>
-                                    <option>Tiếng Bồ Đào Nha</option>
-                                    <option>Tiếng Tây Ban Nha</option>
+                                    {% for val, label in lang_options %}
+                                    <option value="{{ val }}">{{ label }}</option>
+                                    {% endfor %}
                                 </select>
                                 <span class="text-slate-400 font-bold">→</span>
                                 <select name="target_lang" class="w-full px-3 py-3 border border-slate-200 rounded-xl text-xs sm:text-sm bg-slate-50/50">
-                                    <option>Tiếng Anh</option>
-                                    <option>Tiếng Nhật</option>
-                                    <option>Tiếng Hàn</option>
-                                    <option>Tiếng Trung</option>
-                                    <option>Tiếng Việt</option>
-                                    <option>Tiếng Pháp</option>
-                                    <option>Tiếng Đức</option>
-                                    <option>Tiếng Nga</option>
-                                    <option>Tiếng Thái</option>
-                                    <option>Tiếng Bồ Đào Nha</option>
-                                    <option>Tiếng Tây Ban Nha</option>
+                                    {% for val, label in lang_options %}
+                                    <option value="{{ val }}" {% if val == 'Tiếng Anh' %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                         </div>
@@ -112,43 +109,43 @@
             <div>
                 <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-5 flex items-center gap-2.5">
                     <span class="w-7 h-7 rounded-xl bg-brand-600 text-white flex items-center justify-center text-xs font-black">02</span>
-                    Ngân sách & Lịch trình
+                    {{ t('post_job_page.step2_title') }}
                 </h2>
                 
                 <div class="space-y-5">
                     <div>
-                        <label class="block text-slate-700 font-bold mb-2 text-xs uppercase tracking-wider">Hình thức ngân sách</label>
+                        <label class="block text-slate-700 font-bold mb-2 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_type_label') }}</label>
                         <div class="grid grid-cols-3 gap-3">
                             <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
                                 <input type="radio" name="budget_type" value="fixed" checked class="text-brand-600">
-                                <span class="font-bold text-xs text-slate-800">Giá cố định</span>
+                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_fixed') }}</span>
                             </label>
                             <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
                                 <input type="radio" name="budget_type" value="range" class="text-brand-600">
-                                <span class="font-bold text-xs text-slate-800">Khoảng giá</span>
+                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_range') }}</span>
                             </label>
                             <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
                                 <input type="radio" name="budget_type" value="negotiable" class="text-brand-600">
-                                <span class="font-bold text-xs text-slate-800">Thương lượng</span>
+                                <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_negotiable') }}</span>
                             </label>
                         </div>
                     </div>
                     
                     <div>
-                        <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">Ngân sách dự kiến (VND)</label>
+                        <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_amount_label') }}</label>
                         <input type="number" name="budget_min" class="w-full sm:w-1/2 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 3000000">
                     </div>
 
                     <!-- Lịch trình & Địa điểm -->
                     <div class="bg-slate-50/80 p-5 rounded-2xl border border-slate-200/80 space-y-4">
-                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Lịch trình & Địa điểm (Tùy chọn)</h3>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">{{ t('post_job_page.schedule_section_title') }}</h3>
 
                         <div>
                             <label class="block text-slate-600 font-medium mb-1.5 text-xs">
-                                📅 Ngày diễn ra sự kiện / Hạn hoàn thành
+                                {{ t('post_job_page.event_date_picker_label') }}
                             </label>
                             <div class="relative">
-                                <input type="text" id="event-date-display" placeholder="Nhấn để chọn ngày..."
+                                <input type="text" id="event-date-display" placeholder="{{ t('post_job_page.date_picker_placeholder') }}"
                                     class="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white cursor-pointer"
                                     readonly>
                                 <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -158,7 +155,7 @@
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">⏰ Giờ bắt đầu</label>
+                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_start_label') }}</label>
                                 <div class="relative">
                                     <input type="text" id="time-start-input" placeholder="--:--"
                                         class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
@@ -168,7 +165,7 @@
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">⏰ Giờ kết thúc</label>
+                                <label class="block text-slate-600 font-medium mb-1.5 text-xs">{{ t('post_job_page.time_end_label') }}</label>
                                 <div class="relative">
                                     <input type="text" id="time-end-input" placeholder="--:--"
                                         class="w-full pl-9 pr-3 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white text-center cursor-pointer"
@@ -180,9 +177,9 @@
                         </div>
 
                         <div>
-                            <label class="block text-slate-600 font-medium mb-1.5 text-xs">📍 Địa điểm <span class="text-slate-400 font-normal">(Ghi "Online" nếu làm từ xa)</span></label>
+                            <label class="block text-slate-600 font-medium mb-1.5 text-xs">📍 {{ t('post_job_page.event_location_label') }} <span class="text-slate-400 font-normal">{{ t('post_job_page.location_remote_hint') }}</span></label>
                             <input type="text" name="event_location"
-                                placeholder="Ví dụ: Trung tâm hội nghị Quốc gia, Hà Nội hoặc Online qua Zoom"
+                                placeholder="{{ t('post_job_page.event_location_placeholder') }}"
                                 class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white">
                         </div>
                     </div>
@@ -191,7 +188,7 @@
             
             <div class="flex justify-end pt-6 border-t border-slate-100">
                 <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm text-xs sm:text-sm">
-                    Đăng Yêu Cầu Tuyển Dụng
+                    {{ t('post_job_page.submit_btn') }}
                 </button>
             </div>
         </form>
@@ -202,7 +199,7 @@
 {% block scripts %}
 <script>
 flatpickr('#event-date-display', {
-    locale: 'vn',
+    {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
     minDate: 'today',
     dateFormat: 'Y-m-d',
     altInput: true,
