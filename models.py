@@ -54,6 +54,8 @@ class User(db.Model):
     proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
     messages_sent = db.relationship('Message', foreign_keys='Message.sender_id', backref='sender', lazy=True)
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
+    preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
+    notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
 
 
 class TranslatorProfile(db.Model):
@@ -70,6 +72,19 @@ class TranslatorProfile(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
 
     services = db.relationship('Service', backref='profile', lazy=True)
+
+
+class TranslatorPreference(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    languages = db.Column(db.Text, default='')
+    service_types = db.Column(db.Text, default='')
+    notify_new_jobs = db.Column(db.Boolean, default=True)
+    notify_messages = db.Column(db.Boolean, default=True)
+    notify_contracts = db.Column(db.Boolean, default=True)
+    notify_reviews = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
 class Service(db.Model):
@@ -234,3 +249,32 @@ class Review(db.Model):
 
     reviewer = db.relationship('User', foreign_keys=[reviewer_id], backref='reviews_given')
     reviewee = db.relationship('User', foreign_keys=[reviewee_id], backref='reviews_received')
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    type = db.Column(db.String(50), nullable=False, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    related_job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    related_contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
+    related_review_id = db.Column(db.Integer, db.ForeignKey('review.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+# Notification types constants
+NOTIFICATION_TYPES = {
+    'JOB_MATCH': 'JOB_MATCH',
+    'JOB_APPLICATION': 'JOB_APPLICATION',
+    'APPLICATION_COUNT': 'APPLICATION_COUNT',
+    'PROPOSAL_ACCEPTED': 'PROPOSAL_ACCEPTED',
+    'PROPOSAL_REJECTED': 'PROPOSAL_REJECTED',
+    'NEW_MESSAGE': 'NEW_MESSAGE',
+    'CONTRACT_CREATED': 'CONTRACT_CREATED',
+    'PAYMENT': 'PAYMENT',
+    'CONTRACT_COMPLETED': 'CONTRACT_COMPLETED',
+    'NEW_REVIEW': 'NEW_REVIEW'
+}
+

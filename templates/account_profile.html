@@ -65,6 +65,7 @@
                 <button class="tab-btn active flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold" onclick="switchTab('basic')">Thông tin cá nhân</button>
                 {% if user.role == 'translator' %}
                 <button class="tab-btn flex-1 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('translator')">Hồ sơ chuyên môn</button>
+                <button class="tab-btn flex-1 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('preferences')">Cài đặt nhận việc</button>
                 {% endif %}
                 <button class="tab-btn flex-1 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('security')">Bảo mật & Mật khẩu</button>
             </div>
@@ -188,6 +189,76 @@
                             <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                 <span>Lưu hồ sơ nghề nghiệp</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="tab-preferences" class="tab-panel">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                        Cài đặt nhận việc & thông báo
+                    </h2>
+                    
+                    <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
+                        <input type="hidden" name="action" value="translator_preference">
+                        
+                        {% set pref = user.preference %}
+                        {% set pref_langs = (pref.languages or '').split(',') if pref else [] %}
+                        {% set pref_services = (pref.service_types or '').split(',') if pref else [] %}
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ngôn ngữ</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                {% for lang in ['Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp', 'Tiếng Đức', 'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha'] %}
+                                <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                    <input type="checkbox" name="languages" value="{{ lang }}" class="rounded text-brand-600" {% if lang in pref_langs %}checked{% endif %}>
+                                    <span>{{ lang }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Loại công việc</label>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                {% for service in ['Dịch thuật', 'Phiên dịch', 'Hội họp', 'Kinh doanh', 'Du lịch', 'Sự kiện', 'Khác'] %}
+                                <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                    <input type="checkbox" name="service_types" value="{{ service }}" class="rounded text-brand-600" {% if service in pref_services %}checked{% endif %}>
+                                    <span>{{ service }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Thông báo</label>
+                            <div class="space-y-3">
+                                <label class="flex items-center gap-3">
+                                    <input type="checkbox" name="notify_new_jobs" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_new_jobs %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">Việc mới phù hợp</span>
+                                </label>
+                                <label class="flex items-center gap-3">
+                                    <input type="checkbox" name="notify_messages" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_messages %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">Tin nhắn mới</span>
+                                </label>
+                                <label class="flex items-center gap-3">
+                                    <input type="checkbox" name="notify_contracts" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_contracts %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">Hợp đồng</span>
+                                </label>
+                                <label class="flex items-center gap-3">
+                                    <input type="checkbox" name="notify_reviews" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_reviews %}checked{% endif %}>
+                                    <span class="text-sm text-slate-700">Đánh giá mới</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-5 border-t border-slate-100">
+                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span>Lưu cài đặt</span>
                             </button>
                         </div>
                     </form>

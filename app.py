@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response
-from models import db, User, TranslatorProfile, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
+from models import db, User, TranslatorProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date
@@ -819,6 +819,22 @@ def account_profile():
             db.session.commit()
             flash('Đã cập nhật hồ sơ phiên dịch viên!', 'success')
 
+        elif action == 'translator_preference' and user.role == 'translator':
+            pref = user.preference
+            if not pref:
+                pref = TranslatorPreference(translator_id=user.id)
+                db.session.add(pref)
+            
+            pref.languages = ",".join(request.form.getlist('languages'))
+            pref.service_types = ",".join(request.form.getlist('service_types'))
+            pref.notify_new_jobs = 'notify_new_jobs' in request.form
+            pref.notify_messages = 'notify_messages' in request.form
+            pref.notify_contracts = 'notify_contracts' in request.form
+            pref.notify_reviews = 'notify_reviews' in request.form
+            
+            db.session.commit()
+            flash('Đã cập nhật cài đặt nhận việc!', 'success')
+
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
             new_pw = request.form.get('new_password', '')
@@ -836,6 +852,53 @@ def account_profile():
 
         return redirect(url_for('account_profile'))
     return render_template('account_profile.html', user=user)
+
+def get_translator_preferences(user_id):
+    return TranslatorPreference.query.filter_by(translator_id=user_id).first()
+
+def translator_accepts_job(translator, job):
+    if translator.role != 'translator' or not translator.is_active:
+        return False
+        
+    pref = translator.preference
+    if not pref:
+        return True # Default to accepting if no preference set
+        
+    # Check language
+    pref_langs = [l.strip() for l in pref.languages.split(',')] if pref.languages else []
+    if pref_langs and job.source_lang not in pref_langs and job.target_lang not in pref_langs:
+        return False
+        
+    # Check category
+    pref_services = [s.strip() for s in pref.service_types.split(',')] if pref.service_types else []
+    
+    # map job's new format or old format to the preference options
+    # The form options are: 'Dịch thuật', 'Phiên dịch', 'Hội họp', 'Kinh doanh', 'Du lịch', 'Sự kiện', 'Khác'
+    job_group = job.display_category_group
+    job_type = job.display_service_type
+    
+    job_service_matches = []
+    if job_group == 'translation':
+        job_service_matches.append('Dịch thuật')
+    else:
+        if job_type in ['conference', 'meeting', 'escort']:
+            job_service_matches.append('Phiên dịch')
+        if job_type in ['meeting']:
+            job_service_matches.append('Hội họp')
+        if job_type in ['business']:
+            job_service_matches.append('Kinh doanh')
+        if job_type in ['travel']:
+            job_service_matches.append('Du lịch')
+        if job_type in ['event']:
+            job_service_matches.append('Sự kiện')
+        if not job_service_matches or job_type == 'other_interpretation':
+            job_service_matches.append('Khác')
+            
+    if pref_services and not any(s in pref_services for s in job_service_matches):
+        return False
+        
+    return True
+
 
 @app.route('/account/history')
 @login_required
@@ -1350,6 +1413,74 @@ def admin_verify_translator(profile_id):
     msg = 'Đã xác minh' if profile.is_verified else 'Đã từ chối xác minh'
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
+
+# ─── NOTIFICATION API ─────────────────────────────────────────────────────────
+
+def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None):
+    from models import Notification
+    notification = Notification(
+        user_id=user_id,
+        type=notification_type,
+        title=title,
+        message=message,
+        url=url,
+        related_job_id=related_job_id,
+        related_contract_id=related_contract_id,
+        related_review_id=related_review_id
+    )
+    db.session.add(notification)
+    db.session.commit()
+    return notification
+
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def api_get_notifications():
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    from models import Notification
+    pagination = Notification.query.filter_by(user_id=session['user_id']).order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return jsonify({
+        'notifications': [{
+            'id': n.id,
+            'type': n.type,
+            'title': n.title,
+            'message': n.message,
+            'url': n.url,
+            'is_read': n.is_read,
+            'created_at': n.created_at.isoformat()
+        } for n in pagination.items],
+        'total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
+    })
+
+@app.route('/api/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def api_read_notification(notification_id):
+    from models import Notification
+    notification = Notification.query.get_or_404(notification_id)
+    if notification.user_id != session['user_id']:
+        abort(403)
+    notification.is_read = True
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/notifications/read-all', methods=['POST'])
+@login_required
+def api_read_all_notifications():
+    from models import Notification
+    Notification.query.filter_by(user_id=session['user_id'], is_read=False).update({'is_read': True})
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@app.route('/api/notifications/unread-count', methods=['GET'])
+@login_required
+def api_unread_notifications_count():
+    from models import Notification
+    count = Notification.query.filter_by(user_id=session['user_id'], is_read=False).count()
+    return jsonify({'count': count})
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
