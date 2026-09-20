@@ -474,14 +474,25 @@ LANGUAGE_PAGES = {
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 basedir = os.path.abspath(os.path.dirname(__file__))
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    elif database_url.startswith("postgresql://"):
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+else:
+    if os.environ.get('VERCEL') == '1':
+        database_url = 'sqlite:///:memory:'
+    else:
+        database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
 if os.environ.get('VERCEL') == '1':
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
     }
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = os.path.join('static', 'uploads')
