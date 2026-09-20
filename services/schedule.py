@@ -13,6 +13,10 @@ Policy:
 import logging
 from datetime import date, time, datetime
 
+class ScheduleCheckError(Exception):
+    pass
+
+
 logger = logging.getLogger(__name__)
 
 # ─── Common date/time format patterns ────────────────────────────────────────
@@ -84,11 +88,15 @@ def normalize_schedule_datetime(date_value, start_value, end_value):
     t_start = _parse_time(start_value)
     t_end = _parse_time(end_value)
 
-    if d and t_start and t_end and t_end <= t_start:
-        logger.warning(
-            "TranslatorSchedule: end_time %s is not after start_time %s – kept as-is",
-            t_end, t_start
-        )
+    # Empty schedule (e.g. for translation jobs) is valid
+    if not d and not t_start and not t_end:
+        return None, None, None
+
+    if not d or not t_start or not t_end:
+        raise ScheduleCheckError("Ngày hoặc thời gian không hợp lệ.")
+
+    if t_end <= t_start:
+        raise ScheduleCheckError("Thời gian kết thúc phải sau thời gian bắt đầu.")
 
     return d, t_start, t_end
 
@@ -112,8 +120,10 @@ def parse_job_datetime(job):
         )
         return {'date': d, 'start_time': t_start, 'end_time': t_end}
     except Exception as exc:
-        logger.error("parse_job_datetime error for job_id=%s: %s", getattr(job, 'id', '?'), exc)
-        return {'date': None, 'start_time': None, 'end_time': None}
+        logger.exception("parse_job_datetime error for job_id=%s", getattr(job, 'id', '?'))
+        if isinstance(exc, ScheduleCheckError):
+            raise
+        raise ScheduleCheckError("Không thể xác minh ngày giờ công việc.") from exc
 
 
 def parse_contract_datetime(contract):
@@ -134,11 +144,10 @@ def parse_contract_datetime(contract):
         )
         return {'date': d, 'start_time': t_start, 'end_time': t_end}
     except Exception as exc:
-        logger.error(
-            "parse_contract_datetime error for contract_id=%s: %s",
-            getattr(contract, 'id', '?'), exc
-        )
-        return {'date': None, 'start_time': None, 'end_time': None}
+        logger.exception("parse_contract_datetime error for contract_id=%s", getattr(contract, 'id', '?'))
+        if isinstance(exc, ScheduleCheckError):
+            raise
+        raise ScheduleCheckError("Không thể xác minh ngày giờ hợp đồng.") from exc
 
 
 def is_schedule_complete(parsed: dict) -> bool:
@@ -166,7 +175,7 @@ def check_translator_schedule_conflict(
     start_time,
     end_time,
     buffer_before_minutes=0,
-    buffer_after_minutes=30,
+    buffer_after_minutes=0,
     exclude_contract_id=None,
 ):
     """
@@ -244,9 +253,7 @@ def check_translator_schedule_conflict(
         return {'conflict': False}
 
     except Exception as exc:
-        logger.error(
-            'check_translator_schedule_conflict error (translator_id=%s, date=%s): %s',
-            translator_id, scheduled_date, exc,
-        )
-        # Fail open — do not block booking on unexpected errors
-        return {'conflict': False}
+        logger.exception("Schedule conflict check failed for translator_id=%s", translator_id)
+        if isinstance(exc, ScheduleCheckError):
+            raise
+        raise ScheduleCheckError("Không thể xác minh lịch của phiên dịch viên.") from exc

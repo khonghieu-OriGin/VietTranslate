@@ -1214,22 +1214,86 @@ def book_service(service_id):
               'premium': service.premium_price}
     price = prices.get(tier, service.basic_price)
 
+    current_user = User.query.get(session['user_id'])
+    translator = service.profile.user if service.profile else None
+
+    if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
+        flash('Phiên dịch viên này hiện không hoạt động.', 'error')
+        return redirect(url_for('translators'))
+
+    if current_user.id == translator.id:
+        flash('Bạn không thể tự thuê chính mình.', 'error')
+        return redirect(url_for('service_detail', service_id=service.id))
+
     if request.method == 'POST':
-        contract = Contract(
-            service_id=service.id,
-            hirer_id=session['user_id'],
-            translator_id=service.profile.user_id,
-            agreed_price=int(request.form.get('price', price)),
-            scheduled_date=request.form.get('scheduled_date', ''),
-            scheduled_time_start=request.form.get('time_start', ''),
-            scheduled_time_end=request.form.get('time_end', ''),
-            location=request.form.get('location', ''),
-            status='escrow_pending'
-        )
-        db.session.add(contract)
-        db.session.commit()
-        flash('Đặt dịch vụ thành công! Vui lòng thanh toán Escrow để bắt đầu.', 'success')
-        return redirect(url_for('payment_mockup', contract_id=contract.id))
+        scheduled_date_str = request.form.get('scheduled_date', '')
+        time_start_str = request.form.get('time_start', '')
+        time_end_str = request.form.get('time_end', '')
+        
+        from services.schedule import normalize_schedule_datetime, is_schedule_complete, check_translator_schedule_conflict, ScheduleCheckError
+        from models import TranslatorSchedule
+        
+        try:
+            parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
+                scheduled_date_str, time_start_str, time_end_str
+            )
+            parsed = {'date': parsed_date, 'start_time': parsed_start, 'end_time': parsed_end}
+            
+            if not is_schedule_complete(parsed):
+                flash('Vui lòng nhập đầy đủ ngày và giờ hợp lệ.', 'error')
+                return redirect(url_for('book_service', service_id=service.id, tier=tier))
+            
+            conflict_result = check_translator_schedule_conflict(
+                translator_id=translator.id,
+                scheduled_date=parsed_date,
+                start_time=parsed_start,
+                end_time=parsed_end,
+            )
+            
+            if conflict_result.get('conflict'):
+                flash('Phiên dịch viên đã có lịch trong khoảng thời gian này.', 'error')
+                return redirect(url_for('book_service', service_id=service.id, tier=tier))
+                
+            contract = Contract(
+                service_id=service.id,
+                hirer_id=session['user_id'],
+                translator_id=translator.id,
+                agreed_price=int(request.form.get('price', price)),
+                scheduled_date=scheduled_date_str,
+                scheduled_time_start=time_start_str,
+                scheduled_time_end=time_end_str,
+                location=request.form.get('location', ''),
+                status='escrow_pending'
+            )
+            db.session.add(contract)
+            db.session.flush()
+            
+            schedule = TranslatorSchedule(
+                translator_id=translator.id,
+                contract_id=contract.id,
+                service_id=service.id,
+                scheduled_date=parsed_date,
+                start_time=parsed_start,
+                end_time=parsed_end,
+                status='reserved'
+            )
+            db.session.add(schedule)
+            db.session.commit()
+            
+            flash('Đặt dịch vụ thành công! Vui lòng thanh toán Escrow để bắt đầu.', 'success')
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
+            
+        except ScheduleCheckError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+            return redirect(url_for('book_service', service_id=service.id, tier=tier))
+            
+        except Exception as e:
+            db.session.rollback()
+            import logging
+            logging.error('Error in book_service: %s', e)
+            flash('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.', 'error')
+            return redirect(url_for('book_service', service_id=service.id, tier=tier))
 
     # Extract fixed_days from delivery string
     delivery_str = service.basic_delivery if tier == 'basic' else (service.standard_delivery if tier == 'standard' else service.premium_delivery)
@@ -1325,24 +1389,28 @@ def job_detail(job_id):
         # ── 3. Schedule conflict check ────────────────────────────────────────
         from services.schedule import (
             parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict,
+            check_translator_schedule_conflict, ScheduleCheckError
         )
-        parsed = parse_job_datetime(job)
-        if is_schedule_complete(parsed):
-            result = check_translator_schedule_conflict(
-                translator_id=session['user_id'],
-                scheduled_date=parsed['date'],
-                start_time=parsed['start_time'],
-                end_time=parsed['end_time'],
-            )
-            if result['conflict']:
-                flash(
-                    f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
-                    f'({result["start_time"]}–{result["end_time"]}). '
-                    f'Vui lòng kiểm tra lịch của bạn.',
-                    'error'
+        try:
+            parsed = parse_job_datetime(job)
+            if is_schedule_complete(parsed):
+                result = check_translator_schedule_conflict(
+                    translator_id=session['user_id'],
+                    scheduled_date=parsed['date'],
+                    start_time=parsed['start_time'],
+                    end_time=parsed['end_time'],
                 )
-                return redirect(url_for('job_detail', job_id=job.id))
+                if result['conflict']:
+                    flash(
+                        f'Bạn đã có lịch công việc khác trong khoảng thời gian này '
+                        f'({result["start_time"]}–{result["end_time"]}). '
+                        f'Vui lòng kiểm tra lịch của bạn.',
+                        'error'
+                    )
+                    return redirect(url_for('job_detail', job_id=job.id))
+        except ScheduleCheckError as e:
+            flash(str(e), 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 4. Create Proposal (unchanged logic) ──────────────────────────────
         proposal = Proposal(
@@ -1449,26 +1517,31 @@ def accept_proposal(proposal_id):
         # Parse Job schedule & Check schedule conflict
         from services.schedule import (
             parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict,
+            check_translator_schedule_conflict, ScheduleCheckError
         )
         from models import TranslatorSchedule
 
-        parsed = parse_job_datetime(job)
-        if is_schedule_complete(parsed):
-            result = check_translator_schedule_conflict(
-                translator_id=translator.id,
-                scheduled_date=parsed['date'],
-                start_time=parsed['start_time'],
-                end_time=parsed['end_time'],
-            )
-            if result['conflict']:
-                flash(
-                    'Phiên dịch viên vừa được đặt vào một lịch khác trong cùng khoảng thời gian. '
-                    'Vui lòng chọn ứng viên khác.',
-                    'error'
+        try:
+            parsed = parse_job_datetime(job)
+            if is_schedule_complete(parsed):
+                result = check_translator_schedule_conflict(
+                    translator_id=translator.id,
+                    scheduled_date=parsed['date'],
+                    start_time=parsed['start_time'],
+                    end_time=parsed['end_time'],
                 )
-                db.session.rollback()
-                return redirect(url_for('job_detail', job_id=job.id))
+                if result['conflict']:
+                    flash(
+                        'Phiên dịch viên vừa được đặt vào một lịch khác trong cùng khoảng thời gian. '
+                        'Vui lòng chọn ứng viên khác.',
+                        'error'
+                    )
+                    db.session.rollback()
+                    return redirect(url_for('job_detail', job_id=job.id))
+        except ScheduleCheckError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
 
         # ── Critical section: update proposal status first to prevent concurrent accepts ──
         # Check again inside transaction if proposal is still pending

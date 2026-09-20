@@ -133,13 +133,22 @@ def get_recommended_jobs_for_translator(user_id, limit=10):
             continue
             
         # check schedule conflict
-        if job.event_date:
-            conflict = Contract.query.filter_by(
-                translator_id=user_id,
-                scheduled_date=job.event_date
-            ).filter(Contract.status.in_(['escrow_pending', 'in_progress'])).first()
-            if conflict:
-                continue
+        from services.schedule import parse_job_datetime, is_schedule_complete, check_translator_schedule_conflict
+        conflict = False
+        try:
+            parsed = parse_job_datetime(job)
+            if is_schedule_complete(parsed):
+                result = check_translator_schedule_conflict(
+                    translator_id=user_id,
+                    scheduled_date=parsed['date'],
+                    start_time=parsed['start_time'],
+                    end_time=parsed['end_time'],
+                )
+                if result['conflict']:
+                    conflict = True
+                    continue
+        except Exception:
+            continue
 
         score, reasons = calculate_job_match_score(translator, job)
         if score > 0:
@@ -242,13 +251,16 @@ def notify_matching_translators_for_new_job(job):
 
                 # 3. Check Schedule
                 if has_schedule:
-                    conflict_res = check_translator_schedule_conflict(
-                        translator_id=translator.id,
-                        scheduled_date=parsed_schedule['date'],
-                        start_time=parsed_schedule['start_time'],
-                        end_time=parsed_schedule['end_time']
-                    )
-                    if conflict_res.get('conflict'):
+                    try:
+                        conflict_res = check_translator_schedule_conflict(
+                            translator_id=translator.id,
+                            scheduled_date=parsed_schedule['date'],
+                            start_time=parsed_schedule['start_time'],
+                            end_time=parsed_schedule['end_time']
+                        )
+                        if conflict_res.get('conflict'):
+                            continue
+                    except Exception:
                         continue
 
                 # 4. Check Score >= 70
