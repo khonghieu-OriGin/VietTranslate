@@ -1082,23 +1082,25 @@ def send_direct_message(other_user_id):
         
     msg = DirectMessage(sender_id=me, receiver_id=other_user_id, content=content)
     db.session.add(msg)
-    db.session.commit()
 
     # Notify receiver
     sender = User.query.get(me)
     if sender:
-        try:
-            create_notification(
-                user_id=other_user_id,
-                notification_type='NEW_MESSAGE',
-                title='Bạn có tin nhắn mới',
-                message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
-                url=url_for('direct_chat', translator_user_id=me)
-            )
-        except Exception as e:
-            print(f"Error creating notification: {e}")
-            pass
+        from services.notifications import should_notify
+        if should_notify(receiver, 'NEW_MESSAGE'):
+            try:
+                create_notification(
+                    user_id=other_user_id,
+                    notification_type='NEW_MESSAGE',
+                    title='Bạn có tin nhắn mới',
+                    message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
+                    url=url_for('direct_chat', translator_user_id=me)
+                )
+            except Exception as e:
+                print(f"Error creating notification: {e}")
+                pass
 
+    db.session.commit()
     return jsonify({'status': 'ok'})
 
 
@@ -1230,68 +1232,30 @@ def book_service(service_id):
         time_start_str = request.form.get('time_start', '')
         time_end_str = request.form.get('time_end', '')
         
-        from services.schedule import normalize_schedule_datetime, is_schedule_complete, check_translator_schedule_conflict, ScheduleCheckError
-        from models import TranslatorSchedule
+        from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
+        from services.schedule import ScheduleCheckError
         
         try:
-            parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
-                scheduled_date_str, time_start_str, time_end_str
-            )
-            parsed = {'date': parsed_date, 'start_time': parsed_start, 'end_time': parsed_end}
-            
-            if not is_schedule_complete(parsed):
-                flash('Vui lòng nhập đầy đủ ngày và giờ hợp lệ.', 'error')
-                return redirect(url_for('book_service', service_id=service.id, tier=tier))
-            
-            conflict_result = check_translator_schedule_conflict(
-                translator_id=translator.id,
-                scheduled_date=parsed_date,
-                start_time=parsed_start,
-                end_time=parsed_end,
-            )
-            
-            if conflict_result.get('conflict'):
-                flash('Phiên dịch viên đã có lịch trong khoảng thời gian này.', 'error')
-                return redirect(url_for('book_service', service_id=service.id, tier=tier))
-                
-            contract = Contract(
-                service_id=service.id,
+            contract = create_contract_booking(
                 hirer_id=session['user_id'],
                 translator_id=translator.id,
                 agreed_price=int(request.form.get('price', price)),
                 scheduled_date=scheduled_date_str,
-                scheduled_time_start=time_start_str,
-                scheduled_time_end=time_end_str,
+                start_time=time_start_str,
+                end_time=time_end_str,
                 location=request.form.get('location', ''),
-                status='escrow_pending'
+                service_id=service.id
             )
-            db.session.add(contract)
-            db.session.flush()
-            
-            schedule = TranslatorSchedule(
-                translator_id=translator.id,
-                contract_id=contract.id,
-                service_id=service.id,
-                scheduled_date=parsed_date,
-                start_time=parsed_start,
-                end_time=parsed_end,
-                status='reserved'
-            )
-            db.session.add(schedule)
-            db.session.commit()
-            
             flash('Đặt dịch vụ thành công! Vui lòng thanh toán Escrow để bắt đầu.', 'success')
             return redirect(url_for('payment_mockup', contract_id=contract.id))
             
-        except ScheduleCheckError as e:
-            db.session.rollback()
+        except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
             flash(str(e), 'error')
             return redirect(url_for('book_service', service_id=service.id, tier=tier))
             
         except Exception as e:
-            db.session.rollback()
             import logging
-            logging.error('Error in book_service: %s', e)
+            logging.exception('Error in book_service: %s', e)
             flash('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.', 'error')
             return redirect(url_for('book_service', service_id=service.id, tier=tier))
 
@@ -1421,7 +1385,7 @@ def job_detail(job_id):
             time_estimate=request.form.get('time_estimate')
         )
         db.session.add(proposal)
-        db.session.commit()
+        db.session.flush()
 
         # Notify the hirer about new applicant (avoid duplicate for same proposal)
         from models import Notification
@@ -1441,6 +1405,8 @@ def job_detail(job_id):
                 related_job_id=job.id,
                 related_proposal_id=proposal.id
             )
+            
+        db.session.commit()
         flash('Đề xuất của bạn đã được gửi!', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     return render_template('job_detail.html', job=job)
@@ -1507,90 +1473,27 @@ def accept_proposal(proposal_id):
             db.session.rollback()
             return redirect(url_for('job_detail', job_id=job.id))
 
-        # Lock Translator to serialize schedule checks for the same translator
-        translator = User.query.with_for_update().get(proposal.translator_id)
-        if not translator or not getattr(translator, 'is_active', True):
-            flash('Phiên dịch viên này hiện không hoạt động.', 'error')
-            db.session.rollback()
-            return redirect(url_for('job_detail', job_id=job.id))
-
-        # Parse Job schedule & Check schedule conflict
-        from services.schedule import (
-            parse_job_datetime, is_schedule_complete,
-            check_translator_schedule_conflict, ScheduleCheckError
-        )
-        from models import TranslatorSchedule
-
+        from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
+        from services.schedule import ScheduleCheckError
+        
         try:
-            parsed = parse_job_datetime(job)
-            if is_schedule_complete(parsed):
-                result = check_translator_schedule_conflict(
-                    translator_id=translator.id,
-                    scheduled_date=parsed['date'],
-                    start_time=parsed['start_time'],
-                    end_time=parsed['end_time'],
-                )
-                if result['conflict']:
-                    flash(
-                        'Phiên dịch viên vừa được đặt vào một lịch khác trong cùng khoảng thời gian. '
-                        'Vui lòng chọn ứng viên khác.',
-                        'error'
-                    )
-                    db.session.rollback()
-                    return redirect(url_for('job_detail', job_id=job.id))
-        except ScheduleCheckError as e:
-            db.session.rollback()
+            contract = create_contract_booking(
+                hirer_id=job.hirer_id,
+                translator_id=proposal.translator_id,
+                agreed_price=proposal.price,
+                scheduled_date=job.event_date,
+                start_time=job.event_time_start,
+                end_time=job.event_time_end,
+                location=job.event_location,
+                job_id=job.id,
+                proposal_id=proposal.id
+            )
+            flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
+            
+        except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
             flash(str(e), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
-
-        # ── Critical section: update proposal status first to prevent concurrent accepts ──
-        # Check again inside transaction if proposal is still pending
-        # (handles SQLite which doesn't support FOR UPDATE properly)
-        proposal.status = 'accepted'
-        job.status = 'contracted'
-        db.session.flush()  # Push status changes to detect any unique constraint violation early
-
-        # Double-check: abort if a contract already exists for this proposal
-        existing_contract = Contract.query.filter_by(proposal_id=proposal.id).first()
-        if existing_contract:
-            db.session.rollback()
-            flash('Đề xuất này đã được chấp nhận bởi yêu cầu khác.', 'warning')
-            return redirect(url_for('job_detail', job_id=job.id))
-
-        # Create Contract
-        contract = Contract(
-            job_id=job.id,
-            proposal_id=proposal.id,
-            hirer_id=job.hirer_id,
-            translator_id=proposal.translator_id,
-            agreed_price=proposal.price,
-            scheduled_date=job.event_date,
-            scheduled_time_start=job.event_time_start,
-            scheduled_time_end=job.event_time_end,
-            location=job.event_location,
-            status='escrow_pending'
-        )
-
-        # Flush to get the contract ID for the schedule
-        db.session.add(contract)
-        db.session.flush()
-
-        # Create Schedule if applicable
-        if is_schedule_complete(parsed):
-            schedule = TranslatorSchedule(
-                translator_id=translator.id,
-                contract_id=contract.id,
-                job_id=job.id,
-                scheduled_date=parsed['date'],
-                start_time=parsed['start_time'],
-                end_time=parsed['end_time'],
-                status='reserved'
-            )
-            db.session.add(schedule)
-
-        db.session.commit()
-        flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
-        return redirect(url_for('payment_mockup', contract_id=contract.id))
 
     except Exception as e:
         db.session.rollback()
@@ -1606,6 +1509,9 @@ def accept_proposal(proposal_id):
 @login_required
 def payment_mockup(contract_id):
     contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
+
     platform_fee = int(contract.agreed_price * 0.10)
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
@@ -1620,9 +1526,8 @@ def payment_mockup(contract_id):
 @login_required
 def transaction_detail(contract_id):
     contract = Contract.query.get_or_404(contract_id)
-    if session['user_id'] not in [contract.hirer_id, contract.translator_id]:
-        flash('Không có quyền truy cập.', 'error')
-        return redirect(url_for('index'))
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
 
     if request.method == 'POST' and 'file' in request.files:
         if contract.status == 'in_progress' and session['user_id'] == contract.translator_id:
@@ -1646,6 +1551,8 @@ def transaction_detail(contract_id):
 @login_required
 def approve_contract(contract_id):
     contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
         contract.status = 'completed'
         if contract.job:
@@ -1661,6 +1568,8 @@ def approve_contract(contract_id):
 @login_required
 def submit_review(contract_id):
     contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
     if contract.status == 'completed':
         rating = int(request.form.get('rating', 5))
         comment = request.form.get('comment', '')
@@ -1691,19 +1600,22 @@ def submit_review(contract_id):
 
         reviewer = User.query.get(reviewer_id)
         if reviewer:
-            try:
-                create_notification(
-                    user_id=reviewee_id,
-                    notification_type='NEW_REVIEW',
-                    title='Bạn nhận được đánh giá mới',
-                    message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
-                    url=url_for('transaction_detail', contract_id=contract.id),
-                    related_review_id=review.id,
-                    related_contract_id=contract.id
-                )
-            except Exception as e:
-                print(f"Error creating review notification: {e}")
-                pass
+            from services.notifications import should_notify
+            reviewee = User.query.get(reviewee_id)
+            if reviewee and should_notify(reviewee, 'NEW_REVIEW'):
+                try:
+                    create_notification(
+                        user_id=reviewee_id,
+                        notification_type='NEW_REVIEW',
+                        title='Bạn nhận được đánh giá mới',
+                        message=f'{reviewer.name} vừa đánh giá bạn {rating}/5.',
+                        url=url_for('transaction_detail', contract_id=contract.id),
+                        related_review_id=review.id,
+                        related_contract_id=contract.id
+                    )
+                except Exception as e:
+                    print(f"Error creating review notification: {e}")
+                    pass
 
         db.session.commit()
         flash('Cảm ơn bạn đã đánh giá!', 'success')
@@ -1714,6 +1626,10 @@ def submit_review(contract_id):
 @app.route('/api/messages/<int:contract_id>')
 @login_required
 def get_messages(contract_id):
+    contract = Contract.query.get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    require_contract_access(session['user_id'], contract)
+
     msgs = Message.query.filter_by(contract_id=contract_id).order_by(Message.created_at.asc()).all()
     return jsonify([{'id': m.id, 'sender_id': m.sender_id, 'sender_name': m.sender.name,
                      'content': m.content, 'time': m.created_at.strftime('%H:%M %d/%m')} for m in msgs])
@@ -1721,9 +1637,39 @@ def get_messages(contract_id):
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
 def send_message(contract_id):
+    contract = Contract.query.get_or_404(contract_id)
+    sender_id = session['user_id']
+    from services.permissions import require_contract_access
+    require_contract_access(sender_id, contract)
+
     content = request.json.get('content', '').strip()
     if content:
-        db.session.add(Message(contract_id=contract_id, sender_id=session['user_id'], content=content))
+        db.session.add(Message(contract_id=contract_id, sender_id=sender_id, content=content))
+        db.session.flush()
+
+        if sender_id == contract.hirer_id:
+            receiver_id = contract.translator_id
+        else:
+            receiver_id = contract.hirer_id
+            
+        receiver = User.query.get(receiver_id)
+        if receiver:
+            from services.notifications import should_notify
+            sender = User.query.get(sender_id)
+            if should_notify(receiver, 'NEW_MESSAGE'):
+                try:
+                    create_notification(
+                        user_id=receiver_id,
+                        notification_type='NEW_MESSAGE',
+                        title='Bạn có tin nhắn mới',
+                        message=f'{sender.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
+                        url=url_for('transaction_detail', contract_id=contract.id),
+                        related_contract_id=contract.id
+                    )
+                except Exception as e:
+                    print(f"Error creating notification: {e}")
+                    pass
+
         db.session.commit()
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error'}), 400
@@ -1838,7 +1784,6 @@ def create_notification(user_id, notification_type, title, message, url=None, re
         related_proposal_id=related_proposal_id
     )
     db.session.add(notification)
-    db.session.commit()
     return notification
 
 @app.route('/notifications')
@@ -1926,18 +1871,45 @@ def api_invite_translator(job_id, translator_id):
     if job.hirer_id != session['user_id']:
         abort(403)
         
+    if job.status != 'open':
+        return jsonify({'status': 'error', 'message': 'Công việc không còn mở để nhận ứng tuyển.'}), 400
+        
     translator = User.query.get_or_404(translator_id)
-    
-    # Notify the translator using our Notification system
-    from app import create_notification
-    create_notification(
+    if translator.role != 'translator' or not translator.is_active:
+        return jsonify({'status': 'error', 'message': 'Phiên dịch viên không hợp lệ hoặc đã bị khóa.'}), 400
+        
+    from app import translator_accepts_job
+    if not translator_accepts_job(translator, job):
+        return jsonify({'status': 'error', 'message': 'Phiên dịch viên không nhận loại công việc này.'}), 400
+        
+    from services.matching import translator_is_available_for_job
+    available, availability_reason = translator_is_available_for_job(translator.id, job)
+    if not available:
+        return jsonify({'status': 'error', 'message': 'Phiên dịch viên này đã có lịch trong khoảng thời gian của công việc.'}), 400
+        
+    from models import Notification
+    existing = Notification.query.filter_by(
         user_id=translator.id,
-        notification_type='JOB_MATCH',
-        title=f"Lời mời ứng tuyển: {job.title}",
-        message=f"Khách hàng {session.get('user_name')} đã mời bạn ứng tuyển vào công việc này vì hồ sơ của bạn rất phù hợp.",
-        url=url_for('job_detail', job_id=job.id),
+        type='JOB_MATCH',
         related_job_id=job.id
-    )
+    ).first()
+    
+    if existing:
+        return jsonify({'status': 'already_invited'})
+        
+    from services.notifications import should_notify
+    if should_notify(translator, 'JOB_MATCH'):
+        from app import create_notification
+        create_notification(
+            user_id=translator.id,
+            notification_type='JOB_MATCH',
+            title=f"Lời mời ứng tuyển: {job.title}",
+            message=f"Khách hàng {session.get('user_name')} đã mời bạn ứng tuyển vào công việc này vì hồ sơ của bạn rất phù hợp.",
+            url=url_for('job_detail', job_id=job.id),
+            related_job_id=job.id
+        )
+        db.session.commit()
+        
     return jsonify({'status': 'success'})
 
 if __name__ == '__main__':

@@ -2,6 +2,40 @@ import unicodedata
 from models import Job, Proposal, Contract, TranslatorPreference, TranslatorProfile, User
 from datetime import datetime
 
+def translator_is_available_for_job(translator_id, job):
+    from services.schedule import (
+        parse_job_datetime,
+        is_schedule_complete,
+        check_translator_schedule_conflict
+    )
+    
+    try:
+        parsed = parse_job_datetime(job)
+    except Exception as e:
+        import logging
+        logging.error(f"Cannot parse schedule for job {job.id}: {e}")
+        return False, "Thời gian không hợp lệ"
+        
+    if not is_schedule_complete(parsed):
+        return True, "Không có lịch cố định"
+        
+    try:
+        result = check_translator_schedule_conflict(
+            translator_id=translator_id,
+            scheduled_date=parsed['date'],
+            start_time=parsed['start_time'],
+            end_time=parsed['end_time']
+        )
+    except Exception as e:
+        import logging
+        logging.error(f"Error checking schedule for translator {translator_id}: {e}")
+        return False, "Lỗi kiểm tra lịch"
+        
+    if result['conflict']:
+        return False, result['message']
+        
+    return True, "Có lịch trống"
+
 def normalize_text(value):
     if not value:
         return ''
@@ -133,29 +167,14 @@ def get_recommended_jobs_for_translator(user_id, limit=10):
             continue
             
         # check schedule conflict
-        from services.schedule import parse_job_datetime, is_schedule_complete, check_translator_schedule_conflict
-        conflict = False
-        try:
-            parsed = parse_job_datetime(job)
-            if is_schedule_complete(parsed):
-                result = check_translator_schedule_conflict(
-                    translator_id=user_id,
-                    scheduled_date=parsed['date'],
-                    start_time=parsed['start_time'],
-                    end_time=parsed['end_time'],
-                )
-                if result['conflict']:
-                    conflict = True
-                    continue
-        except Exception:
+        available, availability_reason = translator_is_available_for_job(user_id, job)
+        if not available:
             continue
 
         score, reasons = calculate_job_match_score(translator, job)
         if score > 0:
-            # check if reasons list contains specific ones to match the prompt's examples precisely
-            # The prompt examples: "Khớp ngôn ngữ", "Khớp loại công việc", "Phù hợp thời gian"
-            if not conflict and job.event_date:
-                reasons.append("Phù hợp thời gian")
+            if available:
+                reasons.append("Có lịch trống")
             
             scored_jobs.append({
                 'job_id': job.id,
@@ -186,9 +205,15 @@ def get_recommended_translators_for_job(job_id, limit=10):
         if Proposal.query.filter_by(job_id=job.id, translator_id=translator.id).first():
             continue
             
+        available, availability_reason = translator_is_available_for_job(translator.id, job)
+        if not available:
+            continue
+            
         try:
             score, reasons = calculate_translator_match_score(translator, job)
             if score > 0:
+                if available:
+                    reasons.append("Có lịch trống")
                 scored_translators.append({
                     'translator': translator,
                     'score': score,
@@ -245,6 +270,10 @@ def notify_matching_translators_for_new_job(job):
                 if not translator_accepts_job(translator, job):
                     continue
 
+                from services.notifications import should_notify
+                if not should_notify(translator, 'JOB_MATCH'):
+                    continue
+
                 # 2. Check Proposal
                 if Proposal.query.filter_by(job_id=job.id, translator_id=translator.id).first():
                     continue
@@ -287,6 +316,7 @@ def notify_matching_translators_for_new_job(job):
                     url=url_for('job_detail', job_id=job.id),
                     related_job_id=job.id
                 )
+                db.session.commit()
             except Exception as inner_e:
                 import logging
                 logging.error(f"Error notifying translator {translator.id} for job {job.id}: {inner_e}")
