@@ -263,7 +263,7 @@
                 </div>
                 
                 <!-- Messages Box -->
-                <div id="chat-box" class="flex-grow p-4 overflow-y-auto bg-slate-50/40 space-y-3">
+                <div id="chat-box" data-contract-id="{{ contract.id }}" data-current-user-id="{{ current_user.id }}" class="flex-grow p-4 overflow-y-auto bg-slate-50/40 space-y-3">
                     <!-- Loaded via JS -->
                 </div>
                 
@@ -285,9 +285,9 @@
 
 {% block scripts %}
 <script>
-    const contractId = {{ contract.id }};
-    const currentUserId = {{ current_user.id }};
     const chatBox = document.getElementById('chat-box');
+    const contractId = chatBox.dataset.contractId;
+    const currentUserId = chatBox.dataset.currentUserId;
     const chatInput = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     
@@ -313,7 +313,7 @@
                     return;
                 }
                 data.forEach(msg => {
-                    const isMe = msg.sender_id === currentUserId;
+                    const isMe = String(msg.sender_id) === String(currentUserId);
                     const div = document.createElement('div');
                     div.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
                     
