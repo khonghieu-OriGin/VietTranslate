@@ -190,13 +190,9 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 sm:gap-4">
             {% for item in LANGUAGES %}
             <a href="{{ url_for('translator_language', lang_slug=item.slug) }}"
-               class="card-interactive bg-white rounded-2xl p-4 sm:p-5 text-center border border-slate-200/90 group flex flex-col items-center justify-between shadow-soft">
-                <div class="w-10 h-7 rounded overflow-hidden shadow-xs border border-slate-200/80 mb-3 group-hover:scale-105 transition-transform duration-200 flex items-center justify-center bg-slate-100">
-                    <img src="{{ item.flag_svg }}" alt="{{ item.flag_alt }}" class="w-full h-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-                    <span style="display:none; font-size:1.25rem; line-height:1;" aria-hidden="true">{{ item.flag }}</span>
-                </div>
-                <div class="mb-1">
-                    <span class="inline-block text-[11px] font-extrabold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md uppercase tracking-wider mb-1">
+               class="card-interactive bg-white rounded-2xl p-5 text-center border border-slate-200/90 group flex flex-col items-center justify-between shadow-soft hover:border-brand-300 transition-all duration-200">
+                <div class="mb-2">
+                    <span class="inline-block text-xs font-extrabold text-brand-600 bg-brand-50 border border-brand-200/60 px-2.5 py-1 rounded-lg uppercase tracking-wider mb-2 group-hover:bg-brand-600 group-hover:text-white transition-colors">
                         {{ item.code }}
                     </span>
                     <h3 class="font-bold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">
