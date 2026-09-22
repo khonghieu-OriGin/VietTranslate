@@ -478,14 +478,18 @@ database_url = os.getenv("DATABASE_URL")
 if database_url:
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
-    elif database_url.startswith("postgresql://"):
+    elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if 'postgresql' in database_url and 'sslmode' not in database_url:
+        sep = '&' if '?' in database_url else '?'
+        database_url += f'{sep}sslmode=require'
 else:
     if os.environ.get('VERCEL') == '1':
         database_url = 'sqlite:///:memory:'
     else:
         database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
 
+print(f"[DB] Using: {database_url[:50]}...", file=__import__('sys').stderr)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
 if database_url.startswith('sqlite'):
@@ -948,11 +952,19 @@ def translator_list():
 
 @app.route('/api/health')
 def api_health():
-    user_count = User.query.count()
-    profile_count = TranslatorProfile.query.count()
-    service_count = Service.query.count()
+    try:
+        user_count = User.query.count()
+        profile_count = TranslatorProfile.query.count()
+        service_count = Service.query.count()
+        db_status = 'connected'
+    except Exception as e:
+        user_count = profile_count = service_count = -1
+        db_status = f'error: {e}'
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    safe_uri = db_uri.split('@')[-1] if '@' in db_uri else db_uri[:60]
     return jsonify({
-        'db_uri': app.config['SQLALCHEMY_DATABASE_URI'],
+        'db_host': safe_uri,
+        'db_status': db_status,
         'vercel': os.environ.get('VERCEL', '0'),
         'users': user_count,
         'profiles': profile_count,
