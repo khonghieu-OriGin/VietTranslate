@@ -488,7 +488,7 @@ else:
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
-if os.environ.get('VERCEL') == '1':
+if database_url.startswith('sqlite'):
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
