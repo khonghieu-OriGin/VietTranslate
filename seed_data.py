@@ -7,45 +7,45 @@ def seed_data():
 
     # === USERS ===
     admin = User(name='Admin VietTranslate', email='admin@vt.com',
-                 password_hash=generate_password_hash('admin12345'),
+                 password_hash=generate_password_hash('admin123'),
                  role='admin', is_admin=True)
     hirer1 = User(name='Nguyễn Văn A', email='hirer@test.com',
-                  password_hash=generate_password_hash('12345678'), role='hirer')
+                  password_hash=generate_password_hash('123456'), role='hirer')
     hirer2 = User(name='Công ty ABC Ltd', email='hirer2@test.com',
-                  password_hash=generate_password_hash('12345678'), role='hirer')
+                  password_hash=generate_password_hash('123456'), role='hirer')
     hirer3 = User(name='Trần Quốc Bảo', email='hirer3@test.com',
-                  password_hash=generate_password_hash('12345678'), role='hirer')
+                  password_hash=generate_password_hash('123456'), role='hirer')
 
     # --- Translator: Tiếng Anh (English) ---
     trans_en = User(name='Lê Văn Cường', email='trans_en@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Nhật (Japanese) ---
     trans_jp = User(name='Trần Thị Bích', email='trans_jp@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Hàn (Korean) ---
     trans_kr = User(name='Phạm Thị Dung', email='trans_kr@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Trung (Chinese) ---
     trans_cn = User(name='Hoàng Minh Đức', email='trans_cn@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Pháp (French) ---
     trans_fr = User(name='Nguyễn Thị Mai Hương', email='trans_fr@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Đức (German) ---
     trans_de = User(name='Vũ Đình Khoa', email='trans_de@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Nga (Russian) ---
     trans_ru = User(name='Đặng Thị Thanh Hà', email='trans_ru@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Thái (Thai) ---
     trans_th = User(name='Lý Hoàng Nam', email='trans_th@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Bồ Đào Nha (Portuguese) ---
     trans_pt = User(name='Bùi Quang Huy', email='trans_pt@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
     # --- Translator: Tiếng Tây Ban Nha (Spanish) ---
     trans_es = User(name='Ngô Thị Lan Anh', email='trans_es@test.com',
-                    password_hash=generate_password_hash('12345678'), role='translator')
+                    password_hash=generate_password_hash('123456'), role='translator')
 
     all_translators = [trans_en, trans_jp, trans_kr, trans_cn, trans_fr, trans_de, trans_ru, trans_th, trans_pt, trans_es]
     db.session.add_all([admin, hirer1, hirer2, hirer3] + all_translators)
