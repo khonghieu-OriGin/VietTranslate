@@ -5,7 +5,7 @@
 {% block content %}
 <div class="max-w-lg mx-auto px-4 sm:px-6 py-12 sm:py-16">
     <div class="bg-white p-8 sm:p-10 rounded-2xl shadow-soft border border-slate-200/90">
-        
+
         <div class="text-center mb-8">
             <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
                 {{ t('auth.register_badge') }}
@@ -14,25 +14,40 @@
             <p class="text-xs text-slate-500 mt-1">{{ t('auth.register_sub') }}</p>
         </div>
 
-        <form method="POST" action="{{ url_for('register') }}" class="space-y-5">
+        <!-- Social Login -->
+        <div class="space-y-3 mb-6">
+            <a href="{{ url_for('google_login') }}" class="w-full border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2.5 transition text-xs sm:text-sm no-underline">
+                <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
+                <span>{{ t('auth.google_login') }}</span>
+            </a>
+        </div>
+
+        <div class="relative flex py-2 items-center mb-6">
+            <div class="flex-grow border-t border-slate-200"></div>
+            <span class="flex-shrink-0 mx-3 text-slate-400 text-xs uppercase tracking-wider font-medium">{{ t('auth.or_email') }}</span>
+            <div class="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <form method="POST" action="{{ url_for('register') }}" class="space-y-5" id="registerForm">
             <!-- Role Selection -->
             <div>
-                <label class="block text-slate-700 font-bold mb-2.5 text-xs uppercase tracking-wider">{{ t('auth.role_label') }}</label>
+                <label class="block text-slate-700 font-bold mb-2.5 text-xs uppercase tracking-wider">{{ t('auth.role_label') }} <span class="text-red-500">*</span></label>
                 <div class="grid grid-cols-2 gap-3">
-                    <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group">
-                        <input type="radio" name="role" value="hirer" class="absolute top-3 right-3 text-brand-600" checked>
+                    <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group" id="role-client-label">
+                        <input type="radio" name="role" value="client" class="absolute top-3 right-3 text-brand-600" required>
                         <span class="text-2xl mb-1.5">🏢</span>
                         <span class="font-bold text-slate-900 text-xs sm:text-sm block">{{ t('auth.role_hirer') }}</span>
                         <span class="text-[11px] text-slate-400 mt-0.5">{{ t('auth.role_hirer_desc') }}</span>
                     </label>
-                    
-                    <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group">
-                        <input type="radio" name="role" value="translator" class="absolute top-3 right-3 text-brand-600">
+
+                    <label class="cursor-pointer border border-slate-200 rounded-2xl p-4 flex flex-col items-center text-center hover:border-brand-500 hover:bg-brand-50/40 transition relative group" id="role-interpreter-label">
+                        <input type="radio" name="role" value="interpreter" class="absolute top-3 right-3 text-brand-600">
                         <span class="text-2xl mb-1.5">🎓</span>
                         <span class="font-bold text-slate-900 text-xs sm:text-sm block">{{ t('auth.role_translator') }}</span>
                         <span class="text-[11px] text-slate-400 mt-0.5">{{ t('auth.role_translator_desc') }}</span>
                     </label>
                 </div>
+                <p id="roleError" class="text-red-500 text-xs mt-1 hidden">{{ t('auth.role_required') }}</p>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -41,29 +56,121 @@
                     <input type="text" name="name" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.fullname_placeholder') }}">
                 </div>
                 <div>
-                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.phone_label') }} <span class="text-red-500">*</span></label>
-                    <input type="tel" name="phone" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.phone_placeholder') }}">
+                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.phone_label') }}</label>
+                    <input type="tel" name="phone" id="phoneInput" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.phone_placeholder') }}">
+                    <p id="phoneError" class="text-red-500 text-xs mt-1 hidden">{{ t('auth.phone_invalid') }}</p>
                 </div>
             </div>
-            
+
             <div>
                 <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.work_email_label') }} <span class="text-red-500">*</span></label>
                 <input type="email" name="email" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.work_email_placeholder') }}">
             </div>
-            
+
             <div>
                 <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.password_label') }} <span class="text-red-500">*</span></label>
-                <input type="password" name="password" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.password_placeholder') }}">
+                <div class="relative">
+                    <input type="password" name="password" id="regPassword" required minlength="8" class="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.password_placeholder') }}">
+                    <button type="button" onclick="togglePassword('regPassword', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        <svg class="w-4 h-4 eye-show" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                        <svg class="w-4 h-4 eye-hide hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                    </button>
+                </div>
+                <p class="text-slate-400 text-[11px] mt-1">{{ t('auth.password_hint') }}</p>
             </div>
 
-            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
+            <div>
+                <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.confirm_password_label') }} <span class="text-red-500">*</span></label>
+                <input type="password" name="confirm_password" id="confirmPassword" required minlength="8" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50" placeholder="{{ t('auth.confirm_password_placeholder') }}">
+                <p id="confirmError" class="text-red-500 text-xs mt-1 hidden">{{ t('auth.password_mismatch') }}</p>
+            </div>
+
+            <button type="submit" id="registerBtn" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 rounded-xl transition shadow-sm text-xs sm:text-sm mt-2">
                 {{ t('auth.register_button') }}
             </button>
         </form>
-        
+
         <p class="text-center mt-6 text-slate-500 text-xs">
             {{ t('auth.have_account') }} <a href="{{ url_for('login') }}" class="text-brand-600 font-bold hover:underline">{{ t('auth.login_link') }}</a>
         </p>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const showIcon = btn.querySelector('.eye-show');
+    const hideIcon = btn.querySelector('.eye-hide');
+    if (input.type === 'password') {
+        input.type = 'text';
+        showIcon.classList.add('hidden');
+        hideIcon.classList.remove('hidden');
+    } else {
+        input.type = 'password';
+        showIcon.classList.remove('hidden');
+        hideIcon.classList.add('hidden');
+    }
+}
+
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+    const pw = document.getElementById('regPassword').value;
+    const cpw = document.getElementById('confirmPassword').value;
+    const roleSelected = document.querySelector('input[name="role"]:checked');
+    const phoneInput = document.getElementById('phoneInput');
+    let hasError = false;
+
+    // Role validation
+    if (!roleSelected) {
+        document.getElementById('roleError').classList.remove('hidden');
+        hasError = true;
+    } else {
+        document.getElementById('roleError').classList.add('hidden');
+    }
+
+    // Password match
+    if (pw !== cpw) {
+        document.getElementById('confirmError').classList.remove('hidden');
+        hasError = true;
+    } else {
+        document.getElementById('confirmError').classList.add('hidden');
+    }
+
+    // Phone validation (if provided)
+    if (phoneInput.value.trim()) {
+        const cleaned = phoneInput.value.replace(/[\s\-\.]/g, '');
+        const vnPhone = /^(\+84|84|0)(3|5|7|8|9)\d{8}$/;
+        if (!vnPhone.test(cleaned)) {
+            document.getElementById('phoneError').classList.remove('hidden');
+            hasError = true;
+        } else {
+            document.getElementById('phoneError').classList.add('hidden');
+        }
+    }
+
+    if (hasError) {
+        e.preventDefault();
+        return;
+    }
+
+    const btn = document.getElementById('registerBtn');
+    btn.disabled = true;
+    btn.textContent = '{{ t("auth.registering") }}';
+    btn.classList.add('opacity-75', 'cursor-not-allowed');
+});
+
+// Visual feedback on role selection
+document.querySelectorAll('input[name="role"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+        document.querySelectorAll('input[name="role"]').forEach(function(r) {
+            r.closest('label').classList.remove('border-brand-500', 'bg-brand-50/40');
+            r.closest('label').classList.add('border-slate-200');
+        });
+        this.closest('label').classList.add('border-brand-500', 'bg-brand-50/40');
+        this.closest('label').classList.remove('border-slate-200');
+        document.getElementById('roleError').classList.add('hidden');
+    });
+});
+</script>
 {% endblock %}

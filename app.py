@@ -1,9 +1,12 @@
 import os
+import secrets
+import hashlib
+import hmac
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response
 from models import db, User, TranslatorProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 import re
 from translations import t as t_lookup, get_localized_languages
@@ -473,6 +476,13 @@ LANGUAGE_PAGES = {
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# ─── GOOGLE OAUTH CONFIG ─────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
+GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET', '')
 basedir = os.path.abspath(os.path.dirname(__file__))
 database_url = os.getenv("DATABASE_URL")
 if database_url:
@@ -569,6 +579,29 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def role_required(allowed_role):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if 'user_id' not in session:
+                flash('Vui lòng đăng nhập để tiếp tục.', 'warning')
+                return redirect(url_for('login'))
+            uid = session['user_id']
+            if isinstance(uid, str) and uid.startswith('mongo:'):
+                user_role = session.get('user_role', '')
+            else:
+                user = User.query.get(uid)
+                if not user:
+                    session.clear()
+                    return redirect(url_for('login'))
+                user_role = user.role
+            if user_role != allowed_role:
+                flash('Bạn không có quyền truy cập trang này.', 'error')
+                return redirect(url_for('index'))
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
 @app.template_filter('format_date_vn')
 def format_date_vn(val):
     if not val:
@@ -657,54 +690,105 @@ def payment_info():
 
 # ─── AUTH ──────────────────────────────────────────────────────────────────────
 
+def _login_user_session(user_id, user_name, user_role, is_admin):
+    session.clear()
+    session['user_id'] = user_id
+    session['user_name'] = user_name
+    session['user_role'] = user_role
+    session['is_admin'] = is_admin
+    session.permanent = True
+
+def _get_dashboard_redirect(role, is_admin=False):
+    if is_admin:
+        return redirect(url_for('admin_dashboard'))
+    if role == 'translator':
+        return redirect(url_for('interpreter_dashboard'))
+    return redirect(url_for('client_dashboard'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session:
+        return _get_dashboard_redirect(session.get('user_role', ''), session.get('is_admin', False))
+
     if request.method == 'POST':
-        email = request.form.get('email')
-        password = request.form.get('password')
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+
+        if not email or not password:
+            flash('Email hoặc mật khẩu không chính xác.', 'error')
+            return render_template('login.html')
 
         # ── Thử MongoDB trước (khi deploy trên Vercel) ──
         if MONGO_URI:
             mongo_user = mongo_find_user_by_email(email)
             if mongo_user and mongo_user.get('is_active', True) and \
+                    mongo_user.get('password_hash') and \
                     check_password_hash(mongo_user['password_hash'], password):
-                # Lưu mongo _id dạng string vào session với prefix để phân biệt
-                session['user_id'] = f"mongo:{mongo_user['_id']}"
-                session['user_name'] = mongo_user.get('name', '')
-                session['user_role'] = mongo_user.get('role', '')
-                session['is_admin'] = mongo_user.get('is_admin', False)
+                _login_user_session(
+                    f"mongo:{mongo_user['_id']}",
+                    mongo_user.get('name', ''),
+                    mongo_user.get('role', ''),
+                    mongo_user.get('is_admin', False)
+                )
                 flash('Đăng nhập thành công!', 'success')
-                if mongo_user.get('is_admin'):
-                    return redirect(url_for('admin_dashboard'))
-                return redirect(url_for('index'))
+                return _get_dashboard_redirect(
+                    mongo_user.get('role', ''),
+                    mongo_user.get('is_admin', False)
+                )
             elif mongo_user:
-                flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.', 'error')
+                flash('Email hoặc mật khẩu không chính xác.', 'error')
                 return render_template('login.html')
-            # Nếu không tìm thấy trong MongoDB thì fallback xuống SQLite bên dưới
 
         # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         user = User.query.filter_by(email=email).first()
-        if user and user.is_active and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
+        if user and user.is_active and user.password_hash and \
+                check_password_hash(user.password_hash, password):
+            _login_user_session(user.id, user.name, user.role, user.is_admin)
             flash('Đăng nhập thành công!', 'success')
-            if user.is_admin:
-                return redirect(url_for('admin_dashboard'))
-            return redirect(url_for('index'))
+            return _get_dashboard_redirect(user.role, user.is_admin)
         else:
-            flash('Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khoá.', 'error')
+            flash('Email hoặc mật khẩu không chính xác.', 'error')
     return render_template('login.html')
+
+def _validate_vn_phone(phone):
+    cleaned = re.sub(r'[\s\-\.]', '', phone)
+    return bool(re.match(r'^(\+84|84|0)(3|5|7|8|9)\d{8}$', cleaned))
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        phone = request.form.get('phone')
+        name = (request.form.get('name') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        confirm_password = request.form.get('confirm_password') or ''
+        phone = (request.form.get('phone') or '').strip()
         role = request.form.get('role')
 
-        if role not in ('hirer', 'translator'):
+        ROLE_MAP = {'client': 'hirer', 'interpreter': 'translator',
+                    'hirer': 'hirer', 'translator': 'translator'}
+        mapped_role = ROLE_MAP.get(role)
+        if not mapped_role:
             flash('Vai trò không hợp lệ.', 'error')
+            return redirect(url_for('register'))
+
+        if not name:
+            flash('Vui lòng nhập họ và tên.', 'error')
+            return redirect(url_for('register'))
+
+        if not email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email):
+            flash('Vui lòng nhập email hợp lệ.', 'error')
+            return redirect(url_for('register'))
+
+        if len(password) < 8:
+            flash('Mật khẩu phải có ít nhất 8 ký tự.', 'error')
+            return redirect(url_for('register'))
+
+        if password != confirm_password:
+            flash('Mật khẩu xác nhận không khớp.', 'error')
+            return redirect(url_for('register'))
+
+        if phone and not _validate_vn_phone(phone):
+            flash('Số điện thoại không đúng định dạng Việt Nam.', 'error')
             return redirect(url_for('register'))
 
         hashed_pw = generate_password_hash(password)
@@ -716,27 +800,27 @@ def register():
                 email=email,
                 hashed_password=hashed_pw,
                 phone=phone,
-                role=role,
+                role=mapped_role,
             )
             if success:
                 flash('Đăng ký thành công! Vui lòng đăng nhập.', 'success')
                 return redirect(url_for('login'))
             else:
-                flash(message, 'error')
+                flash('Email này đã được đăng ký. Vui lòng đăng nhập.', 'error')
                 return redirect(url_for('register'))
 
         # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
         if User.query.filter_by(email=email).first():
-            flash('Email đã được sử dụng.', 'error')
+            flash('Email này đã được đăng ký. Vui lòng đăng nhập.', 'error')
             return redirect(url_for('register'))
 
         new_user = User(name=name, email=email,
                         password_hash=hashed_pw,
-                        phone=phone, role=role)
+                        phone=phone, role=mapped_role)
         db.session.add(new_user)
         db.session.commit()
 
-        if role == 'translator':
+        if mapped_role == 'translator':
             profile = TranslatorProfile(user_id=new_user.id)
             db.session.add(profile)
             db.session.commit()
@@ -747,9 +831,325 @@ def register():
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
+    session.clear()
     flash('Đã đăng xuất.', 'success')
-    return redirect(url_for('index'))
+    return redirect(url_for('login'))
+
+# ─── DASHBOARDS ───────────────────────────────────────────────────────────────
+
+@app.route('/client/dashboard')
+@login_required
+@role_required('hirer')
+def client_dashboard():
+    uid = session['user_id']
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        return render_template('client_dashboard.html')
+    user = User.query.get(uid)
+    jobs = Job.query.filter_by(hirer_id=uid, is_flagged=False).order_by(Job.created_at.desc()).limit(10).all()
+    contracts = Contract.query.filter_by(hirer_id=uid).order_by(Contract.created_at.desc()).limit(10).all()
+    return render_template('client_dashboard.html', user=user, jobs=jobs, contracts=contracts)
+
+@app.route('/interpreter/dashboard')
+@login_required
+@role_required('translator')
+def interpreter_dashboard():
+    uid = session['user_id']
+    if isinstance(uid, str) and uid.startswith('mongo:'):
+        return render_template('interpreter_dashboard.html')
+    user = User.query.get(uid)
+    proposals = Proposal.query.filter_by(translator_id=uid).order_by(Proposal.created_at.desc()).limit(10).all()
+    contracts = Contract.query.filter_by(translator_id=uid).order_by(Contract.created_at.desc()).limit(10).all()
+    return render_template('interpreter_dashboard.html', user=user, proposals=proposals, contracts=contracts)
+
+# ─── GOOGLE OAUTH ─────────────────────────────────────────────────────────────
+
+def _generate_oauth_state():
+    state = secrets.token_urlsafe(32)
+    session['oauth_state'] = state
+    return state
+
+@app.route('/auth/google')
+def google_login():
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        flash('Đăng nhập Google chưa được cấu hình.', 'error')
+        return redirect(url_for('login'))
+    state = _generate_oauth_state()
+    callback_url = url_for('google_callback', _external=True)
+    google_auth_url = (
+        'https://accounts.google.com/o/oauth2/v2/auth?'
+        f'client_id={GOOGLE_CLIENT_ID}'
+        f'&redirect_uri={callback_url}'
+        '&response_type=code'
+        '&scope=openid%20email%20profile'
+        f'&state={state}'
+        '&access_type=offline'
+        '&prompt=select_account'
+    )
+    return redirect(google_auth_url)
+
+@app.route('/auth/google/callback')
+def google_callback():
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        flash('Không thể đăng nhập bằng Google. Vui lòng thử lại.', 'error')
+        return redirect(url_for('login'))
+
+    state = request.args.get('state')
+    if not state or state != session.pop('oauth_state', None):
+        flash('Không thể đăng nhập bằng Google. Vui lòng thử lại.', 'error')
+        return redirect(url_for('login'))
+
+    code = request.args.get('code')
+    error = request.args.get('error')
+    if error or not code:
+        flash('Không thể đăng nhập bằng Google. Vui lòng thử lại.', 'error')
+        return redirect(url_for('login'))
+
+    try:
+        import urllib.request
+        import urllib.parse
+        import json
+
+        callback_url = url_for('google_callback', _external=True)
+        token_data = urllib.parse.urlencode({
+            'code': code,
+            'client_id': GOOGLE_CLIENT_ID,
+            'client_secret': GOOGLE_CLIENT_SECRET,
+            'redirect_uri': callback_url,
+            'grant_type': 'authorization_code',
+        }).encode()
+        token_req = urllib.request.Request(
+            'https://oauth2.googleapis.com/token',
+            data=token_data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+        with urllib.request.urlopen(token_req, timeout=10) as resp:
+            token_result = json.loads(resp.read())
+
+        access_token = token_result.get('access_token')
+        if not access_token:
+            raise ValueError('No access token')
+
+        userinfo_req = urllib.request.Request(
+            'https://www.googleapis.com/oauth2/v3/userinfo',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        with urllib.request.urlopen(userinfo_req, timeout=10) as resp:
+            google_user = json.loads(resp.read())
+
+        google_email = (google_user.get('email') or '').lower()
+        google_name = google_user.get('name') or google_email.split('@')[0]
+
+        if not google_email:
+            flash('Không thể đăng nhập bằng Google. Vui lòng thử lại.', 'error')
+            return redirect(url_for('login'))
+
+    except Exception:
+        flash('Không thể đăng nhập bằng Google. Vui lòng thử lại.', 'error')
+        return redirect(url_for('login'))
+
+    # Check if user exists (MongoDB or SQL)
+    existing_user = None
+    is_mongo = False
+
+    if MONGO_URI:
+        mongo_user = mongo_find_user_by_email(google_email)
+        if mongo_user:
+            existing_user = mongo_user
+            is_mongo = True
+
+    if not existing_user:
+        existing_user = User.query.filter_by(email=google_email).first()
+
+    if existing_user:
+        if is_mongo:
+            _login_user_session(
+                f"mongo:{existing_user['_id']}",
+                existing_user.get('name', ''),
+                existing_user.get('role', ''),
+                existing_user.get('is_admin', False)
+            )
+            flash('Đăng nhập thành công!', 'success')
+            return _get_dashboard_redirect(
+                existing_user.get('role', ''),
+                existing_user.get('is_admin', False)
+            )
+        else:
+            _login_user_session(
+                existing_user.id,
+                existing_user.name,
+                existing_user.role,
+                existing_user.is_admin
+            )
+            flash('Đăng nhập thành công!', 'success')
+            return _get_dashboard_redirect(existing_user.role, existing_user.is_admin)
+
+    # New Google user - need role selection
+    session['google_pending_email'] = google_email
+    session['google_pending_name'] = google_name
+    return redirect(url_for('select_role'))
+
+@app.route('/select-role', methods=['GET', 'POST'])
+def select_role():
+    google_email = session.get('google_pending_email')
+    google_name = session.get('google_pending_name')
+    if not google_email:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        role = request.form.get('role')
+        ROLE_MAP = {'client': 'hirer', 'interpreter': 'translator',
+                    'hirer': 'hirer', 'translator': 'translator'}
+        mapped_role = ROLE_MAP.get(role)
+        if not mapped_role:
+            flash('Vai trò không hợp lệ.', 'error')
+            return render_template('select_role.html',
+                                   google_name=google_name,
+                                   google_email=google_email)
+
+        if MONGO_URI:
+            col = get_mongo_users()
+            if col is not None:
+                col.insert_one({
+                    'name': google_name,
+                    'email': google_email,
+                    'password_hash': '',
+                    'phone': '',
+                    'role': mapped_role,
+                    'is_admin': False,
+                    'is_active': True,
+                    'auth_provider': 'google',
+                    'created_at': datetime.utcnow(),
+                })
+                mongo_user = mongo_find_user_by_email(google_email)
+                if mongo_user:
+                    session.pop('google_pending_email', None)
+                    session.pop('google_pending_name', None)
+                    _login_user_session(
+                        f"mongo:{mongo_user['_id']}",
+                        mongo_user.get('name', ''),
+                        mongo_user.get('role', ''),
+                        False
+                    )
+                    flash('Đăng ký thành công!', 'success')
+                    return _get_dashboard_redirect(mapped_role)
+        else:
+            new_user = User(
+                name=google_name,
+                email=google_email,
+                password_hash='',
+                phone='',
+                role=mapped_role
+            )
+            db.session.add(new_user)
+            db.session.commit()
+            if mapped_role == 'translator':
+                profile = TranslatorProfile(user_id=new_user.id)
+                db.session.add(profile)
+                db.session.commit()
+
+            session.pop('google_pending_email', None)
+            session.pop('google_pending_name', None)
+            _login_user_session(new_user.id, new_user.name, new_user.role, False)
+            flash('Đăng ký thành công!', 'success')
+            return _get_dashboard_redirect(mapped_role)
+
+        flash('Không thể tạo tài khoản. Vui lòng thử lại.', 'error')
+        return redirect(url_for('login'))
+
+    return render_template('select_role.html',
+                           google_name=google_name,
+                           google_email=google_email)
+
+# ─── FORGOT PASSWORD ─────────────────────────────────────────────────────────
+
+_reset_tokens = {}
+
+def _generate_reset_token(email):
+    token = secrets.token_urlsafe(32)
+    expiry = datetime.utcnow() + timedelta(hours=1)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    _reset_tokens[token_hash] = {'email': email, 'expiry': expiry, 'used': False}
+    return token
+
+def _verify_reset_token(token):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    data = _reset_tokens.get(token_hash)
+    if not data:
+        return None
+    if data['used']:
+        return None
+    if datetime.utcnow() > data['expiry']:
+        del _reset_tokens[token_hash]
+        return None
+    return data
+
+def _consume_reset_token(token):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    if token_hash in _reset_tokens:
+        _reset_tokens[token_hash]['used'] = True
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = (request.form.get('email') or '').strip().lower()
+        if email:
+            user_exists = False
+            if MONGO_URI:
+                if mongo_find_user_by_email(email):
+                    user_exists = True
+            if not user_exists:
+                if User.query.filter_by(email=email).first():
+                    user_exists = True
+
+            if user_exists:
+                token = _generate_reset_token(email)
+                reset_url = url_for('reset_password', token=token, _external=True)
+                print(f"[PASSWORD RESET] {email} -> {reset_url}", file=sys.stderr)
+
+        flash('Nếu email tồn tại trong hệ thống, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.', 'info')
+        return redirect(url_for('forgot_password'))
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    token_data = _verify_reset_token(token)
+    if not token_data:
+        flash('Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    if request.method == 'POST':
+        password = request.form.get('password') or ''
+        confirm_password = request.form.get('confirm_password') or ''
+
+        if len(password) < 8:
+            flash('Mật khẩu phải có ít nhất 8 ký tự.', 'error')
+            return render_template('reset_password.html', token=token)
+
+        if password != confirm_password:
+            flash('Mật khẩu xác nhận không khớp.', 'error')
+            return render_template('reset_password.html', token=token)
+
+        email = token_data['email']
+        hashed_pw = generate_password_hash(password)
+
+        if MONGO_URI:
+            col = get_mongo_users()
+            if col:
+                col.update_one(
+                    {'email': email},
+                    {'$set': {'password_hash': hashed_pw}}
+                )
+
+        user = User.query.filter_by(email=email).first()
+        if user:
+            user.password_hash = hashed_pw
+            db.session.commit()
+
+        _consume_reset_token(token)
+        flash('Đặt lại mật khẩu thành công! Vui lòng đăng nhập.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('reset_password.html', token=token)
 
 # ─── ACCOUNT ───────────────────────────────────────────────────────────────────
 
@@ -794,8 +1194,8 @@ def account_profile():
                     flash('Mật khẩu hiện tại không đúng.', 'error')
                 elif new_pw != confirm_pw:
                     flash('Mật khẩu mới không khớp.', 'error')
-                elif len(new_pw) < 6:
-                    flash('Mật khẩu mới phải ít nhất 6 ký tự.', 'error')
+                elif len(new_pw) < 8:
+                    flash('Mật khẩu phải có ít nhất 8 ký tự.', 'error')
                 else:
                     col.update_one(
                         {"_id": ObjectId(mongo_id)},
@@ -858,8 +1258,8 @@ def account_profile():
                 flash('Mật khẩu hiện tại không đúng.', 'error')
             elif new_pw != confirm_pw:
                 flash('Mật khẩu mới không khớp.', 'error')
-            elif len(new_pw) < 6:
-                flash('Mật khẩu mới phải ít nhất 6 ký tự.', 'error')
+            elif len(new_pw) < 8:
+                flash('Mật khẩu phải có ít nhất 8 ký tự.', 'error')
             else:
                 user.password_hash = generate_password_hash(new_pw)
                 db.session.commit()
