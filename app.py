@@ -950,6 +950,10 @@ def translator_list():
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
 
+@app.route('/api/ping')
+def api_ping():
+    return jsonify({'status': 'ok', 'db_uri_set': bool(os.getenv('DATABASE_URL')), 'version': 'v2'})
+
 @app.route('/api/health')
 def api_health():
     try:
