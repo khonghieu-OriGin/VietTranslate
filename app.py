@@ -8,6 +8,11 @@ from functools import wraps
 import re
 from translations import t as t_lookup, get_localized_languages
 from sqlalchemy.pool import StaticPool
+from dotenv import load_dotenv
+from config import get_config
+from supabase_client import supabase
+
+load_dotenv()
 
 # ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
 MONGO_URI = os.getenv("MONGO_URI")
@@ -474,19 +479,27 @@ LANGUAGE_PAGES = {
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 basedir = os.path.abspath(os.path.dirname(__file__))
-database_url = os.getenv("DATABASE_URL")
+
+# ─── Database Configuration (Supabase > DATABASE_URL > SQLite) ──
+database_url = os.getenv("SUPABASE_DB_URL") or os.getenv("DATABASE_URL")
 if database_url:
+    # Handle PostgreSQL URL schemes
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
     elif database_url.startswith("postgresql://"):
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
+    # Fallback to SQLite
     if os.environ.get('VERCEL') == '1':
         database_url = 'sqlite:///:memory:'
     else:
         database_url = 'sqlite:///' + os.path.join(basedir, 'instance', 'database.db')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+
+# Log current database connection
+db_type = "Supabase" if os.getenv("SUPABASE_DB_URL") else "SQLite"
+print(f"[✓] Database: {db_type}")
 
 if os.environ.get('VERCEL') == '1':
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
