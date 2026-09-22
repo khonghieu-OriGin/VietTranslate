@@ -42,9 +42,10 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
-    password_hash = db.Column(db.String(256), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=True, default='')
     phone = db.Column(db.String(20))
-    role = db.Column(db.String(20), nullable=False)  # 'hirer', 'translator', 'admin'
+    role = db.Column(db.String(20), nullable=False)  # 'hirer' (client), 'translator' (interpreter), 'admin'
+    auth_provider = db.Column(db.String(20), default='email')  # 'email', 'google'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
