@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, date
 from functools import wraps
 import re
-from translations import t as t_lookup, get_localized_languages
+from translations import t as t_lookup, get_localized_languages, get_language_display_name
 from sqlalchemy.pool import StaticPool
 
 # ─── MONGODB (dùng khi deploy trên Vercel) ────────────────────────────────────
@@ -619,7 +619,8 @@ def inject_globals():
         current_user=user,
         LANGUAGES=get_localized_languages(current_lang),
         current_lang=current_lang,
-        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs)
+        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs),
+        lang_name=lambda name: get_language_display_name(name, current_lang)
     )
 
 @app.route('/set-language/<lang>')
@@ -866,7 +867,8 @@ def account_profile():
                 flash('Đã đổi mật khẩu thành công!', 'success')
 
         return redirect(url_for('account_profile'))
-    return render_template('account_profile.html', user=user, LANGUAGES=LANGUAGES)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang))
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()
@@ -1966,7 +1968,8 @@ def api_unread_notifications_count():
 def api_recommended_jobs():
     from services.matching import get_recommended_jobs_for_translator
     limit = request.args.get('limit', 10, type=int)
-    recommended = get_recommended_jobs_for_translator(session['user_id'], limit)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    recommended = get_recommended_jobs_for_translator(session['user_id'], limit, current_lang)
     return jsonify(recommended)
 
 @app.route('/api/jobs/<int:job_id>/recommended-translators', methods=['GET'])
@@ -1975,12 +1978,13 @@ def api_recommended_translators(job_id):
     job = Job.query.get_or_404(job_id)
     if job.hirer_id != session['user_id']:
         abort(403)
-        
+
     from services.matching import get_recommended_translators_for_job
     limit = request.args.get('limit', 10, type=int)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     # Safe execute
     try:
-        recommended = get_recommended_translators_for_job(job_id, limit)
+        recommended = get_recommended_translators_for_job(job_id, limit, current_lang)
         return jsonify(recommended)
     except Exception as e:
         print(f"Error fetching recommended translators: {e}")
