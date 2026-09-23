@@ -154,10 +154,10 @@
           <div class="space-y-1">
             {% set prices = [
               (t('job_list_page.budget_under_1m'), 'p1'),
-              ('500.000 – 1.000.000đ' if current_lang == 'vi' else '500,000 – 1,000,000 VND', 'p2'),
-              ('1.000.000 – 3.000.000đ' if current_lang == 'vi' else '1,000,000 – 3,000,000 VND', 'p3'),
-              ('3.000.000 – 5.000.000đ' if current_lang == 'vi' else '3,000,000 – 5,000,000 VND', 'p4'),
-              ('Trên 5.000.000đ' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
+              ('500,000 – 1,000,000 VND', 'p2'),
+              ('1,000,000 – 3,000,000 VND', 'p3'),
+              ('3,000,000 – 5,000,000 VND', 'p4'),
+              ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
             ] %}
             {% for label, val in prices %}
             <div>
@@ -285,11 +285,11 @@
             
             <div class="text-left sm:text-right shrink-0">
               {% if job.budget_type == 'fixed' and job.budget_min %}
-                <span class="text-base sm:text-lg font-extrabold text-brand-700">{{ "{:,.0f}".format(job.budget_min) }}{{ t('common.currency') }}</span>
+                <span class="text-base sm:text-lg font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</span>
                 <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.fixed_price') }}</span>
               {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
                 <span class="text-base sm:text-lg font-extrabold text-brand-700">
-                  {{ "{:,.0f}".format(job.budget_min) }} – {{ "{:,.0f}".format(job.budget_max) }}{{ t('common.currency') }}
+                  {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
                 </span>
                 <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.budget_range_label') }}</span>
               {% else %}
@@ -400,10 +400,10 @@
       <div class="space-y-1">
         {% set prices = [
           (t('job_list_page.budget_under_1m'), 'p1'),
-          ('500.000 – 1.000.000đ' if current_lang == 'vi' else '500,000 – 1,000,000 VND', 'p2'),
-          ('1.000.000 – 3.000.000đ' if current_lang == 'vi' else '1,000,000 – 3,000,000 VND', 'p3'),
-          ('3.000.000 – 5.000.000đ' if current_lang == 'vi' else '3,000,000 – 5,000,000 VND', 'p4'),
-          ('Trên 5.000.000đ' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
+          ('500,000 – 1,000,000 VND', 'p2'),
+          ('1,000,000 – 3,000,000 VND', 'p3'),
+          ('3,000,000 – 5,000,000 VND', 'p4'),
+          ('Trên 5,000,000 VND' if current_lang == 'vi' else 'Over 5,000,000 VND', 'p5')
         ] %}
         {% for label, val in prices %}
         <div>
@@ -488,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="text-[11px] text-slate-500 mb-2 line-clamp-2">${j.match_reason}</div>
                         <div class="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
                             <span class="text-xs font-bold text-slate-900">
-                                ${j.budget_min ? new Intl.NumberFormat('{{ 'en-US' if current_lang == 'en' else 'vi-VN' }}').format(j.budget_min) + "{{ t('common.currency') }}" : "{{ t('job_list_page.negotiable') }}"}
+                                ${j.budget_min ? Number(j.budget_min).toLocaleString('en-US') + ' VND' : "{{ t('job_list_page.negotiable') }}"}
                             </span>
                             <a href="/job/${j.id}" class="text-[11px] font-bold text-brand-600 hover:text-brand-700">{{ t('job_list_page.view_now') }} &rarr;</a>
                         </div>

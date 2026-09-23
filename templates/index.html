@@ -5,11 +5,12 @@
      SECTION 1: HERO BANNER (Mesh Gradient, Ambient Native Typography, Floating Glass Search)
      ═══════════════════════════════════════════════════════════════ -->
 <section class="relative mesh-hero-bg overflow-hidden pt-12 pb-20 md:pt-18 md:pb-28 border-b border-slate-200/60">
-    
+
     <!-- Ambient Multilingual Floating Typography Layer (Opacity 10-20%, subtle slow drift) -->
     <div class="absolute inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true">
         <!-- Top Left -->
-        <span class="absolute -top-4 left-6 text-6xl md:text-8xl font-black text-brand-700/[0.07] tracking-tight animate-float-1">
+        <span
+            class="absolute -top-4 left-6 text-6xl md:text-8xl font-black text-brand-700/[0.07] tracking-tight animate-float-1">
             Hello
         </span>
         <span class="absolute top-24 left-[18%] text-3xl md:text-5xl font-bold text-indigo-800/[0.12] animate-float-2">
@@ -23,20 +24,25 @@
             Bonjour
         </span>
         <!-- Mid Floating -->
-        <span class="absolute top-1/2 -left-8 text-5xl md:text-7xl font-bold text-slate-800/[0.06] -translate-y-1/2 animate-float-2">
+        <span
+            class="absolute top-1/2 -left-8 text-5xl md:text-7xl font-bold text-slate-800/[0.06] -translate-y-1/2 animate-float-2">
             안녕하세요
         </span>
-        <span class="absolute top-1/2 -right-6 text-5xl md:text-7xl font-bold text-brand-900/[0.06] -translate-y-1/2 animate-float-3">
+        <span
+            class="absolute top-1/2 -right-6 text-5xl md:text-7xl font-bold text-brand-900/[0.06] -translate-y-1/2 animate-float-3">
             你好
         </span>
         <!-- Bottom Floating -->
-        <span class="absolute bottom-12 left-10 text-4xl md:text-5xl font-semibold text-brand-600/[0.08] animate-float-1">
+        <span
+            class="absolute bottom-12 left-10 text-4xl md:text-5xl font-semibold text-brand-600/[0.08] animate-float-1">
             Hallo
         </span>
-        <span class="absolute bottom-8 left-1/3 text-3xl md:text-4xl font-semibold text-slate-800/[0.07] animate-float-2">
+        <span
+            class="absolute bottom-8 left-1/3 text-3xl md:text-4xl font-semibold text-slate-800/[0.07] animate-float-2">
             Hola
         </span>
-        <span class="absolute bottom-16 right-1/4 text-3xl md:text-4xl font-medium text-brand-800/[0.08] animate-float-3">
+        <span
+            class="absolute bottom-16 right-1/4 text-3xl md:text-4xl font-medium text-brand-800/[0.08] animate-float-3">
             Olá
         </span>
         <span class="absolute bottom-6 right-12 text-4xl md:text-6xl font-bold text-indigo-700/[0.08] animate-float-2">
@@ -45,12 +51,14 @@
     </div>
 
     <!-- Soft Glow Orbs -->
-    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-brand-400/10 blur-[100px] rounded-full pointer-events-none" aria-hidden="true"></div>
+    <div class="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-brand-400/10 blur-[100px] rounded-full pointer-events-none"
+        aria-hidden="true"></div>
 
     <div class="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center z-10">
-        
+
         <!-- Subtle Pill Badge -->
-        <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-brand-200/80 shadow-xs mb-6 text-xs font-semibold text-brand-700">
+        <div
+            class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 border border-brand-200/80 shadow-xs mb-6 text-xs font-semibold text-brand-700">
             <span class="w-2 h-2 rounded-full bg-brand-600 animate-pulse"></span>
             <span>{{ t('hero.badge') }}</span>
         </div>
@@ -70,21 +78,30 @@
 
         <!-- ════ Floating Glass Search Card ════ -->
         <div class="glass-search rounded-2xl sm:rounded-3xl p-3 sm:p-4 max-w-4xl mx-auto text-left">
-            <form id="hero-search-form" onsubmit="handleHeroSearch(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-3 items-center">
-                
+            <form id="hero-search-form" onsubmit="handleHeroSearch(event)"
+                class="grid grid-cols-1 sm:grid-cols-12 gap-2.5 sm:gap-3 items-center">
+
                 <!-- Filter 1: Tôi cần -->
-                <div class="sm:col-span-4 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
-                    <label for="search-intent" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{ t('hero.intent_label') }}</label>
-                    <select id="search-intent" class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
+                <div
+                    class="sm:col-span-4 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
+                    <label for="search-intent"
+                        class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{
+                        t('hero.intent_label') }}</label>
+                    <select id="search-intent"
+                        class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
                         <option value="translator">{{ t('hero.intent_translator') }}</option>
                         <option value="job">{{ t('hero.intent_job') }}</option>
                     </select>
                 </div>
 
                 <!-- Filter 2: Ngôn ngữ -->
-                <div class="sm:col-span-4 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
-                    <label for="search-lang" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{ t('hero.lang_label') }}</label>
-                    <select id="search-lang" class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
+                <div
+                    class="sm:col-span-4 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
+                    <label for="search-lang"
+                        class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{
+                        t('hero.lang_label') }}</label>
+                    <select id="search-lang"
+                        class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
                         <option value="">{{ t('hero.all_languages') }}</option>
                         {% for item in LANGUAGES %}
                         <option value="{{ item.name }}">{{ item.flag }} {{ item.name }}</option>
@@ -93,9 +110,13 @@
                 </div>
 
                 <!-- Filter 3: Loại dịch vụ -->
-                <div class="sm:col-span-4 sm:col-end-10 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
-                    <label for="search-service" class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{ t('hero.service_label') }}</label>
-                    <select id="search-service" class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
+                <div
+                    class="sm:col-span-4 sm:col-end-10 bg-slate-50/90 hover:bg-slate-50 border border-slate-200/80 rounded-xl px-3.5 py-2.5 transition">
+                    <label for="search-service"
+                        class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{{
+                        t('hero.service_label') }}</label>
+                    <select id="search-service"
+                        class="w-full bg-transparent text-sm font-semibold text-slate-800 focus:outline-none cursor-pointer">
                         <option value="">{{ t('hero.all_services') }}</option>
                         <option value="Hội thảo">{{ t('hero.service_conference') }}</option>
                         <option value="Tháp tùng">{{ t('hero.service_business') }}</option>
@@ -107,9 +128,14 @@
 
                 <!-- Action Button -->
                 <div class="sm:col-span-3 sm:col-start-10">
-                    <button type="submit" class="w-full h-full min-h-[50px] bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl px-5 py-3 transition duration-150 shadow-md shadow-brand-600/20 flex items-center justify-center gap-2 group">
+                    <button type="submit"
+                        class="w-full h-full min-h-[50px] bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm rounded-xl px-5 py-3 transition duration-150 shadow-md shadow-brand-600/20 flex items-center justify-center gap-2 group">
                         <span>{{ t('hero.search_button') }}</span>
-                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </button>
                 </div>
             </form>
@@ -119,19 +145,23 @@
         <div class="mt-12 pt-8 border-t border-slate-200/70 max-w-3xl mx-auto">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                 <div class="px-2">
-                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('stats.translators_count') }}</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{
+                        t('stats.translators_count') }}</p>
                     <p class="text-xs font-medium text-slate-500 mt-1">{{ t('stats.translators_label') }}</p>
                 </div>
                 <div class="px-2 md:border-l border-slate-200/80">
-                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">10<span class="text-brand-600">+</span></p>
+                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">10<span
+                            class="text-brand-600">+</span></p>
                     <p class="text-xs font-medium text-slate-500 mt-1">{{ t('about_page.stat_languages') }}</p>
                 </div>
                 <div class="px-2 md:border-l border-slate-200/80">
-                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('stats.satisfaction_rate') }}</p>
+                    <p class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{
+                        t('stats.satisfaction_rate') }}</p>
                     <p class="text-xs font-medium text-slate-500 mt-1">{{ t('stats.satisfaction_label') }}</p>
                 </div>
                 <div class="px-2 md:border-l border-slate-200/80">
-                    <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 tracking-tight">100<span class="text-xs font-bold text-slate-600 ml-0.5">%</span></p>
+                    <p class="text-2xl sm:text-3xl font-extrabold text-emerald-600 tracking-tight">100<span
+                            class="text-xs font-bold text-slate-600 ml-0.5">%</span></p>
                     <p class="text-xs font-medium text-slate-500 mt-1">{{ t('stats.escrow_label') }}</p>
                 </div>
             </div>
@@ -145,7 +175,8 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="bg-white border-b border-slate-200/70 py-4 overflow-hidden">
     <div class="max-w-7xl mx-auto px-4">
-        <div class="flex items-center justify-between gap-6 overflow-x-auto no-scrollbar py-1 text-xs sm:text-sm font-semibold text-slate-500">
+        <div
+            class="flex items-center justify-between gap-6 overflow-x-auto no-scrollbar py-1 text-xs sm:text-sm font-semibold text-slate-500">
             <span class="text-[11px] font-bold uppercase tracking-wider text-brand-600 shrink-0">Global Hub:</span>
             <span class="hover:text-slate-900 transition shrink-0">English</span>
             <span class="text-slate-300">·</span>
@@ -177,7 +208,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-slate-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-2xl mx-auto mb-12">
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mb-2.5">
                 {{ t('home_languages.title') }}
@@ -190,9 +221,10 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5 sm:gap-4">
             {% for item in LANGUAGES %}
             <a href="{{ url_for('translator_language', lang_slug=item.slug) }}"
-               class="card-interactive bg-white rounded-2xl p-5 text-center border border-slate-200/90 group flex flex-col items-center justify-between shadow-soft hover:border-brand-300 transition-all duration-200">
+                class="card-interactive bg-white rounded-2xl p-5 text-center border border-slate-200/90 group flex flex-col items-center justify-between shadow-soft hover:border-brand-300 transition-all duration-200">
                 <div class="mb-2">
-                    <span class="inline-block text-xs font-extrabold text-brand-600 bg-brand-50 border border-brand-200/60 px-2.5 py-1 rounded-lg uppercase tracking-wider mb-2 group-hover:bg-brand-600 group-hover:text-white transition-colors">
+                    <span
+                        class="inline-block text-xs font-extrabold text-brand-600 bg-brand-50 border border-brand-200/60 px-2.5 py-1 rounded-lg uppercase tracking-wider mb-2 group-hover:bg-brand-600 group-hover:text-white transition-colors">
                         {{ item.code }}
                     </span>
                     <h3 class="font-bold text-slate-800 text-sm group-hover:text-brand-600 transition-colors">
@@ -214,10 +246,11 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-white border-y border-slate-200/70">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-10">
             <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('featured_translators.badge') }}</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{
+                    t('featured_translators.badge') }}</span>
                 <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1">
                     {{ t('featured_translators.title') }}
                 </h2>
@@ -225,25 +258,36 @@
                     {{ t('featured_translators.subtitle') }}
                 </p>
             </div>
-            <a href="{{ url_for('translator_list') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 group shrink-0">
+            <a href="{{ url_for('translator_list') }}"
+                class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 group shrink-0">
                 <span>{{ t('featured_translators.view_all_btn') }}</span>
-                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
             </a>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {% for profile in top_translators %}
-            <div class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
+            <div
+                class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
                 <div class="p-5 sm:p-6">
                     <!-- Top row: Avatar & Badges -->
                     <div class="flex justify-between items-start mb-4">
-                        <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 text-white font-extrabold text-xl flex items-center justify-center shadow-sm">
+                        <div
+                            class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 text-white font-extrabold text-xl flex items-center justify-center shadow-sm">
                             {{ profile.user.name[0] | upper }}
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             {% if profile.is_verified %}
-                            <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                                <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            <span
+                                class="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                                <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
                                 {{ t('common.verified') }}
                             </span>
                             {% endif %}
@@ -257,7 +301,8 @@
 
                     <!-- Name & Title -->
                     <h3 class="font-bold text-slate-900 text-base mb-1">
-                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" class="hover:text-brand-600 transition-colors">
+                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}"
+                            class="hover:text-brand-600 transition-colors">
                             {{ profile.user.name }}
                         </a>
                     </h3>
@@ -269,7 +314,8 @@
                     {% if profile.languages %}
                     <div class="flex flex-wrap gap-1.5 mb-4">
                         {% for l in profile.languages.split(',') %}
-                        <span class="text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">
+                        <span
+                            class="text-[11px] font-medium text-slate-700 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md">
                             {{ l.strip() }}
                         </span>
                         {% endfor %}
@@ -277,33 +323,40 @@
                     {% endif %}
 
                     <!-- Rating & Completed Jobs -->
-                    <div class="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
+                    <div
+                        class="flex items-center justify-between text-xs text-slate-500 pt-3 border-t border-slate-100">
                         <div class="flex items-center gap-1 text-amber-500 font-bold">
                             <span>★</span>
                             <span class="text-slate-800">{{ profile.rating }}</span>
                             <span class="text-slate-400 font-normal">({{ profile.total_reviews }})</span>
                         </div>
-                        <span class="text-slate-400">{{ profile.total_jobs }} {{ t('featured_translators.jobs_completed_suffix') }}</span>
+                        <span class="text-slate-400">{{ profile.total_jobs }} {{
+                            t('featured_translators.jobs_completed_suffix') }}</span>
                     </div>
                 </div>
 
                 <!-- Card Footer with Price & CTA -->
-                <div class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
+                <div
+                    class="bg-slate-50/70 border-t border-slate-100 px-5 py-3.5 flex items-center justify-between gap-3">
                     <div>
-                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('job_list_page.filter_budget') }}</span>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{
+                            t('job_list_page.filter_budget') }}</span>
                         <span class="text-xs font-bold text-slate-800">
                             {% if profile.services and profile.services[0].basic_price %}
-                            {{ t('featured_translators.price_from') }} {{ "{:,.0f}".format(profile.services[0].basic_price) }} {{ t('common.currency') }}
+                            {{ t('featured_translators.price_from') }} {{
+                            profile.services[0].basic_price|vnd }} VND
                             {% else %}
                             {{ t('latest_jobs.negotiable') }}
                             {% endif %}
                         </span>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">
+                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}"
+                            class="text-xs font-semibold text-brand-600 hover:text-brand-700 bg-white border border-slate-200 hover:border-brand-200 px-3 py-1.5 rounded-lg transition">
                             {{ t('featured_translators.view_profile_btn') }}
                         </a>
-                        <a href="{{ url_for('direct_chat', translator_user_id=profile.user_id) }}" class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">
+                        <a href="{{ url_for('direct_chat', translator_user_id=profile.user_id) }}"
+                            class="text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition">
                             Chat
                         </a>
                     </div>
@@ -320,10 +373,11 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-slate-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="flex flex-col sm:flex-row justify-between sm:items-end gap-4 mb-10">
             <div>
-                <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('latest_jobs.badge') }}</span>
+                <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('latest_jobs.badge')
+                    }}</span>
                 <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1">
                     {{ t('latest_jobs.title') }}
                 </h2>
@@ -331,9 +385,13 @@
                     {{ t('latest_jobs.subtitle') }}
                 </p>
             </div>
-            <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 group shrink-0">
+            <a href="{{ url_for('job_list') }}"
+                class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 group shrink-0">
                 <span>{{ t('latest_jobs.view_all_btn') }}</span>
-                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
             </a>
         </div>
 
@@ -353,40 +411,47 @@
                                 {{ job.created_at.strftime('%d/%m/%Y') }}
                             </span>
                         </div>
-                        <h3 class="font-bold text-slate-900 text-base mb-2">
-                            <a href="{{ url_for('job_detail', job_id=job.id) }}" class="hover:text-brand-600 transition-colors">
-                                {{ job.title }}
-                            </a>
-                        </h3>
-                        <p class="text-xs sm:text-sm text-slate-500 line-clamp-2 leading-relaxed mb-4">
-                            {{ job.description }}
-                        </p>
                     </div>
-
-                    <div class="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
-                        <div>
-                            <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{ t('latest_jobs.budget_label') }}</span>
-                            <span class="text-sm font-bold text-brand-700">
-                                {% if job.budget_max %}
-                                {{ "{:,.0f}".format(job.budget_min) }} – {{ "{:,.0f}".format(job.budget_max) }} {{ t('common.currency') }}
-                                {% elif job.budget_min %}
-                                {{ t('featured_translators.price_from') }} {{ "{:,.0f}".format(job.budget_min) }} {{ t('common.currency') }}
-                                {% else %}
-                                {{ t('latest_jobs.negotiable') }}
-                                {% endif %}
-                            </span>
-                        </div>
-                        <a href="{{ url_for('job_detail', job_id=job.id) }}" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50/70 hover:bg-brand-50 border border-brand-100 px-3.5 py-2 rounded-xl transition">
-                            <span>{{ t('job_list_page.view_details') }}</span>
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <h3 class="font-bold text-slate-900 text-base mb-2">
+                        <a href="{{ url_for('job_detail', job_id=job.id) }}"
+                            class="hover:text-brand-600 transition-colors">
+                            {{ job.title }}
                         </a>
+                    </h3>
+                    <p class="text-xs sm:text-sm text-slate-500 line-clamp-2 leading-relaxed mb-4">
+                        {{ job.description }}
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-100 mt-2">
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase font-semibold block">{{
+                            t('latest_jobs.budget_label') }}</span>
+                        <span class="text-sm font-bold text-brand-700">
+                            {% if job.budget_max %}
+                            {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
+                            {% elif job.budget_min %}
+                            {{ t('featured_translators.price_from') }} {{ job.budget_min|vnd }} VND
+                            {% else %}
+                            {{ t('latest_jobs.negotiable') }}
+                            {% endif %}
+                        </span>
                     </div>
+                    <a href="{{ url_for('job_detail', job_id=job.id) }}"
+                        class="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 bg-brand-50/70 hover:bg-brand-50 border border-brand-100 px-3.5 py-2 rounded-xl transition">
+                        <span>{{ t('job_list_page.view_details') }}</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
                 </div>
-                {% endfor %}
+            </div>
+            {% endfor %}
             {% else %}
-                <div class="col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">
-                    {{ t('latest_jobs.empty_message') }}
-                </div>
+            <div
+                class="col-span-2 text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-400 text-sm">
+                {{ t('latest_jobs.empty_message') }}
+            </div>
             {% endif %}
         </div>
 
@@ -398,7 +463,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-24 bg-white border-y border-slate-200/70">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-2xl mx-auto mb-14">
             <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('trust.badge') }}</span>
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1 mb-3">
@@ -410,11 +475,13 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            
+
             <!-- Pillar 01 -->
-            <div class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
+            <div
+                class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
                 <div>
-                    <span class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">01</span>
+                    <span
+                        class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">01</span>
                     <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('trust.feature2_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
                         {{ t('trust.feature2_desc') }}
@@ -423,9 +490,11 @@
             </div>
 
             <!-- Pillar 02 -->
-            <div class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
+            <div
+                class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
                 <div>
-                    <span class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">02</span>
+                    <span
+                        class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">02</span>
                     <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('trust.feature4_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
                         {{ t('trust.feature4_desc') }}
@@ -434,9 +503,11 @@
             </div>
 
             <!-- Pillar 03 -->
-            <div class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
+            <div
+                class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
                 <div>
-                    <span class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">03</span>
+                    <span
+                        class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">03</span>
                     <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('trust.feature3_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
                         {{ t('trust.feature3_desc') }}
@@ -445,9 +516,11 @@
             </div>
 
             <!-- Pillar 04 -->
-            <div class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
+            <div
+                class="bg-slate-50/80 rounded-2xl p-6 sm:p-7 border border-slate-200/80 hover:border-brand-200 transition-colors flex flex-col justify-between">
                 <div>
-                    <span class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">04</span>
+                    <span
+                        class="text-3xl sm:text-4xl font-black text-brand-600/30 font-sans tracking-tight block mb-4">04</span>
                     <h3 class="font-bold text-slate-900 text-base mb-2">{{ t('trust.feature1_title') }}</h3>
                     <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
                         {{ t('trust.feature1_desc') }}
@@ -465,7 +538,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-slate-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-2xl mx-auto mb-12">
             <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('portfolio.badge') }}</span>
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1 mb-2.5">
@@ -539,7 +612,7 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-24 bg-white border-b border-slate-200/70">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-2xl mx-auto mb-14">
             <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('workflow.badge') }}</span>
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1 mb-2.5">
@@ -551,7 +624,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-5 gap-6 relative">
-            
+
             <div class="text-center md:text-left">
                 <span class="text-2xl font-black text-brand-600 block mb-2">01</span>
                 <h3 class="font-bold text-slate-900 text-sm mb-1.5">{{ t('workflow.step1_title') }}</h3>
@@ -602,10 +675,11 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-slate-50">
     <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="mesh-cta-bg rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
             <div class="relative z-10 max-w-2xl">
-                <span class="inline-block px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-md mb-4">
+                <span
+                    class="inline-block px-3 py-1 rounded-full bg-white/20 text-white text-xs font-semibold backdrop-blur-md mb-4">
                     {{ t('hero.badge') }}
                 </span>
                 <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight mb-4">
@@ -615,11 +689,17 @@
                     {{ t('cta.subtitle') }}
                 </p>
                 <div class="flex flex-wrap items-center gap-4">
-                    <a href="{{ url_for('register') }}" class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-blue-50 font-bold text-sm px-6 py-3.5 rounded-xl transition shadow-md group">
+                    <a href="{{ url_for('register') }}"
+                        class="inline-flex items-center gap-2 bg-white text-brand-700 hover:bg-blue-50 font-bold text-sm px-6 py-3.5 rounded-xl transition shadow-md group">
                         <span>{{ t('cta.btn_join') }}</span>
-                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                        <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none"
+                            stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                     </a>
-                    <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-2 text-white/90 hover:text-white font-semibold text-sm px-4 py-3.5">
+                    <a href="{{ url_for('job_list') }}"
+                        class="inline-flex items-center gap-2 text-white/90 hover:text-white font-semibold text-sm px-4 py-3.5">
                         {{ t('latest_jobs.view_all_btn') }} →
                     </a>
                 </div>
@@ -634,9 +714,10 @@
      ═══════════════════════════════════════════════════════════════ -->
 <section class="py-16 md:py-20 bg-white border-t border-slate-200/70" aria-label="{{ 'Trung tâm thông tin phiên dịch' if current_lang == 'vi' else 'Translation Information Hub' }}">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         <div class="text-center max-w-2xl mx-auto mb-14">
-            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('home_languages.badge') }}</span>
+            <span class="text-xs font-bold uppercase tracking-wider text-brand-600">{{ t('home_languages.badge')
+                }}</span>
             <h2 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight mt-1 mb-2.5">
                 {{ t('home_languages.title') }}
             </h2>
@@ -670,7 +751,8 @@
                             </td>
                             <td class="py-3 px-3 text-slate-500">{{ item.cert }}</td>
                             <td class="py-3 px-3 text-right">
-                                <a href="{{ url_for('translator_language', lang_slug=item.slug) }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline">
+                                <a href="{{ url_for('translator_language', lang_slug=item.slug) }}"
+                                    class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline">
                                     {{ t('home_languages.view_all') }} →
                                 </a>
                             </td>
@@ -688,24 +770,24 @@
 
 {% block scripts %}
 <script>
-function handleHeroSearch(e) {
-    e.preventDefault();
-    const intent = document.getElementById('search-intent').value;
-    const lang = document.getElementById('search-lang').value;
-    
-    if (intent === 'job') {
-        let url = '/jobs';
-        if (lang) {
-            url += `?lang=${encodeURIComponent(lang)}`;
+    function handleHeroSearch(e) {
+        e.preventDefault();
+        const intent = document.getElementById('search-intent').value;
+        const lang = document.getElementById('search-lang').value;
+
+        if (intent === 'job') {
+            let url = '/jobs';
+            if (lang) {
+                url += `?lang=${encodeURIComponent(lang)}`;
+            }
+            window.location.href = url;
+        } else {
+            let url = '/translator';
+            if (lang) {
+                url += `?lang=${encodeURIComponent(lang)}`;
+            }
+            window.location.href = url;
         }
-        window.location.href = url;
-    } else {
-        let url = '/translator';
-        if (lang) {
-            url += `?lang=${encodeURIComponent(lang)}`;
-        }
-        window.location.href = url;
     }
-}
 </script>
 {% endblock %}

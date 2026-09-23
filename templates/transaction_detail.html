@@ -112,7 +112,7 @@
                                     <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
                                 </div>
                                 <h3 class="font-bold text-slate-900 text-sm">{{ 'Thương lượng & Chốt thỏa thuận' if current_lang == 'vi' else 'Negotiation & Agreement' }}</h3>
-                                <p class="text-xs text-slate-500 mt-0.5">{{ 'Giá thống nhất:' if current_lang == 'vi' else 'Agreed budget:' }} <strong class="text-brand-700 font-extrabold">{{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</strong></p>
+                                <p class="text-xs text-slate-500 mt-0.5">{{ 'Giá thống nhất:' if current_lang == 'vi' else 'Agreed budget:' }} <strong class="text-brand-700 font-extrabold">{{ contract.agreed_price|vnd }} VND</strong></p>
                             </div>
                             
                             <!-- Step 2: Escrow -->

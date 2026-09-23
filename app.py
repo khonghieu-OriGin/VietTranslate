@@ -517,6 +517,21 @@ def allowed_file(filename):
 
 db.init_app(app)
 
+# ─── JINJA2 FILTERS ────────────────────────────────────────────────────────────
+
+@app.template_filter('vnd')
+def vnd_filter(value):
+    """Format số tiền theo định dạng VND: có dấu phẩy phân cách hàng trăm, hàng nghìn, hàng triệu.
+    Ví dụ: 1500000 → '1,500,000'
+    """
+    try:
+        if value is None or value == '':
+            return ''
+        n = int(round(float(value)))
+        return f"{n:,}"
+    except (TypeError, ValueError):
+        return value
+
 import sys
 
 def _init_db():

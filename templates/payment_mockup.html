@@ -66,7 +66,7 @@
 
                         <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-3.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex justify-center items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            <span>{{ t('payment_mockup_page.pay_btn') }} {{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
+                            <span>{{ t('payment_mockup_page.pay_btn') }} {{ contract.agreed_price|vnd }} VND</span>
                         </button>
                     </form>
                 </div>
@@ -104,7 +104,7 @@
 
                         <div class="flex justify-between">
                             <span class="text-slate-500">{{ t('payment_mockup_page.agreed_price_label') }}</span>
-                            <span class="font-bold text-slate-800">{{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
+                            <span class="font-bold text-slate-800">{{ contract.agreed_price|vnd }} VND</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-slate-500">{{ t('payment_mockup_page.platform_fee_label') }}</span>
@@ -114,11 +114,11 @@
 
                     <div class="border-t border-slate-100 pt-3.5 flex justify-between items-center mb-4">
                         <span class="font-bold text-slate-900 text-sm">{{ t('payment_mockup_page.total_payment_label') }}</span>
-                        <span class="text-xl font-black text-brand-700">{{ "{:,.0f}".format(contract.agreed_price) }}{{ t('common.currency') }}</span>
+                        <span class="text-xl font-black text-brand-700">{{ contract.agreed_price|vnd }} VND</span>
                     </div>
 
                     <div class="text-[11px] text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-100 leading-relaxed">
-                        {{ t('payment_mockup_page.escrow_note') }} <strong>{{ "{:,.0f}".format(translator_receives) }}{{ t('common.currency') }}</strong> {{ t('payment_mockup_page.escrow_note_suffix') }}
+                        {{ t('payment_mockup_page.escrow_note') }} <strong>{{ translator_receives|vnd }} VND</strong> {{ t('payment_mockup_page.escrow_note_suffix') }}
                     </div>
                 </div>
             </div>

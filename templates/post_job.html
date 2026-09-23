@@ -116,24 +116,57 @@
                     <div>
                         <label class="block text-slate-700 font-bold mb-2 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_type_label') }}</label>
                         <div class="grid grid-cols-3 gap-3">
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
-                                <input type="radio" name="budget_type" value="fixed" checked class="text-brand-600">
+                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-fixed-label">
+                                <input type="radio" name="budget_type" value="fixed" checked class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
                                 <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_fixed') }}</span>
                             </label>
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
-                                <input type="radio" name="budget_type" value="range" class="text-brand-600">
+                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-range-label">
+                                <input type="radio" name="budget_type" value="range" class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
                                 <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_range') }}</span>
                             </label>
-                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1">
-                                <input type="radio" name="budget_type" value="negotiable" class="text-brand-600">
+                            <label class="border border-slate-200 rounded-xl p-3 text-center cursor-pointer hover:border-brand-500 bg-slate-50/60 flex flex-col items-center gap-1 transition" id="budget-type-nego-label">
+                                <input type="radio" name="budget_type" value="negotiable" class="text-brand-600" onchange="handleBudgetTypeChange(this.value)">
                                 <span class="font-bold text-xs text-slate-800">{{ t('post_job_page.budget_negotiable') }}</span>
                             </label>
                         </div>
                     </div>
                     
-                    <div>
-                        <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_amount_label') }}</label>
-                        <input type="number" name="budget_min" class="w-full sm:w-1/2 px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 3000000">
+                    <!-- Fixed / Min Budget Container -->
+                    <div id="budget-input-container">
+                        <div id="fixed-budget-group">
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                                {{ t('post_job_page.budget_amount_label') }}
+                            </label>
+                            <div class="relative w-full sm:w-1/2">
+                                <input type="number" id="budget_min_input" name="budget_min" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 3,000,000 VND" oninput="updateLivePricePreview(this.value, 'fixed-preview')">
+                            </div>
+                            <p id="fixed-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
+                        </div>
+
+                        <!-- Range Budget Group (shown when Range selected) -->
+                        <div id="range-budget-group" class="hidden">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                                        {{ 'Ngân sách tối thiểu (VND)' if current_lang == 'vi' else 'Minimum Budget (VND)' }}
+                                    </label>
+                                    <input type="number" id="budget_min_range_input" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 1,000,000 VND" oninput="syncRangeInputs()">
+                                    <p id="range-min-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
+                                </div>
+                                <div>
+                                    <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                                        {{ 'Ngân sách tối đa (VND)' if current_lang == 'vi' else 'Maximum Budget (VND)' }}
+                                    </label>
+                                    <input type="number" id="budget_max_input" name="budget_max" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 5,000,000 VND" oninput="updateLivePricePreview(this.value, 'range-max-preview')">
+                                    <p id="range-max-preview" class="text-xs text-brand-700 font-bold mt-1.5 hidden"></p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Negotiable Info Note -->
+                        <div id="nego-budget-note" class="hidden p-4 rounded-xl bg-blue-50/70 border border-blue-100 text-xs text-blue-800 leading-relaxed">
+                            💡 <strong>{{ 'Thương lượng tự do:' if current_lang == 'vi' else 'Negotiable Budget:' }}</strong> {{ 'Mức giá sẽ do bạn và các phiên dịch viên thỏa thuận trực tiếp dựa trên tính chất và quy mô công việc.' if current_lang == 'vi' else 'The exact rate will be negotiated directly between you and translators.' }}
+                        </div>
                     </div>
 
                     <!-- Lịch trình & Địa điểm -->
@@ -291,6 +324,62 @@ function updateCategory() {
     const typeSelect = document.getElementById('service_type');
     const selectedText = typeSelect.options[typeSelect.selectedIndex]?.textContent || '';
     document.getElementById('category').value = selectedText;
+}
+
+// Budget handling
+function handleBudgetTypeChange(type) {
+    const fixedGroup = document.getElementById('fixed-budget-group');
+    const rangeGroup = document.getElementById('range-budget-group');
+    const negoNote   = document.getElementById('nego-budget-note');
+    const minInput   = document.getElementById('budget_min_input');
+    const rangeMinIn = document.getElementById('budget_min_range_input');
+    const maxInput   = document.getElementById('budget_max_input');
+
+    if (type === 'fixed') {
+        fixedGroup.classList.remove('hidden');
+        rangeGroup.classList.add('hidden');
+        negoNote.classList.add('hidden');
+        minInput.name = 'budget_min';
+        if (maxInput) maxInput.value = '';
+    } else if (type === 'range') {
+        fixedGroup.classList.add('hidden');
+        rangeGroup.classList.remove('hidden');
+        negoNote.classList.add('hidden');
+        if (minInput) minInput.name = '';
+        if (rangeMinIn) {
+            rangeMinIn.name = 'budget_min';
+            if (minInput && minInput.value && !rangeMinIn.value) {
+                rangeMinIn.value = minInput.value;
+                updateLivePricePreview(rangeMinIn.value, 'range-min-preview');
+            }
+        }
+    } else if (type === 'negotiable') {
+        fixedGroup.classList.add('hidden');
+        rangeGroup.classList.add('hidden');
+        negoNote.classList.remove('hidden');
+        if (minInput) minInput.value = '';
+        if (rangeMinIn) rangeMinIn.value = '';
+        if (maxInput) maxInput.value = '';
+    }
+}
+
+function updateLivePricePreview(val, targetId) {
+    const el = document.getElementById(targetId);
+    if (!el) return;
+    const num = parseFloat(val);
+    if (!isNaN(num) && num > 0) {
+        el.textContent = '≈ ' + Number(num).toLocaleString('en-US') + ' VND';
+        el.classList.remove('hidden');
+    } else {
+        el.classList.add('hidden');
+    }
+}
+
+function syncRangeInputs() {
+    const rangeMinIn = document.getElementById('budget_min_range_input');
+    if (rangeMinIn) {
+        updateLivePricePreview(rangeMinIn.value, 'range-min-preview');
+    }
 }
 
 // Initialize on load
