@@ -275,16 +275,14 @@
                 <div class="p-5 sm:p-6">
                     <!-- Top row: Avatar & Badges -->
                     <div class="flex justify-between items-start mb-4">
-                        {% if profile.avatar_url %}
-                        <div class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
-                            <img src="{{ profile.avatar_url }}" alt="{{ profile.user.name }}" class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300">
+                        <div class="relative w-13 h-13 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
+                            {% if profile.avatar_url %}
+                            <img src="{{ profile.avatar_url }}" alt="{{ profile.user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300">
+                            {% endif %}
+                            <div style="{% if profile.avatar_url %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-xl shadow-sm">
+                                {{ profile.user.name[0] | upper }}
+                            </div>
                         </div>
-                        {% else %}
-                        <div
-                            class="w-13 h-13 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 text-white font-extrabold text-xl flex items-center justify-center shadow-sm shrink-0">
-                            {{ profile.user.name[0] | upper }}
-                        </div>
-                        {% endif %}
                         <div class="flex flex-col items-end gap-1">
                             {% if profile.is_verified %}
                             <span

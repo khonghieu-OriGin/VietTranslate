@@ -206,13 +206,12 @@
                             list.innerHTML = data.map(t => `
                                 <div class="bg-white border border-brand-100 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                                     <div class="flex items-start gap-4">
-                                        ${t.avatar_url ? `
-                                        <div class="w-12 h-12 rounded-xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
-                                            <img src="${t.avatar_url}" alt="${t.name}" class="w-full h-full object-cover object-top">
-                                        </div>` : `
-                                        <div class="w-12 h-12 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-extrabold text-lg shrink-0">
-                                            ${t.avatar_initial}
-                                        </div>`}
+                                        <div class="relative w-12 h-12 rounded-xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
+                                            ${t.avatar_url ? `<img src="${t.avatar_url}" alt="${t.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">` : ''}
+                                            <div style="${t.avatar_url ? 'display:none;' : 'display:flex;'}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-lg shrink-0">
+                                                ${t.avatar_initial}
+                                            </div>
+                                        </div>
                                         <div>
                                             <div class="flex items-center gap-2">
                                                 <a href="/translator/${t.profile_id}" target="_blank" class="font-bold text-slate-900 text-base hover:text-brand-600 transition">${t.name}</a>
