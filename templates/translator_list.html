@@ -360,11 +360,14 @@ function renderCard(fl) {
   const reviewsCountText = CURRENT_LANG === 'en' ? 'reviews' : 'đánh giá';
   const priceLabel = CURRENT_LANG === 'en' ? 'Rates' : 'Mức giá';
   const viewProfileText = CURRENT_LANG === 'en' ? 'View Profile' : 'Xem hồ sơ';
+  const avatarHtml = fl.avatar_url
+    ? `<div class="w-13 h-13 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0"><img src="${fl.avatar_url}" alt="${fl.name}" class="w-full h-full object-cover object-top hover:scale-105 transition-transform duration-300"></div>`
+    : `<div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white text-lg font-extrabold shadow-sm">${fl.initial}</div>`;
   
   return `<div class="card-interactive bg-white rounded-2xl border border-slate-200/90 overflow-hidden flex flex-col justify-between shadow-soft">
     <div class="p-5 sm:p-6 flex-grow">
       <div class="flex justify-between items-start mb-4">
-        <div class="w-13 h-13 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white text-lg font-extrabold shadow-sm">${fl.initial}</div>
+        ${avatarHtml}
         <div>${verifiedHtml}</div>
       </div>
       <h3 class="font-bold text-slate-900 text-base mb-1">

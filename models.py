@@ -56,6 +56,38 @@ class User(db.Model):
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
 
+    @property
+    def avatar_url(self):
+        email_map = {
+            'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
+            'trans_ru@test.com': '/static/avatars/avatar_ha.jpg',
+            'trans_jp@test.com': '/static/avatars/avatar_bich.jpg',
+            'trans_en@test.com': '/static/avatars/avatar_cuong.jpg',
+            'trans_cn@test.com': '/static/avatars/avatar_duc.jpg',
+            'trans_fr@test.com': '/static/avatars/avatar_huong.jpg',
+            'trans_de@test.com': '/static/avatars/avatar_khoa.jpg',
+            'trans_th@test.com': '/static/avatars/avatar_nam.jpg',
+            'trans_pt@test.com': '/static/avatars/avatar_huy.jpg',
+            'trans_es@test.com': '/static/avatars/avatar_lananh.jpg',
+        }
+        name_map = {
+            'phạm thị dung': '/static/avatars/avatar_dung.jpg',
+            'đặng thị thanh hà': '/static/avatars/avatar_ha.jpg',
+            'trần thị bích': '/static/avatars/avatar_bich.jpg',
+            'lê văn cường': '/static/avatars/avatar_cuong.jpg',
+            'hoàng minh đức': '/static/avatars/avatar_duc.jpg',
+            'nguyễn thị mai hương': '/static/avatars/avatar_huong.jpg',
+            'vũ đình khoa': '/static/avatars/avatar_khoa.jpg',
+            'lý hoàng nam': '/static/avatars/avatar_nam.jpg',
+            'bùi quang huy': '/static/avatars/avatar_huy.jpg',
+            'ngô thị lan anh': '/static/avatars/avatar_lananh.jpg',
+        }
+        if self.email and self.email.lower() in email_map:
+            return email_map[self.email.lower()]
+        if self.name and self.name.strip().lower() in name_map:
+            return name_map[self.name.strip().lower()]
+        return None
+
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -71,6 +103,10 @@ class TranslatorProfile(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
 
     services = db.relationship('Service', backref='profile', lazy=True)
+
+    @property
+    def avatar_url(self):
+        return self.user.avatar_url if self.user else None
 
 
 class TranslatorPreference(db.Model):

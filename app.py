@@ -1024,6 +1024,7 @@ def api_translators():
             'id': p.id,
             'user_id': p.user_id,
             'name': p.user.name,
+            'avatar_url': p.avatar_url,
             'initial': p.user.name[0].upper() if p.user.name else '?',
             'title': p.title or '',
             'languages': langs,

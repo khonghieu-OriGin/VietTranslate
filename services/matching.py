@@ -270,6 +270,7 @@ def get_recommended_translators_for_job(job_id, limit=10, lang='vi'):
             'translator_id': t.id,
             'profile_id': prof.id if prof else 0,
             'name': t.name,
+            'avatar_url': t.avatar_url,
             'avatar_initial': t.name[0].upper() if t.name else '?',
             'languages': prof.languages if prof else '',
             'title': prof.title if prof else '',
