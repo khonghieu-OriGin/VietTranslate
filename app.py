@@ -492,10 +492,15 @@ else:
 print(f"[DB] Using: {database_url[:50]}...", file=__import__('sys').stderr)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
-if database_url.startswith('sqlite'):
+if 'sqlite' in database_url:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
+    }
+else:
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_pre_ping': True,
+        'pool_recycle': 300,
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
