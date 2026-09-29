@@ -1149,6 +1149,20 @@ def api_health():
         'services': service_count,
     })
 
+@app.route('/api/debug-index')
+def debug_index():
+    import traceback
+    try:
+        top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
+            TranslatorProfile.rating.desc()).limit(4).all()
+        if not top_translators:
+            top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
+        latest_jobs = Job.query.filter_by(status='open', is_flagged=False).order_by(Job.created_at.desc()).limit(4).all()
+        html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
+        return jsonify({'status': 'ok', 'html_length': len(html)})
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e), 'traceback': traceback.format_exc()})
+
 @app.route('/api/translators')
 def api_translators():
     """JSON API cho client-side filtering realtime."""
