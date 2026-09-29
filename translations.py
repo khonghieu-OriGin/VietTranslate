@@ -4,6 +4,8 @@ VietTranslate Internationalization (i18n) Module
 Contains localized string dictionaries for Vietnamese (vi) and English (en),
 along with helper functions for string lookup and dynamic language list localization.
 """
+import logging
+logger = logging.getLogger(__name__)
 
 TRANSLATIONS = {
     'vi': {
