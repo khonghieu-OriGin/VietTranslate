@@ -5,6 +5,7 @@
 {% block content %}
 <div class="bg-slate-50/60 flex-grow flex flex-col h-[calc(100vh-64px)]">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 h-full w-full flex flex-col">
+        <h1 class="sr-only">{{ t('chat_page.title', name=other_user.name) if other_user else 'Chat' }}</h1>
         
         <!-- Chat Header -->
         <div class="bg-white rounded-t-2xl shadow-soft border border-slate-200/90 p-4 sm:p-5 flex items-center justify-between z-10">
