@@ -1282,3 +1282,7 @@ def get_localized_languages(lang='vi'):
         }
         result.append(entry)
     return result
+
+
+def get_language_display_name(code, lang='vi'):
+    return code

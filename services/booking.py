@@ -63,23 +63,23 @@ def create_contract_booking(
             if existing:
                 raise BookingConflictError("Công việc này đã được tạo hợp đồng.")
 
-        parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
-            scheduled_date, start_time, end_time
-        )
-        parsed = {'date': parsed_date, 'start_time': parsed_start, 'end_time': parsed_end}
-
-        if not is_schedule_complete(parsed):
-            raise BookingValidationError("Vui lòng nhập đầy đủ ngày và giờ hợp lệ.")
-
-        conflict_result = check_translator_schedule_conflict(
-            translator_id=translator.id,
-            scheduled_date=parsed_date,
-            start_time=parsed_start,
-            end_time=parsed_end,
-        )
-
-        if conflict_result.get('conflict'):
-            raise BookingConflictError("Phiên dịch viên đã có lịch trong thời gian này.")
+        from services.scheduling import reserve_slot, SlotTakenError
+        
+        try:
+            schedule = reserve_slot(
+                translator_id=translator.id,
+                scheduled_date=scheduled_date,
+                start_time=start_time,
+                end_time=end_time,
+                job_id=job_id,
+                service_id=service_id
+            )
+        except SlotTakenError as e:
+            raise BookingConflictError(str(e))
+        except ScheduleCheckError as e:
+            raise BookingValidationError(str(e))
+        except Exception as e:
+            raise BookingValidationError(str(e))
 
         contract = Contract(
             job_id=job_id,
@@ -105,17 +105,9 @@ def create_contract_booking(
             job.status = 'contracted'
 
         db.session.flush()
-
-        schedule = TranslatorSchedule(
-            translator_id=translator.id,
-            contract_id=contract.id,
-            service_id=service_id,
-            scheduled_date=parsed_date,
-            start_time=parsed_start,
-            end_time=parsed_end,
-            status='reserved'
-        )
-        db.session.add(schedule)
+        
+        # Link contract_id to the schedule since contract is now created
+        schedule.contract_id = contract.id
         db.session.flush()
 
         from app import create_notification

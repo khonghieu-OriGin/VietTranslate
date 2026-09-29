@@ -1772,6 +1772,8 @@ def payment_mockup(contract_id):
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
         contract.status = 'in_progress'
+        from services.scheduling import confirm_slot
+        confirm_slot(contract.id)
         db.session.commit()
         flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
         return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -2264,6 +2266,21 @@ def api_invite_translator(job_id, translator_id):
         db.session.commit()
         
     return jsonify({'status': 'success'})
+@app.route('/api/cron/release-expired', methods=['GET', 'POST'])
+def cron_release_expired():
+    # Simple secret verification
+    cron_secret = request.args.get('secret') or request.headers.get('Authorization')
+    expected_secret = os.environ.get('CRON_SECRET', 'dev-cron-secret')
+    
+    if cron_secret != expected_secret and cron_secret != f'Bearer {expected_secret}':
+        return jsonify({'error': 'Unauthorized'}), 401
+        
+    from services.scheduling import release_expired
+    try:
+        count = release_expired()
+        return jsonify({'success': True, 'released_count': count})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
