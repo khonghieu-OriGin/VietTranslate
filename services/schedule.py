@@ -230,7 +230,7 @@ def check_translator_schedule_conflict(
         existing = (
             TranslatorSchedule.query
             .filter_by(translator_id=translator_id, scheduled_date=scheduled_date)
-            .filter(TranslatorSchedule.status != 'cancelled')
+            .filter(TranslatorSchedule.status.in_(['reserved', 'active']))
             .all()
         )
 

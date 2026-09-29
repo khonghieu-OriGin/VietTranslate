@@ -26,20 +26,12 @@ def create_contract_booking(
     from app import db
     from sqlalchemy.exc import IntegrityError
     
-    # Production concurrency safety requires PostgreSQL
-    # or another DB backend supporting row-level locking.
     try:
         current_user = User.query.get(hirer_id)
         if not current_user:
             raise BookingValidationError("Người thuê không tồn tại.")
 
-        translator = (
-            User.query
-            .with_for_update()
-            .filter_by(id=translator_id)
-            .first()
-        )
-
+        translator = User.query.get(translator_id)
         if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
             raise BookingValidationError("Phiên dịch viên này hiện không hoạt động hoặc không tồn tại.")
 
@@ -63,24 +55,6 @@ def create_contract_booking(
             if existing:
                 raise BookingConflictError("Công việc này đã được tạo hợp đồng.")
 
-        from services.scheduling import reserve_slot, SlotTakenError
-        
-        try:
-            schedule = reserve_slot(
-                translator_id=translator.id,
-                scheduled_date=scheduled_date,
-                start_time=start_time,
-                end_time=end_time,
-                job_id=job_id,
-                service_id=service_id
-            )
-        except SlotTakenError as e:
-            raise BookingConflictError(str(e))
-        except ScheduleCheckError as e:
-            raise BookingValidationError(str(e))
-        except Exception as e:
-            raise BookingValidationError(str(e))
-
         contract = Contract(
             job_id=job_id,
             proposal_id=proposal_id,
@@ -95,6 +69,26 @@ def create_contract_booking(
             status='escrow_pending'
         )
         db.session.add(contract)
+        db.session.flush()
+
+        from services.scheduling import reserve_slot, SlotTakenError
+        
+        try:
+            schedule = reserve_slot(
+                translator_id=translator.id,
+                scheduled_date=scheduled_date,
+                start_time=start_time,
+                end_time=end_time,
+                contract_id=contract.id,
+                job_id=job_id,
+                service_id=service_id
+            )
+        except SlotTakenError as e:
+            raise BookingConflictError(str(e))
+        except ScheduleCheckError as e:
+            raise BookingValidationError(str(e))
+        except Exception as e:
+            raise BookingValidationError(str(e))
 
         if proposal_id:
             proposal = Proposal.query.get(proposal_id)
@@ -103,12 +97,6 @@ def create_contract_booking(
 
         if job:
             job.status = 'contracted'
-
-        db.session.flush()
-        
-        # Link contract_id to the schedule since contract is now created
-        schedule.contract_id = contract.id
-        db.session.flush()
 
         from app import create_notification
         from services.notifications import should_notify
@@ -129,7 +117,7 @@ def create_contract_booking(
 
     except IntegrityError:
         db.session.rollback()
-        raise BookingConflictError("Công việc này vừa được người khác đặt.")
+        raise BookingConflictError("Công việc này vừa được người khác đặt hoặc đã xảy ra lỗi toàn vẹn dữ liệu.")
     except (BookingConflictError, BookingValidationError, ScheduleCheckError):
         db.session.rollback()
         raise

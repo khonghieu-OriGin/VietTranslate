@@ -46,7 +46,7 @@ def busy_ranges(translator_id, check_date: date):
         ranges.append({'start': start_dt, 'end': end_dt, 'contract_id': s.contract_id})
     return ranges
 
-def release_expired():
+def release_expired(commit=True):
     """
     Giải phóng các lịch đang ở trạng thái 'reserved' nhưng đã hết hạn (quá 30 phút mà chưa thanh toán/xác nhận).
     """
@@ -64,7 +64,10 @@ def release_expired():
         count += 1
         
     if count > 0:
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         logger.info(f"Released {count} expired schedule reservations.")
     return count
 
@@ -84,7 +87,7 @@ def reserve_slot(
     Sẽ raise SlotTakenError nếu trùng lịch.
     """
     # 1. Giải phóng reservation cũ trước khi kiểm tra (tránh false positive)
-    release_expired()
+    release_expired(commit=False)
     
     # 2. Chuẩn hóa & kiểm tra tính hợp lệ
     parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
@@ -146,7 +149,7 @@ def reserve_slot(
             logger.exception("Unexpected error in reserve_slot")
         raise
 
-def confirm_slot(contract_id):
+def confirm_slot(contract_id, commit=False):
     """
     Chuyển trạng thái từ reserved sang active khi đã thanh toán thành công (escrow).
     """
@@ -154,17 +157,33 @@ def confirm_slot(contract_id):
     if not schedule:
         return False
         
+    threshold = datetime.utcnow() - timedelta(minutes=30)
+    if schedule.created_at < threshold:
+        # Nếu đã expired thì không cho active
+        schedule.status = 'cancelled'
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
+        return False
+        
     schedule.status = 'active'
-    db.session.commit()
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
     return True
 
-def cancel_slot(contract_id):
+def cancel_slot(contract_id, commit=False):
     """
     Giải phóng slot (chuyển sang cancelled) khi hủy hợp đồng hoặc đổi lịch.
     """
     schedule = TranslatorSchedule.query.filter_by(contract_id=contract_id).first()
     if schedule and schedule.status in ['reserved', 'active']:
         schedule.status = 'cancelled'
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return True
     return False
