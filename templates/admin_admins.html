@@ -1,0 +1,148 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Phân quyền Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Quản trị viên (Admins)</h1>
+        <p class="page-subtitle">Thêm mới, vô hiệu hóa và phân quyền (RBAC) cho các Admin khác</p>
+    </div>
+    {% if has_permission('manage_admins') or admin_role == 'super_admin' %}
+    <div class="header-actions">
+        <button class="btn btn-primary" onclick="openAddAdminModal()">Thêm Admin mới</button>
+    </div>
+    {% endif %}
+</div>
+
+<div class="admin-card">
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>Admin</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in admins %}
+                <tr class="{% if not a.is_active %}opacity-60 bg-slate-900/50{% endif %}">
+                    <td>
+                        <div class="flex items-center gap-2">
+                            {% if a.avatar_url %}
+                                <img src="{{ a.avatar_url }}" class="w-8 h-8 rounded-full object-cover" alt="Avatar">
+                            {% else %}
+                                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs text-white">
+                                    {{ a.name[:1] | upper }}
+                                </div>
+                            {% endif %}
+                            <div class="font-semibold text-slate-200">
+                                {{ a.name }}
+                                {% if a.id == current_admin.id %}
+                                    <span class="badge badge-blue text-[10px] py-0 ml-1">You</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-sm text-slate-300">{{ a.email }}</td>
+                    <td>
+                        {% if a.admin_role == 'super_admin' %}
+                            <span class="badge badge-yellow">Super Admin</span>
+                        {% elif a.admin_role == 'moderator' %}
+                            <span class="badge badge-blue">Moderator</span>
+                        {% elif a.admin_role == 'finance' %}
+                            <span class="badge badge-green">Finance</span>
+                        {% elif a.admin_role == 'support' %}
+                            <span class="badge badge-gray">Support</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ a.admin_role or 'Unknown' }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if a.is_active %}
+                            <span class="badge badge-green">Active</span>
+                        {% else %}
+                            <span class="badge badge-red">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-slate-400">
+                        {{ a.created_at.strftime('%d/%m/%Y') if a.created_at else '' }}
+                    </td>
+                    <td>
+                        {% if (has_permission('manage_admins') or admin_role == 'super_admin') and a.id != current_admin.id %}
+                        <div class="flex items-center justify-end gap-2">
+                            <form action="{{ url_for('admin_toggle_admin_status', admin_id=a.id) }}" method="POST">
+                                {% if a.is_active %}
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc muốn vô hiệu hóa admin này?')">Vô hiệu hóa</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-sm btn-success">Kích hoạt</button>
+                                {% endif %}
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Add Admin Placeholder -->
+<div id="addAdminModal" class="modal-overlay">
+    <div class="modal-box max-w-lg">
+        <h3 class="modal-title flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.2 0-2.3.5-3 1.3"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Thêm Admin mới
+        </h3>
+        
+        <form action="{{ url_for('admin_add_admin') }}" method="POST" class="mt-4 flex flex-col gap-4">
+            <div class="form-group">
+                <label class="form-label">Tên Admin</label>
+                <input type="text" name="name" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Mật khẩu tạm thời</label>
+                <input type="password" name="password" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Phân quyền (Role)</label>
+                <select name="admin_role" class="form-select" required>
+                    <option value="moderator">Content Moderator (Kiểm duyệt nội dung)</option>
+                    <option value="support">Support (Hỗ trợ khách hàng)</option>
+                    <option value="finance">Finance (Kế toán / Thanh toán)</option>
+                    {% if admin_role == 'super_admin' %}
+                    <option value="super_admin">Super Admin (Toàn quyền)</option>
+                    {% endif %}
+                </select>
+            </div>
+            
+            <div class="modal-actions mt-4">
+                <button type="button" class="btn btn-ghost" onclick="closeAddAdminModal()">Hủy</button>
+                <button type="submit" class="btn btn-primary">Tạo Admin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAddAdminModal() {
+        document.getElementById('addAdminModal').classList.add('open');
+    }
+    
+    function closeAddAdminModal() {
+        document.getElementById('addAdminModal').classList.remove('open');
+    }
+</script>
+{% endblock %}

@@ -1,6 +1,6 @@
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -493,6 +493,7 @@ _is_https_env = bool(
     os.environ.get('FORCE_HTTPS')
 )
 app.config['SESSION_COOKIE_SECURE'] = _is_https_env
+app.config['SESSION_COOKIE_HTTPONLY'] = True   # Ngăn JavaScript đọc session cookie
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -634,6 +635,62 @@ def handle_500(e):
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
+# Import admin_auth module và đăng ký context processor/globals
+from admin_auth import (
+    admin_login_required,
+    require_permission,
+    csrf_protected,
+    audit_log as _audit_log,
+    inject_admin_globals,
+    get_csrf_token,
+    destroy_admin_session,
+    create_admin_session,
+    get_client_ip,
+    ADMIN_SESSION_KEY,
+)
+
+# Đăng ký inject_admin_globals cho tất cả admin templates
+app.context_processor(inject_admin_globals)
+
+# Helper: CSRF token cho templates
+@app.template_global()
+def csrf_token():
+    """Trả về CSRF token hiện tại cho Admin templates."""
+    return get_csrf_token()
+
+
+# Context processor: Badge counts và helpers cho Admin sidebar
+@app.context_processor
+def inject_admin_badges():
+    """
+    Inject badge counts vào tất cả Admin templates.
+    Chỉ query DB khi đang ở admin session để tránh overhead cho user thường.
+    """
+    if not session.get(ADMIN_SESSION_KEY):
+        return {}
+
+    badges = {}
+    try:
+        badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
+        badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
+        badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
+        badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
+    except SQLAlchemyError:
+        badges = {
+            'admin_badge_pending_translators': 0,
+            'admin_badge_flagged_jobs': 0,
+            'admin_badge_reports': 0,
+            'admin_badge_notifications': 0,
+        }
+    return badges
+
+
+@app.template_global()
+def get_admin_routes():
+    """Trả về set tên các admin routes đã được đăng ký để kiểm tra trong sidebar."""
+    return {rule.endpoint for rule in app.url_map.iter_rules() if rule.endpoint.startswith('admin_')}
+
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -644,26 +701,14 @@ def login_required(f):
     return decorated
 
 def admin_required(f):
+    """
+    Decorator cũ — giữ lại để không break các route admin hiện có.
+    Chuyển tiếp sang admin_login_required từ admin_auth.
+    TASK 2: Tất cả route /admin/* phải dùng decorator này.
+    """
     @wraps(f)
     def decorated(*args, **kwargs):
-        if 'user_id' not in session:
-            return redirect(url_for('login'))
-        uid = session['user_id']
-        # MongoDB users: check is_admin từ session (đã lưu khi login)
-        if isinstance(uid, str) and uid.startswith('mongo:'):
-            if not session.get('is_admin', False):
-                flash(_t('flash.unauthorized'), 'error')
-                return redirect(url_for('index'))
-            return f(*args, **kwargs)
-        # SQLite users
-        try:
-            user = User.query.get(uid)
-        except SQLAlchemyError:
-            user = None
-        if not user or not user.is_admin:
-            flash(_t('flash.unauthorized'), 'error')
-            return redirect(url_for('index'))
-        return f(*args, **kwargs)
+        return admin_login_required(f)(*args, **kwargs)
     return decorated
 
 
@@ -2080,6 +2125,149 @@ def send_message(contract_id):
         return jsonify({'status': 'ok'})
     return jsonify({'status': 'error'}), 400
 
+# ─── ADMIN AUTH ROUTES ───────────────────────────────────────────────────────
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """
+    Trang đăng nhập riêng cho Admin.
+    - Không dùng form /login chung với user thường.
+    - Có login throttling: 5 lần thất bại → khóa 15 phút.
+    - Ghi Audit Log cho mọi attempt.
+    - Tạo Admin session tách biệt (admin_id) sau khi xác thực.
+    """
+    # Nếu đã đăng nhập Admin → redirect về dashboard
+    if session.get(ADMIN_SESSION_KEY):
+        from admin_auth import is_admin_session_valid
+        valid, _ = is_admin_session_valid()
+        if valid:
+            return redirect(url_for('admin_dashboard'))
+
+    client_ip = get_client_ip()
+
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
+
+        if not email or not password:
+            flash('Email và mật khẩu không được để trống.', 'error')
+            return render_template('admin_login.html')
+
+        # 1. Kiểm tra lockout TRƯỚC khi query DB
+        try:
+            if LoginAttempt.is_locked_out(email):
+                AdminAuditLog.log(
+                    action=ADMIN_AUDIT_ACTIONS['ACCOUNT_LOCKED'],
+                    description=f'Đăng nhập bị chặn do quá {LoginAttempt.MAX_ATTEMPTS} lần thất bại. Email: {email}',
+                    ip_address=client_ip,
+                    user_agent=request.headers.get('User-Agent', '')[:512],
+                    extra_data={'email': email},
+                )
+                db.session.commit()
+                return render_template(
+                    'admin_login.html',
+                    locked_out=True,
+                    lockout_minutes=LoginAttempt.LOCKOUT_MINUTES,
+                )
+        except SQLAlchemyError:
+            pass  # Nếu DB lỗi, tiếp tục xử lý bình thường
+
+        # 2. Tìm user trong database
+        user = None
+        try:
+            user = User.query.filter_by(email=email).first()
+        except SQLAlchemyError as e:
+            print(f'[ADMIN LOGIN DB ERROR] {e}')
+            flash('Lỗi hệ thống. Vui lòng thử lại sau.', 'error')
+            return render_template('admin_login.html')
+
+        # 3. Xác thực — PHẢI là Admin và còn active
+        login_ok = False
+        if user and user.is_admin and user.is_active:
+            if check_password_hash(user.password_hash, password):
+                login_ok = True
+
+        try:
+            if login_ok:
+                # Đăng nhập thành công
+                LoginAttempt.record(email=email, ip_address=client_ip, success=True)
+                create_admin_session(user)
+                AdminAuditLog.log(
+                    action=ADMIN_AUDIT_ACTIONS['LOGIN_SUCCESS'],
+                    admin_id=user.id,
+                    description=f'Admin đăng nhập thành công. Email: {email}',
+                    ip_address=client_ip,
+                    user_agent=request.headers.get('User-Agent', '')[:512],
+                )
+                db.session.commit()
+                return redirect(url_for('admin_dashboard'))
+            else:
+                # Đăng nhập thất bại — ghi attempt
+                LoginAttempt.record(email=email, ip_address=client_ip, success=False)
+                fail_reason = 'sai mật khẩu' if user else 'không tìm thấy tài khoản'
+                AdminAuditLog.log(
+                    action=ADMIN_AUDIT_ACTIONS['LOGIN_FAILED'],
+                    description=f'Đăng nhập Admin thất bại. Email: {email} | Lý do: {fail_reason}',
+                    ip_address=client_ip,
+                    user_agent=request.headers.get('User-Agent', '')[:512],
+                    extra_data={'email': email},
+                )
+                db.session.commit()
+
+                # Tính số lần còn lại
+                failures = LoginAttempt.count_recent_failures(email)
+                remaining = max(0, LoginAttempt.MAX_ATTEMPTS - failures)
+
+                if remaining == 0:
+                    return render_template(
+                        'admin_login.html',
+                        locked_out=True,
+                        lockout_minutes=LoginAttempt.LOCKOUT_MINUTES,
+                    )
+
+                flash('Email hoặc mật khẩu không đúng, hoặc tài khoản không có quyền Admin.', 'error')
+                return render_template(
+                    'admin_login.html',
+                    email_prefill=email,
+                    attempts_remaining=remaining,
+                )
+        except SQLAlchemyError as e:
+            print(f'[ADMIN LOGIN COMMIT ERROR] {e}')
+            db.session.rollback()
+            flash('Lỗi hệ thống. Vui lòng thử lại.', 'error')
+            return render_template('admin_login.html')
+
+    # GET
+    return render_template('admin_login.html')
+
+
+@app.route('/admin/logout')
+def admin_logout():
+    """
+    Đăng xuất Admin — hủy Admin session, ghi Audit Log.
+    Không đụng vào user session nếu có.
+    """
+    admin_id = session.get(ADMIN_SESSION_KEY)
+    client_ip = get_client_ip()
+
+    try:
+        if admin_id:
+            AdminAuditLog.log(
+                action=ADMIN_AUDIT_ACTIONS['LOGOUT'],
+                admin_id=admin_id,
+                description='Admin đăng xuất.',
+                ip_address=client_ip,
+                user_agent=request.headers.get('User-Agent', '')[:512],
+            )
+            db.session.commit()
+    except SQLAlchemyError as e:
+        print(f'[ADMIN LOGOUT LOG ERROR] {e}')
+
+    destroy_admin_session()
+    flash('Bạn đã đăng xuất khỏi khu vực Admin.', 'success')
+    return redirect(url_for('admin_login'))
+
+
 # ─── ADMIN ROUTES ───────────────────────────────────────────────────────────────
 
 @app.route('/admin')
@@ -2117,15 +2305,28 @@ def admin_jobs():
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
+    action_key = ADMIN_AUDIT_ACTIONS['FLAG_JOB'] if job.is_flagged else ADMIN_AUDIT_ACTIONS['UNFLAG_JOB']
+    action_text = 'Đã gắn cờ vi phạm' if job.is_flagged else 'Đã khôi phục'
+    _audit_log(
+        action=action_key,
+        target_type='job',
+        target_id=job.id,
+        description=f'{action_text} job "{job.title}" (ID={job.id})',
+    )
     db.session.commit()
-    action = 'Đã gắn cờ vi phạm' if job.is_flagged else 'Đã khôi phục'
-    flash(f'{action} bài đăng "{job.title}".', 'success')
+    flash(f'{action_text} bài đăng "{job.title}".', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
 @admin_required
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Xóa vĩnh viễn job "{job.title}" (ID={job.id}) của hirer {job.hirer.name}',
+    )
     db.session.delete(job)
     db.session.commit()
     flash('Đã xoá vĩnh viễn bài đăng.', 'success')
@@ -2148,9 +2349,16 @@ def admin_users():
 def admin_toggle_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_active = not user.is_active
+    action_key = ADMIN_AUDIT_ACTIONS['UNLOCK_USER'] if user.is_active else ADMIN_AUDIT_ACTIONS['LOCK_USER']
+    action_text = 'kích hoạt' if user.is_active else 'khoá'
+    _audit_log(
+        action=action_key,
+        target_type='user',
+        target_id=user.id,
+        description=f'Admin {action_text} tài khoản {user.name} ({user.email})',
+    )
     db.session.commit()
-    status = 'kích hoạt' if user.is_active else 'khoá'
-    flash(f'Đã {status} tài khoản {user.name}.', 'success')
+    flash(f'Đã {action_text} tài khoản {user.name}.', 'success')
     return redirect(url_for('admin_users'))
 
 @app.route('/admin/translators')
@@ -2169,10 +2377,322 @@ def admin_verify_translator(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
     action = request.form.get('action')
     profile.is_verified = (action == 'verify')
-    db.session.commit()
+    action_key = ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'] if profile.is_verified else ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR']
     msg = 'Đã xác minh' if profile.is_verified else 'Đã từ chối xác minh'
+    _audit_log(
+        action=action_key,
+        target_type='translator',
+        target_id=profile.id,
+        description=f'{msg} hồ sơ {profile.user.name} ({profile.user.email})',
+    )
+    db.session.commit()
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
+
+@app.route('/admin/reports')
+@admin_required
+def admin_reports():
+    status_filter = request.args.get('status', 'new')
+    query = Report.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    reports = query.order_by(Report.created_at.desc()).all()
+    return render_template('admin_reports.html', reports=reports, status_filter=status_filter)
+
+@app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
+@admin_required
+def admin_update_report(report_id, action):
+    report = Report.query.get_or_404(report_id)
+    
+    if action == 'investigate':
+        report.status = 'investigating'
+        msg = 'Đã chuyển sang trạng thái Đang điều tra'
+    elif action == 'resolve':
+        report.status = 'resolved'
+        note = request.form.get('resolution_note')
+        msg = 'Đã đánh dấu Giải quyết'
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['RESOLVE_REPORT'],
+            target_type='report',
+            target_id=report.id,
+            description=f'Giải quyết khiếu nại #{report.id}',
+            extra_data={'note': note}
+        )
+    elif action == 'reject':
+        report.status = 'rejected'
+        reason = request.form.get('rejection_reason')
+        msg = 'Đã từ chối khiếu nại'
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REJECT_REPORT'],
+            target_type='report',
+            target_id=report.id,
+            description=f'Từ chối khiếu nại #{report.id}',
+            extra_data={'reason': reason}
+        )
+    else:
+        abort(400)
+        
+    db.session.commit()
+    flash(msg, 'success')
+    return redirect(url_for('admin_reports'))
+
+@app.route('/admin/proposals')
+@admin_required
+def admin_proposals():
+    status_filter = request.args.get('status', 'all')
+    query = Proposal.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    proposals = query.order_by(Proposal.created_at.desc()).all()
+    return render_template('admin_proposals.html', proposals=proposals, status_filter=status_filter)
+
+@app.route('/admin/contracts')
+@admin_required
+def admin_contracts():
+    status_filter = request.args.get('status', 'all')
+    query = Contract.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    contracts = query.order_by(Contract.created_at.desc()).all()
+    return render_template('admin_contracts.html', contracts=contracts, status_filter=status_filter)
+
+@app.route('/admin/schedules')
+@admin_required
+def admin_schedules():
+    status_filter = request.args.get('status', 'all')
+    query = TranslatorSchedule.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+    
+    schedules = query.order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.desc()).all()
+    return render_template('admin_schedules.html', schedules=schedules, status_filter=status_filter)
+
+@app.route('/admin/reviews')
+@admin_required
+def admin_reviews():
+    show_filter = request.args.get('show', 'all')
+    query = Review.query
+    if show_filter == 'visible':
+        query = query.filter_by(is_hidden=False)
+    elif show_filter == 'hidden':
+        query = query.filter_by(is_hidden=True)
+        
+    reviews = query.order_by(Review.created_at.desc()).all()
+    return render_template('admin_reviews.html', reviews=reviews, show=show_filter)
+
+@app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
+@admin_required
+def admin_toggle_review(review_id):
+    r = Review.query.get_or_404(review_id)
+    r.is_hidden = not r.is_hidden
+    
+    action_key = ADMIN_AUDIT_ACTIONS['HIDE_REVIEW'] if r.is_hidden else ADMIN_AUDIT_ACTIONS['RESTORE_REVIEW']
+    msg = 'Đã ẩn đánh giá' if r.is_hidden else 'Đã khôi phục hiển thị đánh giá'
+    
+    _audit_log(
+        action=action_key,
+        target_type='review',
+        target_id=r.id,
+        description=f"{msg} #{r.id} của {r.reviewer.name}",
+    )
+    
+    db.session.commit()
+    flash(msg, 'success')
+    return redirect(url_for('admin_reviews'))
+
+@app.route('/admin/payments')
+@admin_required
+def admin_payments():
+    status_filter = request.args.get('status', 'all')
+    query = PaymentTransaction.query
+    if status_filter != 'all':
+        query = query.filter_by(status=status_filter)
+        
+    payments = query.order_by(PaymentTransaction.created_at.desc()).all()
+    return render_template('admin_payments.html', payments=payments, status_filter=status_filter)
+
+@app.route('/admin/payments/<int:payment_id>/refund', methods=['POST'])
+@admin_required
+def admin_refund_payment(payment_id):
+    p = PaymentTransaction.query.get_or_404(payment_id)
+    if p.status != 'escrow_pending' and p.status != 'completed':
+        flash('Chỉ có thể hoàn tiền các giao dịch ở trạng thái escrow_pending hoặc completed.', 'error')
+        return redirect(url_for('admin_payments'))
+        
+    p.status = 'refunded'
+    if p.contract:
+        p.contract.status = 'cancelled' # hoặc trạng thái tương ứng
+
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+        target_type='payment',
+        target_id=p.id,
+        description=f"Admin hoàn tiền giao dịch #{p.id} (Contract #{p.contract_id})",
+    )
+    
+    db.session.commit()
+    flash('Đã hoàn tiền thành công.', 'success')
+    return redirect(url_for('admin_payments'))
+
+@app.route('/admin/notifications')
+@admin_required
+def admin_notifications():
+    show_filter = request.args.get('show', 'all')
+    query = AdminNotification.query
+    if show_filter == 'unread':
+        query = query.filter_by(is_read=False)
+        
+    notifications = query.order_by(AdminNotification.created_at.desc()).all()
+    return render_template('admin_notifications.html', notifications=notifications, show=show_filter)
+
+@app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
+@admin_required
+def admin_notifications_read(notif_id):
+    n = AdminNotification.query.get_or_404(notif_id)
+    n.is_read = True
+    db.session.commit()
+    return redirect(url_for('admin_notifications'))
+
+@app.route('/admin/notifications/read-all', methods=['POST'])
+@admin_required
+def admin_notifications_mark_all():
+    AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
+    db.session.commit()
+    return redirect(url_for('admin_notifications'))
+
+@app.route('/admin/audit')
+@admin_required
+def admin_audit_logs():
+    action_filter = request.args.get('action', 'all')
+    query = AdminAuditLog.query
+    
+    if action_filter != 'all':
+        if action_filter == 'AUTH':
+            query = query.filter(AdminAuditLog.action.in_([
+                ADMIN_AUDIT_ACTIONS['LOGIN_SUCCESS'],
+                ADMIN_AUDIT_ACTIONS['LOGIN_FAILED']
+            ]))
+        elif action_filter == 'MODERATION':
+            query = query.filter(AdminAuditLog.action.in_([
+                ADMIN_AUDIT_ACTIONS['VERIFY_TRANSLATOR'],
+                ADMIN_AUDIT_ACTIONS['REJECT_TRANSLATOR'],
+                ADMIN_AUDIT_ACTIONS['BAN_USER'],
+                ADMIN_AUDIT_ACTIONS['UNBAN_USER'],
+                ADMIN_AUDIT_ACTIONS['FLAG_JOB'],
+                ADMIN_AUDIT_ACTIONS['UNFLAG_JOB'],
+                ADMIN_AUDIT_ACTIONS['RESOLVE_REPORT'],
+                ADMIN_AUDIT_ACTIONS['REJECT_REPORT'],
+                ADMIN_AUDIT_ACTIONS['HIDE_REVIEW'],
+                ADMIN_AUDIT_ACTIONS['RESTORE_REVIEW']
+            ]))
+        elif action_filter == 'PAYMENT':
+            query = query.filter(AdminAuditLog.action.in_([
+                ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION']
+            ]))
+            
+    # Limit to last 50 logs for simple MVP
+    logs = query.order_by(AdminAuditLog.created_at.desc()).limit(50).all()
+    
+    return render_template('admin_audit.html', logs=logs, action_filter=action_filter)
+
+@app.route('/admin/admins')
+@admin_required
+def admin_admins():
+    # Only super_admin or users with manage_admins can see all details easily
+    # But let's allow all admins to view the list, just restrict actions in UI
+    admins = User.query.filter_by(is_admin=True, role='admin').all()
+    return render_template('admin_admins.html', admins=admins)
+
+@app.route('/admin/admins/add', methods=['POST'])
+@admin_required
+def admin_add_admin():
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        abort(403)
+        
+    name = request.form.get('name')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    admin_role = request.form.get('admin_role')
+    
+    if User.query.filter_by(email=email).first():
+        flash('Email đã tồn tại trong hệ thống.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    new_admin = User(
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(password),
+        role='admin',
+        is_admin=True,
+        admin_role=admin_role,
+        is_active=True
+    )
+    db.session.add(new_admin)
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['LOGIN_SUCCESS'], # using existing enum or we can just pass a string
+        target_type='admin',
+        target_id=new_admin.id,
+        description=f"Tạo admin mới: {email} ({admin_role})"
+    )
+    
+    flash('Thêm Admin thành công.', 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
+@admin_required
+def admin_toggle_admin_status(admin_id):
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        abort(403)
+        
+    target_admin = User.query.get_or_404(admin_id)
+    if target_admin.id == session.get('admin_id'):
+        flash('Không thể tự vô hiệu hóa tài khoản của chính mình.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin.is_active = not target_admin.is_active
+    db.session.commit()
+    
+    msg = 'Đã vô hiệu hóa admin' if not target_admin.is_active else 'Đã kích hoạt admin'
+    flash(msg, 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/search')
+@admin_required
+def admin_search():
+    q = request.args.get('q', '').strip()
+    results = {'users': [], 'jobs': [], 'contracts': []}
+    
+    if len(q) >= 2:
+        # Search users
+        results['users'] = User.query.filter(
+            db.or_(
+                User.name.ilike(f'%{q}%'),
+                User.email.ilike(f'%{q}%')
+            )
+        ).limit(20).all()
+        
+        # Search jobs
+        results['jobs'] = Job.query.filter(
+            db.or_(
+                Job.title.ilike(f'%{q}%'),
+                Job.description.ilike(f'%{q}%')
+            )
+        ).limit(20).all()
+        
+        # Search contracts (by ID if numeric)
+        if q.isdigit():
+            c = Contract.query.get(int(q))
+            if c:
+                results['contracts'].append(c)
+                
+    return render_template('admin_search.html', query=q, results=results)
 
 # ─── NOTIFICATION API ─────────────────────────────────────────────────────────
 

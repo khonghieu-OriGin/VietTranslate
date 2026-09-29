@@ -1,0 +1,152 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Lịch trình (Schedules){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Lịch trình & Booking</h1>
+        <p class="page-subtitle">Giám sát các khung giờ làm việc và trạng thái đặt lịch của phiên dịch viên</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_schedules', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_schedules', status='active') }}" class="filter-tab {% if status_filter == 'active' %}active{% endif %}">Active</a>
+        <a href="{{ url_for('admin_schedules', status='reserved') }}" class="filter-tab {% if status_filter == 'reserved' %}active{% endif %}">Reserved</a>
+        <a href="{{ url_for('admin_schedules', status='completed') }}" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">Completed</a>
+        <a href="{{ url_for('admin_schedules', status='cancelled') }}" class="filter-tab danger {% if status_filter == 'cancelled' %}active{% endif %}">Cancelled</a>
+    </div>
+
+    {% if schedules %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>Phiên dịch viên</th>
+                    <th>Ngày</th>
+                    <th>Thời gian</th>
+                    <th>Buffer</th>
+                    <th>Hợp đồng</th>
+                    <th>Trạng thái</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in schedules %}
+                <tr>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            {% if s.translator %}
+                                {% if s.translator.avatar_url %}
+                                    <img src="{{ s.translator.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                                {% else %}
+                                    <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                        {{ s.translator.name[:1] | upper }}
+                                    </div>
+                                {% endif %}
+                                <a href="{{ url_for('admin_translators') }}?search={{ s.translator.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[150px]">
+                                    {{ s.translator.name }}
+                                </a>
+                            {% else %}
+                                <span class="text-slate-500">N/A</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="font-medium text-slate-200">
+                        {{ s.scheduled_date.strftime('%d/%m/%Y') if s.scheduled_date else 'N/A' }}
+                    </td>
+                    <td>
+                        <div class="flex flex-col gap-1 text-sm text-slate-300">
+                            <span>Bắt đầu: <span class="font-semibold text-emerald-400">{{ s.start_time.strftime('%H:%M') if s.start_time else 'N/A' }}</span></span>
+                            <span>Kết thúc: <span class="font-semibold text-rose-400">{{ s.end_time.strftime('%H:%M') if s.end_time else 'N/A' }}</span></span>
+                        </div>
+                    </td>
+                    <td class="text-xs text-slate-400">
+                        <div class="flex flex-col">
+                            <span>Trước: {{ s.buffer_before_minutes }}p</span>
+                            <span>Sau: {{ s.buffer_after_minutes }}p</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if s.contract %}
+                            <a href="{{ url_for('admin_contracts') }}?search={{ s.contract.id }}" class="text-brand hover:underline" title="Xem Hợp đồng">
+                                #CTR-{{ s.contract.id }}
+                            </a>
+                            {% if s.contract.job %}
+                            <div class="text-[10px] text-slate-400 truncate max-w-[120px] mt-1" title="{{ s.contract.job.title }}">
+                                {{ s.contract.job.title }}
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <span class="text-slate-500 text-xs">Chưa chốt hợp đồng</span>
+                            {% if s.expires_at %}
+                            <div class="text-[10px] text-rose-400 mt-1">Hết hạn: {{ s.expires_at.strftime('%H:%M %d/%m') }}</div>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.status == 'reserved' %}
+                            <span class="badge badge-yellow">Reserved</span>
+                        {% elif s.status == 'active' %}
+                            <span class="badge badge-blue">Active</span>
+                        {% elif s.status == 'completed' %}
+                            <span class="badge badge-green">Completed</span>
+                        {% elif s.status == 'cancelled' %}
+                            <span class="badge badge-gray">Cancelled</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ s.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex justify-end">
+                            <button class="btn btn-sm btn-ghost" onclick="viewScheduleDetail({{ s.id }})">Chi tiết</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <div class="empty-state-title">Không có lịch trình nào</div>
+        <div class="empty-state-desc">Hiện chưa có dữ liệu lịch trình {% if status_filter != 'all' %}trong trạng thái này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Schedule Detail Placeholder -->
+<div id="scheduleDetailModal" class="modal-overlay">
+    <div class="modal-box max-w-lg">
+        <h3 class="modal-title flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            Chi tiết Booking
+        </h3>
+        
+        <div class="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 text-sm text-slate-300">
+            <p>Admin không được phép sửa trực tiếp lịch trình (schedule) tại đây để tránh xung đột cơ chế chống trùng lịch (Anti-conflict Mechanism).</p>
+            <p class="mt-2 text-yellow-400 text-xs">Note: Nếu cần xử lý tranh chấp, hãy hủy Hợp đồng tương ứng, hệ thống sẽ tự động nhả lịch.</p>
+        </div>
+        
+        <div class="modal-actions mt-6">
+            <button type="button" class="btn btn-ghost" onclick="closeScheduleDetailModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewScheduleDetail(id) {
+        document.getElementById('scheduleDetailModal').classList.add('open');
+    }
+    
+    function closeScheduleDetailModal() {
+        document.getElementById('scheduleDetailModal').classList.remove('open');
+    }
+</script>
+{% endblock %}

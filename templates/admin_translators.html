@@ -1,89 +1,88 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}{{ t('admin_page.translators_title') }}{% endblock %}
 
+{% block header_title %}{{ t('admin_page.translators_heading') }}{% endblock %}
+
 {% block content %}
-<div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="admin-card">
+    <!-- Filter Tabs -->
+    <div class="filter-bar">
+        <a href="?show=pending" class="filter-tab {% if show == 'pending' %}active{% endif %}">
+            {{ t('admin_page.tab_pending_verify') }}
+        </a>
+        <a href="?show=verified" class="filter-tab {% if show == 'verified' %}active{% endif %}">
+            {{ t('admin_page.tab_verified') }}
+        </a>
+    </div>
 
-        <div class="mb-6">
-            <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-brand-600 font-bold hover:underline inline-flex items-center gap-1 mb-2">
-                {{ t('admin_page.back_to_dashboard') }}
-            </a>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.translators_heading') }}</h1>
-        </div>
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{{ t('admin_page.th_translator') }}</th>
+                    <th>{{ t('admin_page.th_languages') }}</th>
+                    <th>{{ t('admin_page.th_specialty') }}</th>
+                    <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for profile in profiles %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: #f1f5f9;">{{ profile.user.name }}</div>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ profile.user.email }}</div>
+                    </td>
+                    <td>
+                        <div style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.languages }}">
+                            {{ profile.languages }}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1;" title="{{ profile.title }}">
+                            {{ profile.title }}
+                        </div>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" target="_blank" class="btn btn-ghost btn-sm">
+                            {{ t('admin_page.action_view_profile') }}
+                        </a>
 
-        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
-            <!-- Filter Tabs -->
-            <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5 flex gap-2">
-                <a href="?show=pending" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if show == 'pending' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-                    {{ t('admin_page.tab_pending_verify') }}
-                </a>
-                <a href="?show=verified" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if show == 'verified' %}bg-white border border-slate-200 shadow-soft text-emerald-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">
-                    {{ t('admin_page.tab_verified') }}
-                </a>
-            </div>
-
-            <!-- Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/30">
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_translator') }}</th>
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_languages') }}</th>
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_specialty') }}</th>
-                            <th class="px-6 py-3.5 text-right">{{ t('admin_page.th_actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                        {% for profile in profiles %}
-                        <tr class="hover:bg-slate-50/60 transition">
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-slate-900">{{ profile.user.name }}</div>
-                                <div class="text-[11px] text-slate-400">{{ profile.user.email }}</div>
-                            </td>
-                            <td class="px-6 py-4 text-slate-600 max-w-[200px] truncate" title="{{ profile.languages }}">{{ profile.languages }}</td>
-                            <td class="px-6 py-4 text-slate-600">
-                                <div class="truncate max-w-[280px]" title="{{ profile.title }}">{{ profile.title }}</div>
-                            </td>
-                            <td class="px-6 py-4 text-right space-x-2">
-                                <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" target="_blank" class="text-xs font-semibold text-brand-600 hover:underline">
-                                    {{ t('admin_page.action_view_profile') }}
-                                </a>
-
-                                {% if not profile.is_verified %}
-                                <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" class="inline">
-                                    <input type="hidden" name="action" value="verify">
-                                    <button type="submit" class="text-xs font-bold text-emerald-600 hover:underline bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200" onclick="return confirm('{{ t('admin_page.action_verify_confirm') }}');">
-                                        {{ t('admin_page.action_grant_verify') }}
-                                    </button>
-                                </form>
-                                {% else %}
-                                <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" class="inline">
-                                    <input type="hidden" name="action" value="unverify">
-                                    <button type="submit" class="text-xs font-bold text-amber-600 hover:underline bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200" onclick="return confirm('{{ t('admin_page.action_revoke_confirm') }}');">
-                                        {{ t('admin_page.action_revoke') }}
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
+                        {% if not profile.is_verified %}
+                        <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="verify">
+                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('{{ t('admin_page.action_verify_confirm') }}');">
+                                {{ t('admin_page.action_grant_verify') }}
+                            </button>
+                        </form>
                         {% else %}
-                        <tr>
-                            <td colspan="4" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">
-                                {% if show == 'pending' %}
-                                {{ t('admin_page.no_pending_profiles') }}
-                                {% else %}
-                                {{ t('admin_page.no_verified_profiles') }}
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+                        <form method="POST" action="{{ url_for('admin_verify_translator', profile_id=profile.id) }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="action" value="unverify">
+                            <button type="submit" class="btn btn-warning btn-sm" onclick="return confirm('{{ t('admin_page.action_revoke_confirm') }}');">
+                                {{ t('admin_page.action_revoke') }}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="empty-state">
+                        <div class="empty-state-title">
+                            {% if show == 'pending' %}
+                            {{ t('admin_page.no_pending_profiles') }}
+                            {% else %}
+                            {{ t('admin_page.no_verified_profiles') }}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

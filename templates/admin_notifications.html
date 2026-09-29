@@ -1,0 +1,96 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Trung tâm Thông báo (Notifications){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Trung tâm Thông báo</h1>
+        <p class="page-subtitle">Quản lý các thông báo quan trọng dành riêng cho Admin</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar flex justify-between w-full">
+        <div class="flex gap-2">
+            <a href="{{ url_for('admin_notifications', show='all') }}" class="filter-tab {% if show == 'all' %}active{% endif %}">Tất cả</a>
+            <div class="filter-sep"></div>
+            <a href="{{ url_for('admin_notifications', show='unread') }}" class="filter-tab {% if show == 'unread' %}active{% endif %}">Chưa đọc</a>
+        </div>
+        
+        <form action="{{ url_for('admin_notifications_mark_all') }}" method="POST">
+            <button type="submit" class="btn btn-sm btn-ghost text-xs">Đánh dấu tất cả đã đọc</button>
+        </form>
+    </div>
+
+    {% if notifications %}
+    <div class="divide-y divide-[var(--border)]">
+        {% for notif in notifications %}
+        <div class="p-4 hover:bg-[rgba(148,163,184,0.04)] transition-colors {% if not notif.is_read %}bg-[var(--brand-light)] border-l-4 border-brand{% else %}border-l-4 border-transparent{% endif %}">
+            <div class="flex items-start gap-4">
+                <div class="flex-shrink-0 mt-1">
+                    {% if notif.type == 'NEW_REPORT' %}
+                        <div class="w-8 h-8 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        </div>
+                    {% elif notif.type == 'NEW_JOB' %}
+                        <div class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                        </div>
+                    {% elif notif.type == 'NEW_TRANSLATOR' %}
+                        <div class="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </div>
+                    {% elif notif.type == 'PAYMENT_ISSUE' %}
+                        <div class="w-8 h-8 rounded-full bg-yellow-500/20 text-yellow-400 flex items-center justify-center">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        </div>
+                    {% else %}
+                        <div class="w-8 h-8 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+                        </div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-1">
+                        <p class="text-sm font-semibold text-slate-100 truncate">
+                            {{ notif.title }}
+                        </p>
+                        <span class="text-xs text-slate-400 whitespace-nowrap">
+                            {{ notif.created_at.strftime('%d/%m/%Y %H:%M') }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-slate-300 mb-2">{{ notif.message }}</p>
+                    
+                    <div class="flex items-center gap-3 mt-3">
+                        {% if notif.url %}
+                        <a href="{{ notif.url }}" class="text-xs font-semibold text-brand hover:underline flex items-center gap-1">
+                            Xem chi tiết
+                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                        </a>
+                        {% endif %}
+                        
+                        {% if not notif.is_read %}
+                        <form action="{{ url_for('admin_notifications_read', notif_id=notif.id) }}" method="POST" class="inline">
+                            <button type="submit" class="text-xs text-slate-400 hover:text-white">Đánh dấu đã đọc</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        <div class="empty-state-title">Không có thông báo nào</div>
+        <div class="empty-state-desc">Bạn không có thông báo {% if show == 'unread' %}chưa đọc{% endif %} nào lúc này.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

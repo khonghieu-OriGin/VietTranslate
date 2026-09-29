@@ -1,0 +1,143 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Thanh toán (Payments){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Thanh toán</h1>
+        <p class="page-subtitle">Giám sát các giao dịch thanh toán và Escrow (Giữ tiền bảo đảm)</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_payments', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_payments', status='pending') }}" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">Chờ xử lý</a>
+        <a href="{{ url_for('admin_payments', status='completed') }}" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">Thành công</a>
+        <a href="{{ url_for('admin_payments', status='failed') }}" class="filter-tab danger {% if status_filter == 'failed' %}active{% endif %}">Thất bại</a>
+        <a href="{{ url_for('admin_payments', status='refunded') }}" class="filter-tab danger {% if status_filter == 'refunded' %}active{% endif %}">Đã hoàn tiền</a>
+        <a href="{{ url_for('admin_payments', status='escrow_pending') }}" class="filter-tab {% if status_filter == 'escrow_pending' %}active{% endif %}">Đang giữ (Escrow)</a>
+    </div>
+
+    {% if payments %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>ID Giao dịch</th>
+                    <th>Hợp đồng</th>
+                    <th>Người thanh toán</th>
+                    <th>Số tiền</th>
+                    <th>Phương thức</th>
+                    <th>Trạng thái</th>
+                    <th>Thời gian</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in payments %}
+                <tr>
+                    <td class="font-medium text-brand">
+                        #TXN-{{ p.id }}
+                        {% if p.transaction_ref %}
+                            <div class="text-[10px] text-slate-400 mt-1">Ref: {{ p.transaction_ref }}</div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin_contracts') }}?search={{ p.contract_id }}" class="text-brand hover:underline">#CTR-{{ p.contract_id }}</a>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            {% if p.user.avatar_url %}
+                                <img src="{{ p.user.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ p.user.name[:1] | upper }}
+                                </div>
+                            {% endif %}
+                            <a href="{{ url_for('admin_users') }}?search={{ p.user.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
+                                {{ p.user.name }}
+                            </a>
+                        </div>
+                    </td>
+                    <td class="text-emerald-400 font-medium">
+                        {{ "{:,.0f}".format(p.amount).replace(',', '.') }} ₫
+                    </td>
+                    <td class="text-slate-300">
+                        {{ p.payment_method or 'N/A' }}
+                    </td>
+                    <td>
+                        {% if p.status == 'completed' %}
+                            <span class="badge badge-green">Thành công</span>
+                        {% elif p.status == 'escrow_pending' %}
+                            <span class="badge badge-blue">Đang giữ (Escrow)</span>
+                        {% elif p.status == 'pending' %}
+                            <span class="badge badge-yellow">Chờ xử lý</span>
+                        {% elif p.status == 'failed' %}
+                            <span class="badge badge-red">Thất bại</span>
+                        {% elif p.status == 'refunded' %}
+                            <span class="badge badge-gray">Đã hoàn tiền</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ p.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-slate-400 whitespace-nowrap">
+                        {{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}
+                    </td>
+                    <td>
+                        <div class="flex items-center justify-end gap-2">
+                            <button class="btn btn-sm btn-ghost" onclick="viewPaymentDetail({{ p.id }})">Chi tiết</button>
+                            {% if p.status == 'escrow_pending' %}
+                            <form action="{{ url_for('admin_refund_payment', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn hoàn tiền giao dịch này? Hành động này sẽ yêu cầu xác thực Admin cấp cao trong tương lai.');">
+                                <button type="submit" class="btn btn-sm btn-warning">Refund</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div class="empty-state-title">Không có giao dịch nào</div>
+        <div class="empty-state-desc">Hiện chưa có giao dịch thanh toán nào {% if status_filter != 'all' %}trong trạng thái này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Payment Detail Placeholder -->
+<div id="paymentDetailModal" class="modal-overlay">
+    <div class="modal-box max-w-lg">
+        <h3 class="modal-title flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Chi tiết Giao dịch #<span id="modalPaymentId"></span>
+        </h3>
+        
+        <div class="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 text-sm text-slate-300">
+            <p>Admin chỉ có thể xem trạng thái dòng tiền và refund nếu logic nghiệp vụ cho phép (chủ yếu dùng cho Finance/Super Admin).</p>
+        </div>
+        
+        <div class="modal-actions mt-6">
+            <button type="button" class="btn btn-ghost" onclick="closePaymentDetailModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewPaymentDetail(id) {
+        document.getElementById('modalPaymentId').textContent = id;
+        document.getElementById('paymentDetailModal').classList.add('open');
+    }
+    
+    function closePaymentDetailModal() {
+        document.getElementById('paymentDetailModal').classList.remove('open');
+    }
+</script>
+{% endblock %}

@@ -1,119 +1,125 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}{{ t('admin_page.dashboard_title') }}{% endblock %}
 
+{% block header_title %}{{ t('admin_page.dashboard_heading') }}{% endblock %}
+
 {% block content %}
-<div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+<!-- Quick Stats Grid -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">{{ t('admin_page.stat_total_users') }}</div>
+        <div class="kpi-value">{{ stats.total_users }}</div>
+        <div class="kpi-sub">{{ t('admin_page.stat_system_members') }}</div>
+    </div>
 
-        <div class="mb-8">
-            <span class="inline-block text-[11px] font-bold uppercase tracking-wider text-brand-600 bg-brand-50 border border-brand-200/60 px-3 py-1 rounded-full mb-2">
-                VietTranslate Admin Central
-            </span>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.dashboard_heading') }}</h1>
-            <p class="text-xs sm:text-sm text-slate-500 mt-1">{{ t('admin_page.dashboard_subtitle') }}</p>
+    <div class="kpi-card">
+        <div class="kpi-label">{{ t('admin_page.stat_translators') }}</div>
+        <div class="kpi-value" style="color: var(--brand-400)">{{ stats.total_translators }}</div>
+        {% if stats.pending_verify > 0 %}
+        <div class="kpi-sub" style="color: var(--warning)">
+            <a href="{{ url_for('admin_translators') }}" class="hover:underline">
+                ⚡ {{ stats.pending_verify }} {{ t('admin_page.stat_pending_profiles') }}
+            </a>
         </div>
+        {% else %}
+        <div class="kpi-sub" style="color: var(--success)">{{ t('admin_page.stat_all_verified') }}</div>
+        {% endif %}
+    </div>
 
-        <!-- Quick Stats Grid -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_total_users') }}</span>
-                <div class="text-2xl sm:text-3xl font-black text-slate-900">{{ stats.total_users }}</div>
-                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_system_members') }}</p>
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_translators') }}</span>
-                <div class="text-2xl sm:text-3xl font-black text-brand-700">{{ stats.total_translators }}</div>
-                {% if stats.pending_verify > 0 %}
-                <a href="{{ url_for('admin_translators') }}" class="text-[11px] text-amber-700 font-bold hover:underline mt-1 inline-block">
-                    ⚡ {{ stats.pending_verify }} {{ t('admin_page.stat_pending_profiles') }}
-                </a>
-                {% else %}
-                <p class="text-[11px] text-emerald-600 mt-1 font-semibold">{{ t('admin_page.stat_all_verified') }}</p>
-                {% endif %}
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_job_postings') }}</span>
-                <div class="text-2xl sm:text-3xl font-black text-slate-900">{{ stats.open_jobs }}</div>
-                {% if stats.flagged_jobs > 0 %}
-                <p class="text-[11px] text-rose-600 font-bold mt-1">{{ stats.flagged_jobs }} {{ t('admin_page.stat_flagged_jobs') }}</p>
-                {% else %}
-                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_active') }}</p>
-                {% endif %}
-            </div>
-
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
-                <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">{{ t('admin_page.stat_escrow_transactions') }}</span>
-                <div class="text-2xl sm:text-3xl font-black text-emerald-600">{{ stats.active_contracts }}</div>
-                <p class="text-[11px] text-slate-400 mt-1">{{ t('admin_page.stat_completed_label') }} <strong class="text-slate-700">{{ stats.completed_contracts }}</strong></p>
-            </div>
+    <div class="kpi-card">
+        <div class="kpi-label">{{ t('admin_page.stat_job_postings') }}</div>
+        <div class="kpi-value">{{ stats.open_jobs }}</div>
+        {% if stats.flagged_jobs > 0 %}
+        <div class="kpi-sub" style="color: var(--danger)">
+            <a href="{{ url_for('admin_jobs', status='flagged') }}" class="hover:underline">
+                {{ stats.flagged_jobs }} {{ t('admin_page.stat_flagged_jobs') }}
+            </a>
         </div>
+        {% else %}
+        <div class="kpi-sub">{{ t('admin_page.stat_active') }}</div>
+        {% endif %}
+    </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-
-            <!-- Admin Navigation -->
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
-                <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-4 font-bold text-slate-900 text-sm flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                    {{ t('admin_page.ops_center_heading') }}
-                </div>
-                <div class="divide-y divide-slate-100">
-                    <a href="{{ url_for('admin_translators') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
-                        <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>{{ t('admin_page.ops_verify_translators') }}</span>
-                            <span class="text-slate-400">→</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_verify_translators_desc') }}</p>
-                    </a>
-
-                    <a href="{{ url_for('admin_jobs') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
-                        <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>{{ t('admin_page.ops_manage_jobs') }}</span>
-                            <span class="text-slate-400">→</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_manage_jobs_desc') }}</p>
-                    </a>
-
-                    <a href="{{ url_for('admin_users') }}" class="block px-6 py-4 hover:bg-brand-50/40 transition group">
-                        <div class="font-bold text-slate-900 text-xs sm:text-sm group-hover:text-brand-600 flex items-center justify-between">
-                            <span>{{ t('admin_page.ops_manage_users') }}</span>
-                            <span class="text-slate-400">→</span>
-                        </div>
-                        <p class="text-[11px] text-slate-500 mt-0.5">{{ t('admin_page.ops_manage_users_desc') }}</p>
-                    </a>
-                </div>
-            </div>
-
-            <!-- Recent Users -->
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
-                <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-4 font-bold text-slate-900 text-sm flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>{{ t('admin_page.newest_users_heading') }}</span>
-                    </div>
-                    <a href="{{ url_for('admin_users') }}" class="text-xs text-brand-600 font-bold hover:underline">{{ t('admin_page.view_all') }}</a>
-                </div>
-                <ul class="divide-y divide-slate-100">
-                    {% for user in recent_users %}
-                    <li class="px-6 py-3.5 flex items-center justify-between">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-700">
-                                {{ user.name[0] | upper }}
-                            </div>
-                            <div>
-                                <p class="font-bold text-slate-900 text-xs sm:text-sm">{{ user.name }}</p>
-                                <p class="text-[11px] text-slate-400">{{ user.email }}</p>
-                            </div>
-                        </div>
-                        <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{{ user.role }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-
+    <div class="kpi-card">
+        <div class="kpi-label">{{ t('admin_page.stat_escrow_transactions') }}</div>
+        <div class="kpi-value" style="color: var(--success)">{{ stats.active_contracts }}</div>
+        <div class="kpi-sub">
+            {{ t('admin_page.stat_completed_label') }} <strong style="color: #f1f5f9">{{ stats.completed_contracts }}</strong>
         </div>
     </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+
+    <!-- Recent Users -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success)"></span>
+                {{ t('admin_page.newest_users_heading') }}
+            </div>
+            <a href="{{ url_for('admin_users') }}" style="font-size: 11px; color: var(--brand); text-decoration: none;">
+                {{ t('admin_page.view_all') }}
+            </a>
+        </div>
+        <table class="admin-table">
+            <tbody>
+                {% for user in recent_users %}
+                <tr>
+                    <td>
+                        <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">{{ user.email }}</div>
+                    </td>
+                    <td style="text-align: right;">
+                        <span class="badge badge-gray">{{ user.role }}</span>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" class="empty-state">
+                        <div class="empty-state-title">{{ t('admin_page.no_users_data') }}</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Admin Navigation (Quick Links) -->
+    <div class="admin-card">
+        <div class="admin-card-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--brand)"></span>
+                {{ t('admin_page.ops_center_heading') }}
+            </div>
+        </div>
+        <div>
+            <a href="{{ url_for('admin_translators') }}" style="display: block; padding: 16px 20px; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit; transition: background 0.15s;" onmouseover="this.style.background='rgba(148,163,184,0.04)'" onmouseout="this.style.background='transparent'">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 600; color: #f1f5f9;">{{ t('admin_page.ops_verify_translators') }}</div>
+                    <span style="color: var(--muted);">→</span>
+                </div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ t('admin_page.ops_verify_translators_desc') }}</div>
+            </a>
+            
+            <a href="{{ url_for('admin_jobs') }}" style="display: block; padding: 16px 20px; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit; transition: background 0.15s;" onmouseover="this.style.background='rgba(148,163,184,0.04)'" onmouseout="this.style.background='transparent'">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 600; color: #f1f5f9;">{{ t('admin_page.ops_manage_jobs') }}</div>
+                    <span style="color: var(--muted);">→</span>
+                </div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ t('admin_page.ops_manage_jobs_desc') }}</div>
+            </a>
+            
+            <a href="{{ url_for('admin_users') }}" style="display: block; padding: 16px 20px; text-decoration: none; color: inherit; transition: background 0.15s;" onmouseover="this.style.background='rgba(148,163,184,0.04)'" onmouseout="this.style.background='transparent'">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 600; color: #f1f5f9;">{{ t('admin_page.ops_manage_users') }}</div>
+                    <span style="color: var(--muted);">→</span>
+                </div>
+                <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ t('admin_page.ops_manage_users_desc') }}</div>
+            </a>
+        </div>
+    </div>
+
 </div>
 {% endblock %}

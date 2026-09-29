@@ -1,0 +1,97 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Audit Logs (Nhật ký Hệ thống){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Nhật ký Hệ thống (Audit Logs)</h1>
+        <p class="page-subtitle">Giám sát mọi thao tác quan trọng trên hệ thống (Login, Duyệt, Sửa đổi, Hủy)</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_audit_logs', action='all') }}" class="filter-tab {% if action_filter == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_audit_logs', action='AUTH') }}" class="filter-tab {% if action_filter == 'AUTH' %}active{% endif %}">Xác thực (Auth)</a>
+        <a href="{{ url_for('admin_audit_logs', action='MODERATION') }}" class="filter-tab {% if action_filter == 'MODERATION' %}active{% endif %}">Kiểm duyệt</a>
+        <a href="{{ url_for('admin_audit_logs', action='PAYMENT') }}" class="filter-tab {% if action_filter == 'PAYMENT' %}active{% endif %}">Giao dịch</a>
+    </div>
+
+    {% if logs %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>Thời gian</th>
+                    <th>Admin</th>
+                    <th>Hành động</th>
+                    <th>Chi tiết</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td class="text-xs text-slate-400 whitespace-nowrap">
+                        {{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}
+                    </td>
+                    <td>
+                        {% if log.admin %}
+                            <div class="flex items-center gap-2">
+                                <span class="font-semibold text-slate-200 truncate max-w-[120px]">{{ log.admin.name }}</span>
+                                {% if log.admin.id == session.get('user_id') %}
+                                    <span class="badge badge-blue text-[10px] py-0">You</span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <span class="text-slate-500 text-xs">Hệ thống / Unauth</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="text-xs font-mono px-2 py-1 bg-slate-900 rounded border border-slate-700 text-brand">
+                            {{ log.action }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-sm text-slate-200">{{ log.description }}</span>
+                            {% if log.target_type and log.target_id %}
+                            <span class="text-[10px] text-slate-400 font-mono">
+                                Target: {{ log.target_type | upper }} #{{ log.target_id }}
+                            </span>
+                            {% endif %}
+                            {% set extra = log.get_extra_data() %}
+                            {% if extra %}
+                                <div class="text-xs text-slate-400 mt-1 p-2 bg-slate-900/50 rounded border border-slate-700/50 break-words">
+                                    {{ extra | tojson }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="text-xs text-slate-500 font-mono" title="{{ log.user_agent }}">
+                        {{ log.ip_address or 'Unknown' }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Simple pagination placeholder -->
+    <div class="flex justify-between items-center p-4 border-t border-[var(--border)]">
+        <span class="text-xs text-slate-400">Đang hiển thị 50 log gần nhất.</span>
+    </div>
+    
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z"/><polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <div class="empty-state-title">Chưa có nhật ký nào</div>
+        <div class="empty-state-desc">Hệ thống chưa ghi nhận thao tác nào {% if action_filter != 'all' %}trong nhóm này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

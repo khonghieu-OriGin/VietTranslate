@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import json
 
 db = SQLAlchemy()
 
@@ -45,6 +46,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     phone = db.Column(db.String(20))
     role = db.Column(db.String(20), nullable=False)  # 'hirer', 'translator', 'admin'
+    admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -303,6 +305,7 @@ class Review(db.Model):
     reviewee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     rating = db.Column(db.Integer, nullable=False)
     comment = db.Column(db.Text)
+    is_hidden = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     reviewer = db.relationship('User', foreign_keys=[reviewer_id], backref='reviews_given')
@@ -364,3 +367,199 @@ class TranslatorSchedule(db.Model):
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
     contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))
+
+
+# ─── REPORT MODEL (TASK 11) ────────────────────────────────────────────────────
+
+class Report(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    reporter_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    
+    # Target can be: 'user', 'job', 'review', 'message', 'contract'
+    target_type = db.Column(db.String(50), nullable=False)
+    target_id = db.Column(db.Integer, nullable=False)
+    
+    reason = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text)
+    evidence_url = db.Column(db.String(500))
+    
+    # Status: 'new', 'investigating', 'resolved', 'rejected'
+    status = db.Column(db.String(20), default='new', index=True)
+    
+    # Optional relation context
+    related_job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
+    related_contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    reporter = db.relationship('User', foreign_keys=[reporter_id], backref='reports_submitted')
+    related_job = db.relationship('Job', foreign_keys=[related_job_id])
+    related_contract = db.relationship('Contract', foreign_keys=[related_contract_id])
+
+# ─── PAYMENT MODEL (TASK 13) ───────────────────────────────────────────────────
+
+class PaymentTransaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Người thực hiện thanh toán
+    amount = db.Column(db.Integer, nullable=False)
+    
+    # pending | completed | failed | refunded | escrow_pending
+    status = db.Column(db.String(20), default='pending', index=True)
+    payment_method = db.Column(db.String(50))
+    transaction_ref = db.Column(db.String(100)) # Mã GD từ cổng thanh toán (nếu có)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    contract = db.relationship('Contract', backref=db.backref('payments', lazy=True))
+    user = db.relationship('User', foreign_keys=[user_id])
+
+# ─── ADMIN NOTIFICATION MODEL (TASK 14) ────────────────────────────────────────
+
+class AdminNotification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    type = db.Column(db.String(50), nullable=False) # 'NEW_REPORT', 'NEW_JOB', 'NEW_TRANSLATOR', 'PAYMENT_ISSUE'
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    url = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    
+    # Optional context
+    related_id = db.Column(db.Integer, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+# ─── ADMIN SECURITY MODELS ───────────────────────────────────────────────────
+
+class LoginAttempt(db.Model):
+    """
+    Ghi lại mỗi lần thử đăng nhập Admin.
+    Dùng để throttle brute-force: khóa tạm thời sau MAX_ATTEMPTS lần thất bại.
+    """
+    __tablename__ = 'login_attempt'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), nullable=False, index=True)
+    ip_address = db.Column(db.String(64), nullable=True)
+    success = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    # Số lần thất bại liên tiếp tối đa trước khi khóa
+    MAX_ATTEMPTS = 5
+    # Thời gian khóa (phút)
+    LOCKOUT_MINUTES = 15
+
+    @classmethod
+    def count_recent_failures(cls, email, window_minutes=None):
+        """Đếm số lần thất bại gần đây trong cửa sổ thời gian."""
+        from datetime import timedelta
+        if window_minutes is None:
+            window_minutes = cls.LOCKOUT_MINUTES
+        cutoff = datetime.utcnow() - timedelta(minutes=window_minutes)
+        return cls.query.filter(
+            cls.email == email.lower(),
+            cls.success == False,
+            cls.created_at >= cutoff
+        ).count()
+
+    @classmethod
+    def is_locked_out(cls, email):
+        """Kiểm tra email có đang bị khóa tạm thời không."""
+        return cls.count_recent_failures(email) >= cls.MAX_ATTEMPTS
+
+    @classmethod
+    def record(cls, email, ip_address=None, success=False):
+        """Tạo bản ghi login attempt mới."""
+        attempt = cls(
+            email=email.lower().strip() if email else '',
+            ip_address=ip_address,
+            success=success,
+        )
+        db.session.add(attempt)
+        # Không commit ở đây — caller chịu trách nhiệm commit
+        return attempt
+
+
+# Hằng số Audit Log actions
+ADMIN_AUDIT_ACTIONS = {
+    'LOGIN_SUCCESS': 'LOGIN_SUCCESS',
+    'LOGIN_FAILED': 'LOGIN_FAILED',
+    'LOGOUT': 'LOGOUT',
+    'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
+    'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
+    'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
+    'APPROVE_JOB': 'APPROVE_JOB',
+    'REJECT_JOB': 'REJECT_JOB',
+    'FLAG_JOB': 'FLAG_JOB',
+    'UNFLAG_JOB': 'UNFLAG_JOB',
+    'DELETE_JOB': 'DELETE_JOB',
+    'LOCK_USER': 'LOCK_USER',
+    'UNLOCK_USER': 'UNLOCK_USER',
+    'BAN_USER': 'BAN_USER',
+    'HIDE_REVIEW': 'HIDE_REVIEW',
+    'RESTORE_REVIEW': 'RESTORE_REVIEW',
+    'RESOLVE_REPORT': 'RESOLVE_REPORT',
+    'REJECT_REPORT': 'REJECT_REPORT',
+    'CANCEL_BOOKING': 'CANCEL_BOOKING',
+    'PAYMENT_ACTION': 'PAYMENT_ACTION',
+    'CHANGE_PERMISSION': 'CHANGE_PERMISSION',
+    'CREATE_ADMIN': 'CREATE_ADMIN',
+    'RESET_MFA': 'RESET_MFA',
+    'ADMIN_REAUTH': 'ADMIN_REAUTH',
+}
+
+
+class AdminAuditLog(db.Model):
+    """
+    Ghi lại mọi hành động của Admin.
+    - Không bao giờ xóa bảng này.
+    - Không lưu password hoặc session token.
+    - Admin không thể tự xóa audit log của mình.
+    """
+    __tablename__ = 'admin_audit_log'
+
+    id = db.Column(db.Integer, primary_key=True)
+    # admin_id có thể None nếu login failed (chưa xác định được admin)
+    admin_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False, index=True)
+    target_type = db.Column(db.String(50), nullable=True)   # 'user', 'job', 'translator', ...
+    target_id = db.Column(db.Integer, nullable=True)         # ID của đối tượng bị tác động
+    description = db.Column(db.Text, nullable=True)          # Mô tả ngắn gọn
+    ip_address = db.Column(db.String(64), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
+    # metadata JSON: lý do từ chối, note, thông tin thêm
+    extra_data = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    admin = db.relationship('User', foreign_keys=[admin_id], backref=db.backref('audit_logs', lazy=True))
+
+    def get_extra_data(self):
+        """Parse extra_data JSON, trả về dict."""
+        if not self.extra_data:
+            return {}
+        try:
+            return json.loads(self.extra_data)
+        except (ValueError, TypeError):
+            return {}
+
+    @classmethod
+    def log(cls, action, admin_id=None, target_type=None, target_id=None,
+            description=None, ip_address=None, user_agent=None, extra_data=None):
+        """
+        Tạo một bản ghi audit log mới.
+        Không commit — caller phải tự commit sau khi hoàn thành tất cả thao tác.
+        """
+        entry = cls(
+            admin_id=admin_id,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            description=description,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            extra_data=json.dumps(extra_data) if extra_data else None,
+        )
+        db.session.add(entry)
+        return entry

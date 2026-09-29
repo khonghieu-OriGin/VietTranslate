@@ -1,0 +1,162 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Hợp đồng (Contracts){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Hợp đồng</h1>
+        <p class="page-subtitle">Giám sát các hợp đồng giữa Khách hàng và Phiên dịch viên</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_contracts', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_contracts', status='escrow_pending') }}" class="filter-tab {% if status_filter == 'escrow_pending' %}active{% endif %}">Chờ thanh toán</a>
+        <a href="{{ url_for('admin_contracts', status='in_progress') }}" class="filter-tab {% if status_filter == 'in_progress' %}active{% endif %}">Đang thực hiện</a>
+        <a href="{{ url_for('admin_contracts', status='completed') }}" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">Đã hoàn thành</a>
+        <a href="{{ url_for('admin_contracts', status='cancelled') }}" class="filter-tab danger {% if status_filter == 'cancelled' %}active{% endif %}">Đã hủy</a>
+        <a href="{{ url_for('admin_contracts', status='disputed') }}" class="filter-tab danger {% if status_filter == 'disputed' %}active{% endif %}">Đang tranh chấp</a>
+    </div>
+
+    {% if contracts %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Dự án / Dịch vụ</th>
+                    <th>Các bên tham gia</th>
+                    <th>Giá trị</th>
+                    <th>Lịch trình</th>
+                    <th>Trạng thái</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in contracts %}
+                <tr>
+                    <td class="font-medium text-brand">#CTR-{{ c.id }}</td>
+                    <td>
+                        <div class="flex flex-col gap-1">
+                            {% if c.job %}
+                                <a href="{{ url_for('admin_jobs') }}?search={{ c.job.id }}" class="text-slate-200 hover:text-white hover:underline truncate max-w-[150px]" title="Job: {{ c.job.title }}">
+                                    <span class="text-xs text-brand font-semibold">[JOB]</span> {{ c.job.title }}
+                                </a>
+                            {% elif c.service %}
+                                <span class="text-slate-200 truncate max-w-[150px]" title="Service: {{ c.service.name }}">
+                                    <span class="text-xs text-purple-400 font-semibold">[SRV]</span> {{ c.service.name }}
+                                </span>
+                            {% else %}
+                                <span class="text-slate-500">N/A</span>
+                            {% endif %}
+                            
+                            {% if c.proposal_id %}
+                                <a href="{{ url_for('admin_proposals') }}?search={{ c.proposal_id }}" class="text-xs text-slate-400 hover:text-white hover:underline">
+                                    Từ báo giá #PRP-{{ c.proposal_id }}
+                                </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td>
+                        <div class="flex flex-col gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] uppercase font-bold text-slate-500 w-8">KH:</span>
+                                <a href="{{ url_for('admin_users') }}?search={{ c.hirer.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
+                                    {{ c.hirer.name }}
+                                </a>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] uppercase font-bold text-slate-500 w-8">PDV:</span>
+                                <a href="{{ url_for('admin_translators') }}?search={{ c.translator.email }}" class="text-sm text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
+                                    {{ c.translator.name }}
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="text-emerald-400 font-medium">
+                        {{ "{:,.0f}".format(c.agreed_price).replace(',', '.') }} ₫
+                    </td>
+                    <td>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-sm text-slate-200">{{ c.scheduled_date or 'N/A' }}</span>
+                            <span class="text-xs text-slate-400">
+                                {% if c.scheduled_time_start and c.scheduled_time_end %}
+                                    {{ c.scheduled_time_start }} - {{ c.scheduled_time_end }}
+                                {% else %}
+                                    Chưa chốt giờ
+                                {% endif %}
+                            </span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if c.status == 'escrow_pending' %}
+                            <span class="badge badge-yellow">Chờ thanh toán</span>
+                        {% elif c.status == 'in_progress' %}
+                            <span class="badge badge-blue">Đang thực hiện</span>
+                        {% elif c.status == 'completed' %}
+                            <span class="badge badge-green">Hoàn thành</span>
+                        {% elif c.status == 'cancelled' %}
+                            <span class="badge badge-gray">Đã hủy</span>
+                        {% elif c.status == 'disputed' %}
+                            <span class="badge badge-red">Đang tranh chấp</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ c.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="flex flex-col items-end gap-2">
+                            <button class="btn btn-sm btn-ghost" onclick="viewContractDetail({{ c.id }})">Chi tiết</button>
+                            {% if c.schedule %}
+                                <a href="{{ url_for('admin_schedules') }}?contract_id={{ c.id }}" class="text-[10px] text-brand hover:underline">Xem lịch trình</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <div class="empty-state-title">Không có hợp đồng nào</div>
+        <div class="empty-state-desc">Hiện chưa có hợp đồng nào {% if status_filter != 'all' %}trong trạng thái này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Contract Detail Placeholder -->
+<div id="contractDetailModal" class="modal-overlay">
+    <div class="modal-box max-w-2xl">
+        <h3 class="modal-title flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            Chi tiết hợp đồng #<span id="modalContractId"></span>
+        </h3>
+        
+        <div class="mt-4 p-4 bg-slate-800 rounded-lg border border-slate-700 text-sm text-slate-300">
+            <p>Tính năng xem toàn bộ lịch sử tin nhắn, thanh toán và deliverable của hợp đồng sẽ được mở rộng trong quá trình hoàn thiện.</p>
+            <p class="mt-2 text-yellow-400 text-xs">Note: Admin chỉ được phép xem để hỗ trợ điều tra khiếu nại (Task 9).</p>
+        </div>
+        
+        <div class="modal-actions mt-6">
+            <button type="button" class="btn btn-ghost" onclick="closeContractDetailModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewContractDetail(id) {
+        document.getElementById('modalContractId').textContent = id;
+        document.getElementById('contractDetailModal').classList.add('open');
+    }
+    
+    function closeContractDetailModal() {
+        document.getElementById('contractDetailModal').classList.remove('open');
+    }
+</script>
+{% endblock %}

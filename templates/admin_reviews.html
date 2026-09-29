@@ -1,0 +1,102 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Đánh giá (Reviews){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Đánh giá</h1>
+        <p class="page-subtitle">Kiểm duyệt các đánh giá sau khi hoàn thành hợp đồng</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_reviews', show='all') }}" class="filter-tab {% if show == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_reviews', show='visible') }}" class="filter-tab {% if show == 'visible' %}active{% endif %}">Đang hiển thị</a>
+        <a href="{{ url_for('admin_reviews', show='hidden') }}" class="filter-tab danger {% if show == 'hidden' %}active{% endif %}">Đã ẩn (Hidden)</a>
+    </div>
+
+    {% if reviews %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Hợp đồng</th>
+                    <th>Người đánh giá</th>
+                    <th>Người nhận</th>
+                    <th>Rating</th>
+                    <th>Nội dung</th>
+                    <th>Ngày tạo</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reviews %}
+                <tr class="{% if r.is_hidden %}opacity-60 bg-slate-900/50{% endif %}">
+                    <td class="font-medium text-brand">#REV-{{ r.id }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_contracts') }}?search={{ r.contract_id }}" class="text-brand hover:underline">#CTR-{{ r.contract_id }}</a>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-2">
+                            {% if r.reviewer.avatar_url %}
+                                <img src="{{ r.reviewer.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                            {% else %}
+                                <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
+                                    {{ r.reviewer.name[:1] | upper }}
+                                </div>
+                            {% endif %}
+                            <a href="{{ url_for('admin_users') }}?search={{ r.reviewer.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
+                                {{ r.reviewer.name }}
+                            </a>
+                        </div>
+                    </td>
+                    <td>
+                        <a href="{{ url_for('admin_users') }}?search={{ r.reviewee.email }}" class="text-slate-300 hover:text-white hover:underline truncate max-w-[120px]">
+                            {{ r.reviewee.name }}
+                        </a>
+                    </td>
+                    <td>
+                        <div class="flex items-center gap-1 text-yellow-400">
+                            {{ r.rating }} 
+                            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="max-w-[250px]">
+                            <p class="text-sm text-slate-200 line-clamp-2" title="{{ r.comment }}">{{ r.comment or '(Không có bình luận)' }}</p>
+                        </div>
+                    </td>
+                    <td class="text-xs text-slate-400 whitespace-nowrap">
+                        {{ r.created_at.strftime('%d/%m/%Y %H:%M') if r.created_at else '' }}
+                    </td>
+                    <td>
+                        <div class="flex items-center justify-end gap-2">
+                            <form action="{{ url_for('admin_toggle_review', review_id=r.id) }}" method="POST">
+                                {% if r.is_hidden %}
+                                    <button type="submit" class="btn btn-sm btn-success" title="Khôi phục hiển thị">Khôi phục</button>
+                                {% else %}
+                                    <button type="submit" class="btn btn-sm btn-danger" title="Ẩn đánh giá này">Ẩn</button>
+                                {% endif %}
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/>
+        </svg>
+        <div class="empty-state-title">Không có đánh giá nào</div>
+        <div class="empty-state-desc">Hiện chưa có đánh giá nào {% if show != 'all' %}trong trạng thái này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

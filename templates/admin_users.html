@@ -1,84 +1,78 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}{{ t('admin_page.users_title') }}{% endblock %}
 
+{% block header_title %}{{ t('admin_page.users_heading') }}{% endblock %}
+
 {% block content %}
-<div class="bg-slate-50/60 flex-grow py-10 sm:py-14 min-h-screen">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+<div class="admin-card">
+    <!-- Filter Tabs -->
+    <div class="filter-bar">
+        <a href="?role=all" class="filter-tab {% if role_filter == 'all' %}active{% endif %}">{{ t('admin_page.filter_all') }}</a>
+        <a href="?role=hirer" class="filter-tab {% if role_filter == 'hirer' %}active{% endif %}">{{ t('admin_page.filter_hirer') }}</a>
+        <a href="?role=translator" class="filter-tab {% if role_filter == 'translator' %}active{% endif %}">{{ t('admin_page.filter_translator') }}</a>
+    </div>
 
-        <div class="mb-6">
-            <a href="{{ url_for('admin_dashboard') }}" class="text-xs text-brand-600 font-bold hover:underline inline-flex items-center gap-1 mb-2">
-                {{ t('admin_page.back_to_dashboard') }}
-            </a>
-            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">{{ t('admin_page.users_heading') }}</h1>
-        </div>
-
-        <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden">
-            <!-- Filter Tabs -->
-            <div class="bg-slate-50/70 border-b border-slate-100 px-6 py-3.5 flex flex-wrap gap-2">
-                <a href="?role=all" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'all' %}bg-white border border-slate-200 shadow-soft text-slate-900{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_all') }}</a>
-                <a href="?role=hirer" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'hirer' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_hirer') }}</a>
-                <a href="?role=translator" class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition {% if role_filter == 'translator' %}bg-white border border-slate-200 shadow-soft text-brand-700{% else %}text-slate-500 hover:text-slate-800{% endif %}">{{ t('admin_page.filter_translator') }}</a>
-            </div>
-
-            <!-- Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50/30">
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_user') }}</th>
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_role') }}</th>
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_joined_date') }}</th>
-                            <th class="px-6 py-3.5">{{ t('admin_page.th_status') }}</th>
-                            <th class="px-6 py-3.5 text-right">{{ t('admin_page.th_actions') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
-                        {% for user in users %}
-                        <tr class="hover:bg-slate-50/60 transition {% if not user.is_active %}bg-rose-50/20{% endif %}">
-                            <td class="px-6 py-4">
-                                <div class="font-bold text-slate-900">{{ user.name }}</div>
-                                <div class="text-[11px] text-slate-400">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
-                            </td>
-                            <td class="px-6 py-4">
-                                <span class="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold uppercase tracking-wider">{{ user.role }}</span>
-                            </td>
-                            <td class="px-6 py-4 text-slate-400 text-xs">{{ user.created_at.strftime('%d/%m/%Y') }}</td>
-                            <td class="px-6 py-4">
-                                {% if user.is_active %}
-                                <span class="text-emerald-700 text-xs font-bold flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{{ t('admin_page.status_active') }}
-                                </span>
-                                {% else %}
-                                <span class="text-rose-700 text-xs font-bold flex items-center gap-1">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>{{ t('admin_page.status_locked') }}
-                                </span>
-                                {% endif %}
-                            </td>
-                            <td class="px-6 py-4 text-right">
-                                <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" class="inline">
-                                    {% if user.is_active %}
-                                    <button type="submit" class="text-xs font-bold text-rose-600 hover:underline bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200" onclick="return confirm('{{ t('admin_page.action_lock_confirm') }}');">
-                                        {{ t('admin_page.action_lock') }}
-                                    </button>
-                                    {% else %}
-                                    <button type="submit" class="text-xs font-bold text-emerald-600 hover:underline bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                                        {{ t('admin_page.action_unlock') }}
-                                    </button>
-                                    {% endif %}
-                                </form>
-                            </td>
-                        </tr>
+    <!-- Table -->
+    <div style="overflow-x: auto;">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th>{{ t('admin_page.th_user') }}</th>
+                    <th>{{ t('admin_page.th_role') }}</th>
+                    <th>{{ t('admin_page.th_joined_date') }}</th>
+                    <th>{{ t('admin_page.th_status') }}</th>
+                    <th style="text-align: right;">{{ t('admin_page.th_actions') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr {% if not user.is_active %}style="background: rgba(239,68,68,0.05);"{% endif %}>
+                    <td>
+                        <div style="font-weight: 600; color: #f1f5f9;">{{ user.name }}</div>
+                        <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">{{ user.email }} • {{ user.phone or t('admin_page.no_phone') }}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-gray">{{ user.role }}</span>
+                    </td>
+                    <td style="color: var(--muted); font-size: 12px;">{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        {% if user.is_active %}
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--success);">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--success);"></span>
+                            {{ t('admin_page.status_active') }}
+                        </div>
                         {% else %}
-                        <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-slate-400 text-xs sm:text-sm">{{ t('admin_page.no_users_data') }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
+                        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--danger);">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--danger);"></span>
+                            {{ t('admin_page.status_locked') }}
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <form method="POST" action="{{ url_for('admin_toggle_user', user_id=user.id) }}" style="display: inline;">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            {% if user.is_active %}
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('{{ t('admin_page.action_lock_confirm') }}');">
+                                {{ t('admin_page.action_lock') }}
+                            </button>
+                            {% else %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                {{ t('admin_page.action_unlock') }}
+                            </button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="empty-state">
+                        <div class="empty-state-title">{{ t('admin_page.no_users_data') }}</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
 {% endblock %}

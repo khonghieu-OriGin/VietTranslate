@@ -1,0 +1,137 @@
+{% extends "admin_base.html" %}
+
+{% block title %}Quản lý Báo giá (Proposals){% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Quản lý Báo giá</h1>
+        <p class="page-subtitle">Theo dõi các báo giá từ phiên dịch viên gửi đến khách hàng</p>
+    </div>
+</div>
+
+<div class="admin-card">
+    <div class="filter-bar">
+        <a href="{{ url_for('admin_proposals', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
+        <div class="filter-sep"></div>
+        <a href="{{ url_for('admin_proposals', status='pending') }}" class="filter-tab {% if status_filter == 'pending' %}active{% endif %}">Chờ phản hồi</a>
+        <a href="{{ url_for('admin_proposals', status='accepted') }}" class="filter-tab {% if status_filter == 'accepted' %}active{% endif %}">Đã chấp nhận</a>
+        <a href="{{ url_for('admin_proposals', status='rejected') }}" class="filter-tab {% if status_filter == 'rejected' %}active{% endif %}">Đã từ chối</a>
+    </div>
+
+    {% if proposals %}
+    <div class="overflow-x-auto">
+        <table class="admin-table w-full">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Dự án (Job)</th>
+                    <th>Khách hàng</th>
+                    <th>Phiên dịch viên</th>
+                    <th>Báo giá</th>
+                    <th>Thời gian</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                    <th class="text-right">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proposals %}
+                <tr>
+                    <td class="font-medium text-brand">#PRP-{{ p.id }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_jobs') }}?search={{ p.job_id }}" class="text-slate-200 hover:text-white hover:underline truncate max-w-[150px] block" title="{{ p.job.title if p.job else 'N/A' }}">
+                            {{ p.job.title if p.job else 'N/A' }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if p.job and p.job.hirer %}
+                            <a href="{{ url_for('admin_users') }}?search={{ p.job.hirer.email }}" class="text-slate-300 hover:text-white hover:underline" title="{{ p.job.hirer.name }}">
+                                {{ p.job.hirer.name }}
+                            </a>
+                        {% else %}
+                            <span class="text-slate-500">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.translator %}
+                            <a href="{{ url_for('admin_translators') }}?search={{ p.translator.email }}" class="text-slate-300 hover:text-white hover:underline" title="{{ p.translator.name }}">
+                                {{ p.translator.name }}
+                            </a>
+                        {% else %}
+                            <span class="text-slate-500">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-emerald-400 font-medium">
+                        {{ "{:,.0f}".format(p.price).replace(',', '.') }} ₫
+                    </td>
+                    <td class="text-slate-300">
+                        {{ p.time_estimate or 'N/A' }}
+                    </td>
+                    <td>
+                        {% if p.status == 'pending' %}
+                            <span class="badge badge-yellow">Chờ phản hồi</span>
+                        {% elif p.status == 'accepted' %}
+                            <span class="badge badge-green">Chấp nhận</span>
+                        {% elif p.status == 'rejected' %}
+                            <span class="badge badge-gray">Từ chối</span>
+                        {% else %}
+                            <span class="badge badge-gray">{{ p.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-xs text-slate-400 whitespace-nowrap">
+                        {{ p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '' }}
+                    </td>
+                    <td>
+                        <div class="flex items-center justify-end gap-2">
+                            <button type="button" class="btn btn-sm btn-ghost" onclick="viewCoverLetter({{ p.id }}, '{{ p.cover_letter | escape if p.cover_letter else '' }}')">Xem chi tiết</button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        <div class="empty-state-title">Không có báo giá nào</div>
+        <div class="empty-state-desc">Hiện chưa có báo giá nào {% if status_filter != 'all' %}trong trạng thái này{% endif %}.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal Cover Letter -->
+<div id="coverLetterModal" class="modal-overlay">
+    <div class="modal-box max-w-2xl">
+        <h3 class="modal-title flex items-center gap-2">
+            <svg class="w-5 h-5 text-brand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Nội dung thư chào giá (Cover Letter)
+        </h3>
+        <p class="modal-desc">Chi tiết lời nhắn của phiên dịch viên gửi tới khách hàng.</p>
+        
+        <div class="bg-slate-800 border border-slate-700 rounded-lg p-4 text-sm text-slate-200 min-h-[100px] whitespace-pre-wrap" id="coverLetterContent">
+        </div>
+        
+        <div class="modal-actions mt-6">
+            <button type="button" class="btn btn-ghost" onclick="closeCoverLetterModal()">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewCoverLetter(id, content) {
+        if (!content || content.trim() === '') {
+            content = '(Không có nội dung thư chào giá)';
+        }
+        document.getElementById('coverLetterContent').textContent = content;
+        document.getElementById('coverLetterModal').classList.add('open');
+    }
+    
+    function closeCoverLetterModal() {
+        document.getElementById('coverLetterModal').classList.remove('open');
+    }
+</script>
+{% endblock %}
