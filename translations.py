@@ -4,8 +4,6 @@ VietTranslate Internationalization (i18n) Module
 Contains localized string dictionaries for Vietnamese (vi) and English (en),
 along with helper functions for string lookup and dynamic language list localization.
 """
-import logging
-logger = logging.getLogger(__name__)
 
 TRANSLATIONS = {
     'vi': {
@@ -28,6 +26,9 @@ TRANSLATIONS = {
             'switch_language': 'Ngôn ngữ giao diện',
             'lang_vi': 'Tiếng Việt',
             'lang_en': 'English',
+            'messages_tooltip': 'Tin nhắn',
+            'notifications_tooltip': 'Thông báo',
+            'default_title': 'VietTranslate – Nền Tảng Kết Nối Phiên Dịch Viên Chuyên Nghiệp Toàn Cầu',
         },
 
         # ─── Footer ───
@@ -299,10 +300,10 @@ TRANSLATIONS = {
             'time_30days': '30 ngày gần nhất',
             'time_all': 'Tất cả',
             'budget_all': 'Tất cả mức giá',
-            'budget_under_1m': 'Dưới 1,000,000 đ',
-            'budget_1m_5m': '1,000,000 đ - 5,000,000 đ',
-            'budget_5m_15m': '5,000,000 đ - 15,000,000 đ',
-            'budget_over_15m': 'Trên 15,000,000 đ',
+            'budget_under_1m': 'Dưới 1,000,000 VND',
+            'budget_1m_5m': '1,000,000 - 5,000,000 VND',
+            'budget_5m_15m': '5,000,000 - 15,000,000 VND',
+            'budget_over_15m': 'Trên 15,000,000 VND',
             'search_placeholder': 'Tìm kiếm theo tiêu đề, kỹ năng...',
             'showing_count': 'Hiển thị',
             'open_jobs_label': 'việc làm đang mở',
@@ -327,6 +328,10 @@ TRANSLATIONS = {
             'no_jobs_available': 'Hiện chưa có việc làm nào đang mở.',
             'no_match_title': 'Không tìm thấy việc làm phù hợp',
             'no_match_desc': 'Hãy thử thay đổi hoặc xóa bớt tiêu chí lọc để khám phá thêm nhiều cơ hội mới.',
+            'recommended_jobs_heading': '🔥 Việc phù hợp với bạn',
+            'applied_count_label': 'ứng tuyển',
+            'no_applicants_yet': 'Chưa có ứng viên',
+            'view_now': 'Xem ngay',
         },
 
         # ─── Language Landing Page (translator_language) ───
@@ -377,7 +382,7 @@ TRANSLATIONS = {
             'cover_letter_label': 'Thư giới thiệu & giải pháp của bạn',
             'cover_letter_placeholder': 'Nêu rõ lý do bạn phù hợp với công việc này, các dự án tương tự đã thực hiện...',
             'rate_label': 'Báo giá đề xuất (VND)',
-            'rate_placeholder': 'VD: 2000000',
+            'rate_placeholder': 'VD: 2,000,000 VND',
             'delivery_label': 'Thời gian hoàn thành dự kiến',
             'delivery_placeholder': 'VD: 2 ngày / Trong tuần',
             'submit_proposal_btn': 'Gửi Đề Xuất',
@@ -397,6 +402,22 @@ TRANSLATIONS = {
             'protection_label': 'Bảo vệ quyền lợi:',
             'accepted_badge': '✓ Đã chọn',
             'workspace_btn': 'Phòng làm việc →',
+            'applicants_suffix': 'ứng viên',
+            'closed_title': 'Job đã đủ / đã đóng',
+            'closed_desc': 'Rất tiếc, công việc này hiện không còn nhận thêm đề xuất ứng tuyển.',
+            'checking_schedule': 'Hệ thống đang kiểm tra lịch của bạn...',
+            'schedule_available': '🟢 Có thể ứng tuyển – lịch của bạn trống trong khung giờ này.',
+            'schedule_conflict_prefix': '🔴 Bạn đã có lịch vào thời gian này',
+            'schedule_conflict_suffix': 'Bạn vẫn có thể ứng tuyển nhưng hệ thống sẽ từ chối khi gửi.',
+            'matching_translators_heading': 'Các phiên dịch viên phù hợp với yêu cầu của bạn',
+            'match_percent_suffix': 'phù hợp',
+            'default_translator_title': 'Phiên dịch viên',
+            'from_price_short': 'Từ',
+            'view_profile_short': 'Xem hồ sơ',
+            'invite_now_btn': 'Mời ứng tuyển',
+            'inviting_btn': 'Đang mời...',
+            'invited_btn': '✓ Đã mời',
+            'invite_error': 'Không thể gửi lời mời. Vui lòng thử lại sau.',
         },
 
         # ─── Post Job Page ───
@@ -523,6 +544,16 @@ TRANSLATIONS = {
             'label_new_password': 'Mật khẩu mới',
             'label_confirm_password': 'Xác nhận mật khẩu mới',
             'update_password_btn': 'Cập nhật mật khẩu',
+            'tab_preferences': 'Cài đặt nhận việc',
+            'heading_preferences': 'Cài đặt nhận việc & thông báo',
+            'label_pref_languages': 'Ngôn ngữ',
+            'label_job_type': 'Loại công việc',
+            'label_notifications': 'Thông báo',
+            'notif_new_jobs': 'Việc mới phù hợp',
+            'notif_new_messages': 'Tin nhắn mới',
+            'notif_contracts': 'Hợp đồng',
+            'notif_new_reviews': 'Đánh giá mới',
+            'save_preferences_btn': 'Lưu cài đặt',
         },
 
         # ─── Common / Alerts ───
@@ -534,13 +565,322 @@ TRANSLATIONS = {
             'status_in_progress': 'Đang thực hiện',
             'status_completed': 'Đã hoàn thành',
             'status_cancelled': 'Đã hủy',
-            'currency': 'đ',
+            'currency': 'VND',
             'save': 'Lưu lại',
             'cancel': 'Hủy bỏ',
             'confirm': 'Xác nhận',
             'back': 'Quay lại',
             'loading': 'Đang tải...',
-        }
+        },
+
+        # ─── Home / Portfolio Showcase ───
+        'portfolio': {
+            'badge': 'Thực tiễn hợp tác',
+            'title': 'Những Dự Án Đã Được Kết Nối',
+            'subtitle': 'Điểm qua các dự án tiêu biểu được kết nối thành công qua nền tảng VietTranslate.',
+            'field_label': 'Lĩnh vực:',
+            'status_done': '✓ Hoàn thành',
+            'p1_category': 'Hội nghị quốc tế',
+            'p1_lang': 'Tiếng Nhật',
+            'p1_title': 'Hội thảo xúc tiến đầu tư FDI Nhật Bản – Việt Nam',
+            'p1_desc': 'Phiên dịch song song (Cabin) cho hơn 250 đại diện doanh nghiệp tại Trung tâm Hội nghị Quốc gia.',
+            'p1_field': 'Công nghiệp & FDI',
+            'p2_category': 'Pháp lý & Hợp đồng',
+            'p2_lang': 'Tiếng Anh',
+            'p2_title': 'Đàm phán & Ký kết hợp đồng xuất khẩu phần mềm',
+            'p2_desc': 'Phiên dịch đàm phán thương mại trực tiếp và dịch thuật tài liệu NDA, Master Agreement cho đối tác Mỹ.',
+            'p2_field': 'Công nghệ thông tin',
+            'p3_category': 'Kỹ thuật nhà máy',
+            'p3_lang': 'Tiếng Hàn',
+            'p3_title': 'Đào tạo vận hành dây chuyền sản xuất linh kiện',
+            'p3_desc': 'Phiên dịch tháp tùng kỹ sư trưởng Hàn Quốc hướng dẫn kỹ thuật viên Việt Nam trong 5 ngày onsite.',
+            'p3_field': 'Sản xuất tự động',
+        },
+
+        # ─── Admin Dashboard & Management ───
+        'admin_page': {
+            'dashboard_title': 'Bảng Điều Khiển Quản Trị | VietTranslate Admin',
+            'dashboard_heading': 'Bảng Điều Khiển Quản Trị',
+            'dashboard_subtitle': 'Tổng quan thời gian thực hoạt động thị trường kết nối ngôn ngữ',
+            'back_to_dashboard': '← Bảng điều khiển Admin',
+            'stat_total_users': 'Tổng người dùng',
+            'stat_system_members': 'Thành viên hệ thống',
+            'stat_translators': 'Phiên dịch viên',
+            'stat_pending_profiles': 'hồ sơ chờ duyệt',
+            'stat_all_verified': '✓ Đã duyệt toàn bộ',
+            'stat_job_postings': 'Yêu cầu tuyển dụng',
+            'stat_flagged_jobs': 'bài bị gỡ',
+            'stat_active': 'Đang hoạt động',
+            'stat_escrow_transactions': 'Giao dịch Escrow',
+            'stat_completed_label': 'Đã hoàn tất:',
+            'ops_center_heading': 'Trung tâm Điều Hành & Quản Trị',
+            'ops_verify_translators': 'Duyệt & Thẩm định Phiên dịch viên',
+            'ops_verify_translators_desc': 'Xác minh bằng cấp, năng lực và cấp tích xanh chứng thực.',
+            'ops_manage_jobs': 'Quản lý Tin Tuyển Dụng (Jobs)',
+            'ops_manage_jobs_desc': 'Kiểm duyệt nội dung, xử lý tin rác và gỡ bỏ bài đăng vi phạm.',
+            'ops_manage_users': 'Quản trị Tài Khoản Thành Viên',
+            'ops_manage_users_desc': 'Tra cứu người dùng, phân quyền và khoá tài khoản có hành vi tiêu cực.',
+            'newest_users_heading': 'Người Dùng Mới Nhất',
+            'view_all': 'Xem tất cả',
+            'jobs_title': 'Quản Lý Bài Đăng Tuyển | VietTranslate Admin',
+            'jobs_heading': 'Quản Lý Bài Đăng Tuyển (Jobs)',
+            'filter_all': 'Tất cả',
+            'filter_open': 'Đang mở',
+            'filter_flagged': 'Bị gỡ (Flagged)',
+            'filter_completed': 'Đã hoàn tất',
+            'th_job_title': 'Tiêu đề Job',
+            'th_posted_by': 'Người đăng',
+            'th_status': 'Trạng thái',
+            'th_posted_date': 'Ngày đăng',
+            'th_actions': 'Thao tác',
+            'badge_flagged': 'Bị gỡ',
+            'badge_open': 'Đang tuyển',
+            'badge_contracted': 'Đã ký HĐ',
+            'badge_completed': 'Hoàn tất',
+            'action_view': 'Xem',
+            'action_restore': 'Khôi phục',
+            'action_flag': 'Gỡ bài',
+            'action_flag_confirm': 'Gỡ bỏ bài đăng này khỏi danh sách công khai?',
+            'action_delete': 'Xóa',
+            'action_delete_confirm': 'CẢNH BÁO: Xoá vĩnh viễn bài đăng này khỏi cơ sở dữ liệu?',
+            'no_jobs_data': 'Không có dữ liệu bài đăng.',
+            'translators_title': 'Duyệt Hồ Sơ Phiên Dịch Viên | VietTranslate Admin',
+            'translators_heading': 'Thẩm Định & Duyệt Phiên Dịch Viên',
+            'tab_pending_verify': 'Chờ duyệt xác minh',
+            'tab_verified': 'Đã xác minh (Tích xanh)',
+            'th_translator': 'Phiên dịch viên',
+            'th_languages': 'Ngôn ngữ',
+            'th_specialty': 'Chuyên môn / Tiêu đề',
+            'action_view_profile': 'Xem hồ sơ',
+            'action_verify_confirm': 'Cấp tích xanh Xác minh cho người này?',
+            'action_grant_verify': 'Cấp tích xanh',
+            'action_revoke_confirm': 'Thu hồi tích xanh Xác minh của người này?',
+            'action_revoke': 'Thu hồi',
+            'no_pending_profiles': 'Không có hồ sơ nào đang chờ duyệt.',
+            'no_verified_profiles': 'Chưa có hồ sơ nào được xác minh.',
+            'users_title': 'Quản Lý Tài Khoản Thành Viên | VietTranslate Admin',
+            'users_heading': 'Quản Lý Tài Khoản Thành Viên',
+            'filter_hirer': 'Khách hàng (Hirer)',
+            'filter_translator': 'Phiên dịch viên (Translator)',
+            'th_user': 'Người dùng',
+            'th_role': 'Vai trò',
+            'th_joined_date': 'Ngày tham gia',
+            'no_phone': 'Chưa có SĐT',
+            'status_active': 'Hoạt động',
+            'status_locked': 'Bị khoá',
+            'action_lock_confirm': 'Khoá tài khoản này không cho phép đăng nhập?',
+            'action_lock': 'Khoá tài khoản',
+            'action_unlock': 'Mở khoá',
+            'no_users_data': 'Không có dữ liệu người dùng.',
+        },
+
+        # ─── Messages Page ───
+        'messages_page': {
+            'title': 'Tin nhắn – VietTranslate',
+            'heading': 'Tin nhắn',
+            'subtitle': 'Tất cả các cuộc trò chuyện của bạn',
+            'loading': 'Đang tải...',
+            'empty_title': 'Chưa có cuộc trò chuyện nào',
+            'empty_desc': 'Bắt đầu trao đổi với một phiên dịch viên!',
+            'contract_badge': 'Hợp đồng',
+        },
+
+        # ─── Notifications Page ───
+        'notifications_page': {
+            'title': 'Thông báo – VietTranslate',
+            'heading': 'Thông báo',
+            'subtitle': 'Cập nhật mới nhất về tài khoản của bạn',
+            'mark_all_read': 'Đánh dấu tất cả đã đọc',
+            'filter_all': 'Tất cả',
+            'filter_job': 'Việc làm',
+            'filter_message': 'Tin nhắn',
+            'filter_contract': 'Hợp đồng',
+            'filter_review': 'Đánh giá',
+            'loading': 'Đang tải...',
+            'empty': 'Bạn không có thông báo nào',
+            'time_just_now': 'Vừa xong',
+            'time_minutes_ago': 'phút trước',
+            'time_hours_ago': 'giờ trước',
+            'time_days_ago': 'ngày trước',
+        },
+
+        # ─── Payment Mockup Page ───
+        'payment_mockup_page': {
+            'title': 'Thanh toán Escrow | VietTranslate',
+            'secure_badge': '🔒 Giao dịch bảo mật 256-bit SSL',
+            'heading': 'Thanh toán Tạm giữ (Escrow)',
+            'intro': 'Số tiền sẽ được ký quỹ an toàn bởi VietTranslate cho đến khi bạn nghiệm thu chất lượng công việc hoàn tất.',
+            'card_info_heading': 'Thông tin thẻ thanh toán (Mô phỏng Sandbox)',
+            'card_number_label': 'Số thẻ quốc tế',
+            'card_expiry_label': 'Hạn thẻ',
+            'card_holder_label': 'Chủ thẻ',
+            'sandbox_note': 'Đây là cổng thanh toán mô phỏng thử nghiệm. Bấm "Thanh toán ngay" để chuyển số tiền vào quỹ Escrow bảo chứng và kích hoạt trạng thái hợp đồng.',
+            'pay_btn': 'Thanh toán Escrow',
+            'payment_details_heading': 'Chi tiết thanh toán',
+            'assigned_translator': 'Phiên dịch viên phụ trách',
+            'project_label': 'Dự án:',
+            'service_label': 'Dịch vụ:',
+            'agreed_price_label': 'Giá thỏa thuận:',
+            'platform_fee_label': 'Phí nền tảng (0%):',
+            'free_label': 'Miễn phí',
+            'total_payment_label': 'Tổng thanh toán:',
+            'escrow_note': 'Số tiền này sẽ được giữ an toàn và Phiên dịch viên chỉ nhận được',
+            'escrow_note_suffix': 'khi bạn hoàn toàn hài lòng và xác nhận nghiệm thu.',
+        },
+
+        # ─── Job Category Display Text ───
+        'job_category': {
+            'translation': 'Dịch thuật',
+            'interpretation_other': 'Phiên dịch & Khác',
+            'document_translation': 'Dịch tài liệu',
+            'website_translation': 'Dịch website',
+            'subtitle': 'Dịch phụ đề',
+            'proofreading': 'Hiệu đính',
+            'localization': 'Bản địa hóa',
+            'other_translation': 'Dịch thuật khác',
+            'conference': 'Hội nghị / Cabin',
+            'meeting': 'Họp / Đàm phán',
+            'business': 'Kinh doanh / Thương mại',
+            'travel': 'Du lịch',
+            'escort': 'Tháp tùng',
+            'event': 'Sự kiện',
+            'other_interpretation': 'Dịch vụ khác',
+            'other': 'Khác',
+        },
+
+        # ─── Translator/Job Match Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Khớp cặp ngôn ngữ chính xác',
+            'reverse_language_pair': 'Khớp cặp ngôn ngữ (đảo chiều)',
+            'partial_language': 'Khớp một phần ngôn ngữ',
+            'language_match': 'Khớp ngôn ngữ',
+            'exact_job_type': 'Khớp loại công việc (chính xác)',
+            'group_match': 'Khớp nhóm hình thức làm việc',
+            'experience_match': 'Kinh nghiệm phù hợp',
+            'remote_work': 'Làm việc từ xa (Online)',
+            'location_match': 'Phù hợp địa điểm',
+            'budget_match': 'Ngân sách phù hợp',
+            'schedule_free': 'Có lịch trống',
+        },
+
+        # ─── Auto-generated keys (from i18n/vi.json) – used in personal/main templates ───
+        'auto': {
+            'chờ_escrow': 'Chờ Escrow',
+            'đang_thực_hiện': 'Đang thực hiện',
+            'hoàn_tất': 'Hoàn tất',
+            'phòng_làm_việc_→': 'Phòng làm việc →',
+            'yêu_cầu_tuyển_dụng_đ': 'Yêu cầu tuyển dụng đang mở',
+            'tiêu_đề_công_việc': 'Tiêu đề công việc',
+            'đề_xuất_nhận_được': 'Đề xuất nhận được',
+            'trạng_thái': 'Trạng thái',
+            'thao_tác': 'Thao tác',
+            'ứng_viên': 'ứng viên',
+            'đang_tuyển': 'Đang tuyển',
+            'xem_chi_tiết_→': 'Xem chi tiết →',
+            'chưa_có_bài_tuyển_dụ': 'Chưa có bài tuyển dụng đang mở.',
+            'đề_xuất__báo_giá_đã': 'Đề xuất & Báo giá đã nộp',
+            'dự_án': 'Dự án',
+            'giá_báo': 'Giá báo',
+            'thời_gian_ước_tính': 'Thời gian ước tính',
+            'đã_chọn': 'Đã chọn',
+            'từ_chối': 'Từ chối',
+            'chờ_duyệt': 'Chờ duyệt',
+            'xem_dự_án_→': 'Xem dự án →',
+            'bạn_chưa_gửi_đề_xuất': 'Bạn chưa gửi đề xuất nào.',
+            'khách_hàng': 'Khách hàng',
+            'phiên_dịch_viên': 'Phiên dịch viên',
+            'cài_đặt_nhận_việc': 'Cài đặt nhận việc',
+            'hồ_sơ_công_ty': 'Hồ sơ công ty',
+            'hồ_sơ_công_ty__tổ_ch': 'Hồ sơ Công ty / Tổ chức',
+            'chức_vụ': 'Chức vụ',
+            'ví_dụ_trưởng_phòng_n': 'VD: Trưởng phòng nhân sự, Giám đốc...',
+            'công_ty': 'Công ty',
+            'tên_công_ty_hoặc_tổ': 'Tên công ty hoặc tổ chức',
+            'khu_vực': 'Khu vực',
+            'ví_dụ_hà_nội_tp_hồ_c': 'VD: Hà Nội, TP. Hồ Chí Minh...',
+            'lưu_thay_đổi': 'Lưu thay đổi',
+            'đặt_dịch_vụ_phiên_dị': 'Đặt dịch vụ phiên dịch',
+            'quay_lại_hồ_sơ': 'Quay lại hồ sơ',
+            'gói': 'GÓI',
+            'bảo_vệ_qua_quỹ_escro': 'Bảo vệ qua quỹ Escrow',
+            'chọn_ngày_làm_việc': 'Chọn ngày làm việc / lịch sự kiện',
+            '📅_nhấn_để_chọn_ngày': '📅 Nhấn để chọn ngày trên lịch bên dưới...',
+            'thời_gian_bắt_đầu__k': 'Thời gian bắt đầu & kết thúc',
+            'giờ_bắt_đầu': 'Giờ bắt đầu',
+            'giờ_kết_thúc': 'Giờ kết thúc',
+            'địa_điểm_làm_việc': 'Địa điểm làm việc',
+            'vd_khách_sạn_lotte_b': 'VD: Khách sạn Lotte, Ba Đình, Hà Nội hoặc Online qua Zoom',
+            'đối_với_phiên_dịch_t': 'Đối với phiên dịch từ xa hoặc dịch tài liệu, bạn có thể điền "Online".',
+            'tóm_tắt_lịch_hẹn': 'Tóm tắt lịch hẹn',
+            'ngày': 'Ngày:',
+            'giờ': 'Giờ:',
+            'dịch_vụ': 'Dịch vụ:',
+            'gói_1': 'Gói',
+            'chi_phí': 'Chi phí:',
+            'hủy_bỏ': 'Hủy bỏ',
+            'xác_nhận__tiến_hành': 'Xác nhận & Tiến hành Escrow',
+            'chuyên_gia_phụ_trách': 'Chuyên gia phụ trách',
+            '✓_xác_minh': '✓ Xác minh',
+            'đánh_giá': 'đánh giá',
+            'gói_lựa_chọn': 'Gói lựa chọn:',
+            'thời_gian_giao': 'Thời gian giao:',
+            'tổng_thanh_toán': 'Tổng thanh toán:',
+            'bảo_vệ_quỹ_escrow_an': 'Bảo vệ quỹ Escrow an toàn',
+            'hồ_sơ_khách_hàng': 'Hồ sơ Khách hàng',
+            'tham_gia_từ': 'Tham gia từ:',
+            'job_đã_đăng': 'Job đã đăng',
+            'contract_hoàn_thành': 'Contract hoàn thành',
+            'đánh_giá_1': 'Đánh giá',
+            'xem_profile': 'Xem profile',
+            'nhóm_dịch_vụ': 'Nhóm dịch vụ',
+            'dịch_thuật': 'Dịch thuật',
+            'phiên_dịch__dịch_vụ': 'Phiên dịch & Dịch vụ khác',
+            'hợp_đồng__phòng_làm': 'Hợp đồng & Phòng làm việc',
+            'chi_tiết_hợp_đồng': 'Chi tiết hợp đồng #',
+            'dịch_vụ_1': 'Dịch vụ',
+            'hợp_đồng_dịch_thuật': 'Hợp đồng dịch thuật #',
+            'ngày_hẹn': 'Ngày hẹn:',
+            '⏳_chờ_thanh_toán_esc': '⏳ Chờ thanh toán Escrow',
+            '⚡_đang_thực_hiện': '⚡ Đang thực hiện',
+            '✓_đã_nghiệm_thu__giả': '✓ Đã nghiệm thu & Giải ngân',
+            'tiến_trình_hợp_đồng': 'Tiến trình Hợp đồng Escrow',
+            'thương_lượng__chốt_t': 'Thương lượng & Chốt thỏa thuận',
+            'giá_thống_nhất': 'Giá thống nhất:',
+            'thanh_toán_tạm_giữ_e': 'Thanh toán tạm giữ (Escrow)',
+            'thanh_toán_ký_quỹ_ng': 'Thanh toán ký quỹ ngay',
+            'đang_chờ_khách_hàng': 'Đang chờ khách hàng thanh toán vào quỹ Escrow để bắt đầu.',
+            '✓_tiền_đã_được_bảo_c': '✓ Tiền đã được bảo chứng an toàn trong quỹ.',
+            'thực_hiện_công_việc': 'Thực hiện công việc',
+            'trao_đổi_tiến_độ_qua': 'Trao đổi tiến độ qua phòng chat bên phải hoặc tải lên bản dịch/biên bản.',
+            'tải_lên_tài_liệu_kết': 'Tải lên tài liệu kết quả / File dịch:',
+            'gửi_file': 'Gửi file',
+            'nghiệm_thu__giải_ngâ': 'Nghiệm thu & Giải ngân',
+            '✓_đã_nghiệm_thu_và_g': '✓ Đã nghiệm thu và giải ngân thành công cho phiên dịch viên.',
+            'chỉ_bấm_phê_duyệt_kh': 'Chỉ bấm phê duyệt khi công việc/sự kiện đã diễn ra và bạn hoàn toàn hài lòng với kết quả. Tiền sẽ ngay lập tức được giải ngân cho Phiên dịch viên.',
+            'bạn_chắc_chắn_muốn_n': 'Bạn chắc chắn muốn nghiệm thu và giải ngân?',
+            'phê_duyệt_nghiệm_thu': 'Phê duyệt nghiệm thu & Giải ngân',
+            'chờ_khách_hàng_nghiệ': 'Chờ khách hàng nghiệm thu để nhận tiền về ví.',
+            'đánh_giá_chất_lượng': 'Đánh giá chất lượng',
+            'viết_nhận_xét_trải_n': 'Viết nhận xét trải nghiệm làm việc...',
+            'phòng_làm_việc_trực': 'Phòng làm việc trực tiếp',
+            'nhập_tin_nhắn_trao_đ': 'Nhập tin nhắn trao đổi...',
+            'đánh_giá_thực_tế_qua': 'Đánh giá thực tế qua hệ thống Escrow',
+            'dự_án_1': 'Dự án:',
+            'cơ_bản': 'Cơ bản',
+            'tiêu_chuẩn': 'Tiêu chuẩn',
+            'cao_cấp': 'Cao cấp',
+            'thời_gian': 'Thời gian:',
+            'cam_kết_chất_lượng_c': 'Cam kết chất lượng chuẩn xác',
+            'bảo_vệ_escrow_an_toà': 'Bảo vệ Escrow an toàn 100%',
+            'đặt_gói_cơ_bản': 'Đặt gói Cơ bản',
+            'ưu_tiên_lịch_trình': 'Ưu tiên lịch trình & hỗ trợ mở rộng',
+            'đặt_gói_tiêu_chuẩn': 'Đặt gói Tiêu chuẩn',
+            'hỗ_trợ_chuyên_sâu_24': 'Hỗ trợ chuyên sâu 24/7 & sửa đổi linh hoạt',
+            'đặt_gói_cao_cấp': 'Đặt gói Cao cấp',
+            'phiên_dịch_viên_chưa': 'Phiên dịch viên chưa niêm yết gói cố định.',
+            'nhắn_tin_trao_đổi_tr': 'Nhắn tin trao đổi trực tiếp',
+            'phiên_dịch_viên_chuy': 'Phiên dịch viên chuyên nghiệp',
+        },
     },
 
     'en': {
@@ -563,6 +903,9 @@ TRANSLATIONS = {
             'switch_language': 'Interface Language',
             'lang_vi': 'Tiếng Việt',
             'lang_en': 'English',
+            'messages_tooltip': 'Messages',
+            'notifications_tooltip': 'Notifications',
+            'default_title': 'VietTranslate – Premier Global Translator & Interpreter Connection Platform',
         },
 
         # ─── Footer ───
@@ -862,6 +1205,10 @@ TRANSLATIONS = {
             'no_jobs_available': 'No active jobs available right now.',
             'no_match_title': 'No matching jobs found',
             'no_match_desc': 'Try adjusting or clearing your filters to explore more opportunities.',
+            'recommended_jobs_heading': '🔥 Jobs matched to you',
+            'applied_count_label': 'applied',
+            'no_applicants_yet': 'No applicants yet',
+            'view_now': 'View now',
         },
 
         # ─── Language Landing Page (translator_language) ───
@@ -912,7 +1259,7 @@ TRANSLATIONS = {
             'cover_letter_label': 'Cover Letter & Solution Proposal',
             'cover_letter_placeholder': 'Explain why you are the ideal match for this assignment, relevant past projects...',
             'rate_label': 'Proposed Rate (VND)',
-            'rate_placeholder': 'e.g., 2000000',
+            'rate_placeholder': 'e.g., 2,000,000 VND',
             'delivery_label': 'Estimated Completion Time',
             'delivery_placeholder': 'e.g., 2 days / Within this week',
             'submit_proposal_btn': 'Submit Proposal',
@@ -932,6 +1279,22 @@ TRANSLATIONS = {
             'protection_label': 'Protection:',
             'accepted_badge': '✓ Selected',
             'workspace_btn': 'Workspace →',
+            'applicants_suffix': 'applicants',
+            'closed_title': 'Job Filled / Closed',
+            'closed_desc': 'Sorry, this job is no longer accepting proposals.',
+            'checking_schedule': 'Checking your schedule...',
+            'schedule_available': '🟢 You can apply – your schedule is free during this time slot.',
+            'schedule_conflict_prefix': '🔴 You already have a schedule at this time',
+            'schedule_conflict_suffix': 'You can still apply, but the system will reject it upon submission.',
+            'matching_translators_heading': 'Translators matching your requirements',
+            'match_percent_suffix': 'match',
+            'default_translator_title': 'Translator',
+            'from_price_short': 'From',
+            'view_profile_short': 'View Profile',
+            'invite_now_btn': 'Invite to Apply',
+            'inviting_btn': 'Inviting...',
+            'invited_btn': '✓ Invited',
+            'invite_error': 'Unable to send invitation. Please try again later.',
         },
 
         # ─── Post Job Page ───
@@ -1058,6 +1421,16 @@ TRANSLATIONS = {
             'label_new_password': 'New Password',
             'label_confirm_password': 'Confirm New Password',
             'update_password_btn': 'Update Password',
+            'tab_preferences': 'Job Preferences',
+            'heading_preferences': 'Job & Notification Preferences',
+            'label_pref_languages': 'Languages',
+            'label_job_type': 'Job Type',
+            'label_notifications': 'Notifications',
+            'notif_new_jobs': 'Matching new jobs',
+            'notif_new_messages': 'New messages',
+            'notif_contracts': 'Contracts',
+            'notif_new_reviews': 'New reviews',
+            'save_preferences_btn': 'Save Preferences',
         },
 
         # ─── Common / Alerts ───
@@ -1075,7 +1448,316 @@ TRANSLATIONS = {
             'confirm': 'Confirm',
             'back': 'Back',
             'loading': 'Loading...',
-        }
+        },
+
+        # ─── Home / Portfolio Showcase ───
+        'portfolio': {
+            'badge': 'Success Stories',
+            'title': 'Successfully Connected Projects',
+            'subtitle': 'A look at flagship projects successfully connected through the VietTranslate platform.',
+            'field_label': 'Field:',
+            'status_done': '✓ Completed',
+            'p1_category': 'International Conference',
+            'p1_lang': 'Japanese',
+            'p1_title': 'Japan–Vietnam FDI Investment Promotion Conference',
+            'p1_desc': 'Simultaneous (Cabin) interpreting for over 250 business representatives at the National Convention Center.',
+            'p1_field': 'Industry & FDI',
+            'p2_category': 'Legal & Contracts',
+            'p2_lang': 'English',
+            'p2_title': 'Negotiation & Signing of a Software Export Contract',
+            'p2_desc': 'Direct business negotiation interpreting and translation of NDA and Master Agreement documents for a US partner.',
+            'p2_field': 'Information Technology',
+            'p3_category': 'Factory Engineering',
+            'p3_lang': 'Korean',
+            'p3_title': 'Component Production Line Operations Training',
+            'p3_desc': 'Escort interpreting for a Korean chief engineer training Vietnamese technicians over a 5-day onsite session.',
+            'p3_field': 'Automated Manufacturing',
+        },
+
+        # ─── Admin Dashboard & Management ───
+        'admin_page': {
+            'dashboard_title': 'Admin Dashboard | VietTranslate Admin',
+            'dashboard_heading': 'Admin Dashboard',
+            'dashboard_subtitle': 'Real-time overview of language marketplace activity',
+            'back_to_dashboard': '← Admin Dashboard',
+            'stat_total_users': 'Total Users',
+            'stat_system_members': 'System members',
+            'stat_translators': 'Translators',
+            'stat_pending_profiles': 'profiles pending review',
+            'stat_all_verified': '✓ All verified',
+            'stat_job_postings': 'Job Postings',
+            'stat_flagged_jobs': 'flagged posts',
+            'stat_active': 'Active',
+            'stat_escrow_transactions': 'Escrow Transactions',
+            'stat_completed_label': 'Completed:',
+            'ops_center_heading': 'Operations & Management Center',
+            'ops_verify_translators': 'Review & Verify Translators',
+            'ops_verify_translators_desc': 'Verify credentials, qualifications, and issue verified badges.',
+            'ops_manage_jobs': 'Manage Job Postings',
+            'ops_manage_jobs_desc': 'Moderate content, handle spam, and remove violating posts.',
+            'ops_manage_users': 'Manage Member Accounts',
+            'ops_manage_users_desc': 'Look up users, manage permissions, and lock accounts with negative behavior.',
+            'newest_users_heading': 'Newest Users',
+            'view_all': 'View all',
+            'jobs_title': 'Manage Job Postings | VietTranslate Admin',
+            'jobs_heading': 'Manage Job Postings (Jobs)',
+            'filter_all': 'All',
+            'filter_open': 'Open',
+            'filter_flagged': 'Flagged',
+            'filter_completed': 'Completed',
+            'th_job_title': 'Job Title',
+            'th_posted_by': 'Posted By',
+            'th_status': 'Status',
+            'th_posted_date': 'Posted Date',
+            'th_actions': 'Actions',
+            'badge_flagged': 'Flagged',
+            'badge_open': 'Open',
+            'badge_contracted': 'Contracted',
+            'badge_completed': 'Completed',
+            'action_view': 'View',
+            'action_restore': 'Restore',
+            'action_flag': 'Flag',
+            'action_flag_confirm': 'Remove this post from the public listing?',
+            'action_delete': 'Delete',
+            'action_delete_confirm': 'WARNING: Permanently delete this post from the database?',
+            'no_jobs_data': 'No job data available.',
+            'translators_title': 'Review Translator Profiles | VietTranslate Admin',
+            'translators_heading': 'Translator Verification & Review',
+            'tab_pending_verify': 'Pending Verification',
+            'tab_verified': 'Verified (Blue Check)',
+            'th_translator': 'Translator',
+            'th_languages': 'Languages',
+            'th_specialty': 'Specialty / Title',
+            'action_view_profile': 'View Profile',
+            'action_verify_confirm': 'Grant a verified badge to this person?',
+            'action_grant_verify': 'Grant Verified Badge',
+            'action_revoke_confirm': 'Revoke the verified badge from this person?',
+            'action_revoke': 'Revoke',
+            'no_pending_profiles': 'No profiles pending review.',
+            'no_verified_profiles': 'No profiles verified yet.',
+            'users_title': 'Manage Member Accounts | VietTranslate Admin',
+            'users_heading': 'Manage Member Accounts',
+            'filter_hirer': 'Clients (Hirer)',
+            'filter_translator': 'Translators',
+            'th_user': 'User',
+            'th_role': 'Role',
+            'th_joined_date': 'Joined Date',
+            'no_phone': 'No phone number',
+            'status_active': 'Active',
+            'status_locked': 'Locked',
+            'action_lock_confirm': 'Lock this account and prevent sign-in?',
+            'action_lock': 'Lock Account',
+            'action_unlock': 'Unlock',
+            'no_users_data': 'No user data available.',
+        },
+
+        # ─── Messages Page ───
+        'messages_page': {
+            'title': 'Messages – VietTranslate',
+            'heading': 'Messages',
+            'subtitle': 'All of your conversations',
+            'loading': 'Loading...',
+            'empty_title': 'No conversations yet',
+            'empty_desc': 'Start a conversation with a translator!',
+            'contract_badge': 'Contract',
+        },
+
+        # ─── Notifications Page ───
+        'notifications_page': {
+            'title': 'Notifications – VietTranslate',
+            'heading': 'Notifications',
+            'subtitle': 'The latest updates on your account',
+            'mark_all_read': 'Mark all as read',
+            'filter_all': 'All',
+            'filter_job': 'Jobs',
+            'filter_message': 'Messages',
+            'filter_contract': 'Contracts',
+            'filter_review': 'Reviews',
+            'loading': 'Loading...',
+            'empty': 'You have no notifications',
+            'time_just_now': 'Just now',
+            'time_minutes_ago': 'minutes ago',
+            'time_hours_ago': 'hours ago',
+            'time_days_ago': 'days ago',
+        },
+
+        # ─── Payment Mockup Page ───
+        'payment_mockup_page': {
+            'title': 'Escrow Payment | VietTranslate',
+            'secure_badge': '🔒 256-bit SSL Secure Transaction',
+            'heading': 'Escrow Deposit Payment',
+            'intro': 'Your funds will be safely held in escrow by VietTranslate until you approve the completed work.',
+            'card_info_heading': 'Payment Card Information (Sandbox Simulation)',
+            'card_number_label': 'Card Number',
+            'card_expiry_label': 'Expiry Date',
+            'card_holder_label': 'Cardholder Name',
+            'sandbox_note': 'This is a simulated sandbox payment gateway. Click "Pay Now" to transfer funds into the Escrow vault and activate the contract status.',
+            'pay_btn': 'Pay Escrow',
+            'payment_details_heading': 'Payment Details',
+            'assigned_translator': 'Assigned Translator',
+            'project_label': 'Project:',
+            'service_label': 'Service:',
+            'agreed_price_label': 'Agreed Price:',
+            'platform_fee_label': 'Platform Fee (0%):',
+            'free_label': 'Free',
+            'total_payment_label': 'Total Payment:',
+            'escrow_note': 'These funds will be held securely, and the translator will only receive',
+            'escrow_note_suffix': 'once you are fully satisfied and confirm acceptance.',
+        },
+
+        # ─── Job Category Display Text ───
+        'job_category': {
+            'translation': 'Translation',
+            'interpretation_other': 'Interpretation & Other',
+            'document_translation': 'Document Translation',
+            'website_translation': 'Website Translation',
+            'subtitle': 'Subtitle Translation',
+            'proofreading': 'Proofreading',
+            'localization': 'Localization',
+            'other_translation': 'Other Translation',
+            'conference': 'Conference / Cabin',
+            'meeting': 'Meeting / Negotiation',
+            'business': 'Business / Commerce',
+            'travel': 'Travel',
+            'escort': 'Escort',
+            'event': 'Event',
+            'other_interpretation': 'Other Service',
+            'other': 'Other',
+        },
+
+        # ─── Translator/Job Match Reasons ───
+        'match_reasons': {
+            'exact_language_pair': 'Exact language pair match',
+            'reverse_language_pair': 'Language pair match (reversed)',
+            'partial_language': 'Partial language match',
+            'language_match': 'Language match',
+            'exact_job_type': 'Exact job type match',
+            'group_match': 'Matching work category',
+            'experience_match': 'Relevant experience',
+            'remote_work': 'Remote work (Online)',
+            'location_match': 'Matching location',
+            'budget_match': 'Matching budget',
+            'schedule_free': 'Schedule available',
+        },
+
+        # ─── Auto-generated keys (from i18n/en.json) – used in personal/main templates ───
+        'auto': {
+            'chờ_escrow': 'Escrow Pending',
+            'đang_thực_hiện': 'In Progress',
+            'hoàn_tất': 'Completed',
+            'phòng_làm_việc_→': 'Workspace →',
+            'yêu_cầu_tuyển_dụng_đ': 'Open Job Postings',
+            'tiêu_đề_công_việc': 'Job Title',
+            'đề_xuất_nhận_được': 'Proposals Received',
+            'trạng_thái': 'Status',
+            'thao_tác': 'Actions',
+            'ứng_viên': 'applicants',
+            'đang_tuyển': 'Open',
+            'xem_chi_tiết_→': 'View details →',
+            'chưa_có_bài_tuyển_dụ': 'No open job postings yet.',
+            'đề_xuất__báo_giá_đã': 'Submitted Proposals & Quotes',
+            'dự_án': 'Project',
+            'giá_báo': 'Quote',
+            'thời_gian_ước_tính': 'Estimated Time',
+            'đã_chọn': 'Accepted',
+            'từ_chối': 'Declined',
+            'chờ_duyệt': 'Pending',
+            'xem_dự_án_→': 'View project →',
+            'bạn_chưa_gửi_đề_xuất': 'No submitted proposals yet.',
+            'khách_hàng': 'Client',
+            'phiên_dịch_viên': 'Translator',
+            'cài_đặt_nhận_việc': 'Job Preferences',
+            'hồ_sơ_công_ty': 'Company Profile',
+            'hồ_sơ_công_ty__tổ_ch': 'Company / Organization Profile',
+            'chức_vụ': 'Title',
+            'ví_dụ_trưởng_phòng_n': 'e.g., HR Manager, CEO...',
+            'công_ty': 'Company',
+            'tên_công_ty_hoặc_tổ': 'Company or Organization Name',
+            'khu_vực': 'Location',
+            'ví_dụ_hà_nội_tp_hồ_c': 'e.g., Hanoi, HCMC...',
+            'lưu_thay_đổi': 'Save Changes',
+            'đặt_dịch_vụ_phiên_dị': 'Book Language Service',
+            'quay_lại_hồ_sơ': 'Back to profile of',
+            'gói': 'TIER',
+            'bảo_vệ_qua_quỹ_escro': 'Protected by Escrow Fund',
+            'chọn_ngày_làm_việc': 'Select service date / event schedule',
+            '📅_nhấn_để_chọn_ngày': '📅 Select date on the calendar below...',
+            'thời_gian_bắt_đầu__k': 'Start & End Time',
+            'giờ_bắt_đầu': 'Start time',
+            'giờ_kết_thúc': 'End time',
+            'địa_điểm_làm_việc': 'Service Location',
+            'vd_khách_sạn_lotte_b': 'e.g., Lotte Hotel, Hanoi or Online via Zoom',
+            'đối_với_phiên_dịch_t': 'For remote interpreting or document translation, you can enter "Online".',
+            'tóm_tắt_lịch_hẹn': 'Booking Summary',
+            'ngày': 'Date:',
+            'giờ': 'Time:',
+            'dịch_vụ': 'Service:',
+            'gói_1': 'Tier',
+            'chi_phí': 'Total:',
+            'hủy_bỏ': 'Cancel',
+            'xác_nhận__tiến_hành': 'Confirm & Proceed to Escrow',
+            'chuyên_gia_phụ_trách': 'Assigned Specialist',
+            '✓_xác_minh': '✓ Verified',
+            'đánh_giá': 'reviews',
+            'gói_lựa_chọn': 'Selected tier:',
+            'thời_gian_giao': 'Delivery time:',
+            'tổng_thanh_toán': 'Total payment:',
+            'bảo_vệ_quỹ_escrow_an': '100% Escrow protected',
+            'hồ_sơ_khách_hàng': 'Hirer Profile',
+            'tham_gia_từ': 'Joined:',
+            'job_đã_đăng': 'Jobs Posted',
+            'contract_hoàn_thành': 'Contracts Completed',
+            'đánh_giá_1': 'Review',
+            'xem_profile': 'View profile',
+            'nhóm_dịch_vụ': 'Service Category',
+            'dịch_thuật': 'Translation',
+            'phiên_dịch__dịch_vụ': 'Interpretation & Other',
+            'hợp_đồng__phòng_làm': 'Contract & Workspace',
+            'chi_tiết_hợp_đồng': 'Contract Details #',
+            'dịch_vụ_1': 'Service',
+            'hợp_đồng_dịch_thuật': 'Contract #',
+            'ngày_hẹn': 'Date:',
+            '⏳_chờ_thanh_toán_esc': '⏳ Escrow Deposit Pending',
+            '⚡_đang_thực_hiện': '⚡ In Progress',
+            '✓_đã_nghiệm_thu__giả': '✓ Completed & Disbursed',
+            'tiến_trình_hợp_đồng': 'Escrow Contract Milestones',
+            'thương_lượng__chốt_t': 'Negotiation & Agreement',
+            'giá_thống_nhất': 'Agreed budget:',
+            'thanh_toán_tạm_giữ_e': 'Escrow Deposit',
+            'thanh_toán_ký_quỹ_ng': 'Deposit Escrow Now',
+            'đang_chờ_khách_hàng': 'Awaiting client deposit into Escrow to commence.',
+            '✓_tiền_đã_được_bảo_c': '✓ Funds are secured in Escrow protection.',
+            'thực_hiện_công_việc': 'Project Execution',
+            'trao_đổi_tiến_độ_qua': 'Discuss progress in the chat or upload deliverables.',
+            'tải_lên_tài_liệu_kết': 'Upload deliverables / translated files:',
+            'gửi_file': 'Upload',
+            'nghiệm_thu__giải_ngâ': 'Approval & Payout',
+            '✓_đã_nghiệm_thu_và_g': '✓ Accepted and funds successfully disbursed to translator.',
+            'chỉ_bấm_phê_duyệt_kh': 'Approve only after work/event is completed and you are satisfied. Funds will be released immediately.',
+            'bạn_chắc_chắn_muốn_n': 'Are you sure you want to approve and release funds?',
+            'phê_duyệt_nghiệm_thu': 'Approve & Release Payment',
+            'chờ_khách_hàng_nghiệ': 'Awaiting client approval for payout release.',
+            'đánh_giá_chất_lượng': 'Performance Review',
+            'viết_nhận_xét_trải_n': 'Write your feedback on working together...',
+            'phòng_làm_việc_trực': 'Direct Workspace Chat',
+            'nhập_tin_nhắn_trao_đ': 'Type message...',
+            'đánh_giá_thực_tế_qua': 'Verified feedback via Escrow',
+            'dự_án_1': 'Project:',
+            'cơ_bản': 'Basic',
+            'tiêu_chuẩn': 'Standard',
+            'cao_cấp': 'Premium',
+            'thời_gian': 'Delivery:',
+            'cam_kết_chất_lượng_c': 'High accuracy guarantee',
+            'bảo_vệ_escrow_an_toà': '100% Escrow security',
+            'đặt_gói_cơ_bản': 'Book Basic Tier',
+            'ưu_tiên_lịch_trình': 'Priority scheduling & extended support',
+            'đặt_gói_tiêu_chuẩn': 'Book Standard Tier',
+            'hỗ_trợ_chuyên_sâu_24': '24/7 dedicated support & flexible revisions',
+            'đặt_gói_cao_cấp': 'Book Premium Tier',
+            'phiên_dịch_viên_chưa': 'No fixed packages listed yet.',
+            'nhắn_tin_trao_đổi_tr': 'Message Directly',
+            'phiên_dịch_viên_chuy': 'Professional Interpreter',
+        },
     }
 }
 
@@ -1207,59 +1889,48 @@ LOCALIZED_LANGUAGES_DATA = [
 
 def t(key, lang='vi', **kwargs):
     """
-    Look up a translation string using a dot-separated key (e.g. 'nav.home').
-    Supports string formatting via **kwargs.
-    Falls back to 'vi' if language is not supported, or returns [Missing: lang.key] if key is not found.
+    Look up a localized string key in dot notation (e.g. 'nav.find_translators').
+    Falls back to 'vi' if not found in 'en', or returns the key if not found in either.
+    Formats with kwargs if specified.
     """
-    if lang not in TRANSLATIONS:
+    if not lang or lang not in ('vi', 'en'):
         lang = 'vi'
-    
+
     parts = key.split('.')
-    current = TRANSLATIONS.get(lang, {})
-    
-    for part in parts:
-        if isinstance(current, dict) and part in current:
-            current = current[part]
+    cur = TRANSLATIONS.get(lang, {})
+    for p in parts:
+        if isinstance(cur, dict) and p in cur:
+            cur = cur[p]
         else:
-            logger.warning(f"[i18n] Missing key: {lang}.{key}")
-            return f"[Missing: {lang}.{key}]"
-    
-    if isinstance(current, str):
-        if kwargs:
-            try:
-                return current.format(**kwargs)
-            except KeyError as e:
-                logger.error(f"[i18n] Format KeyError for key '{key}': {e}")
-                return current
-            except Exception as e:
-                logger.error(f"[i18n] Format Exception for key '{key}': {e}")
-                return current
-        return current
-    
-    logger.warning(f"[i18n] Key '{lang}.{key}' does not point to a string.")
-    return f"[Missing: {lang}.{key}]"
+            cur = None
+            break
 
+    # Fallback to Vietnamese if English missing
+    if cur is None and lang != 'vi':
+        cur = TRANSLATIONS.get('vi', {})
+        for p in parts:
+            if isinstance(cur, dict) and p in cur:
+                cur = cur[p]
+            else:
+                cur = None
+                break
 
-# ─── Language List Configuration ───
-LANGUAGES = [
-    {'code': 'vi', 'slug': 'tieng-viet', 'name': 'Tiếng Việt', 'en_name': 'Vietnamese', 'flag': '🇻🇳'},
-    {'code': 'en', 'slug': 'tieng-anh', 'name': 'Tiếng Anh', 'en_name': 'English', 'flag': '🇬🇧'},
-    {'code': 'ja', 'slug': 'tieng-nhat', 'name': 'Tiếng Nhật', 'en_name': 'Japanese', 'flag': '🇯🇵'},
-    {'code': 'ko', 'slug': 'tieng-han', 'name': 'Tiếng Hàn', 'en_name': 'Korean', 'flag': '🇰🇷'},
-    {'code': 'zh', 'slug': 'tieng-trung', 'name': 'Tiếng Trung', 'en_name': 'Chinese', 'flag': '🇨🇳'},
-    {'code': 'fr', 'slug': 'tieng-phap', 'name': 'Tiếng Pháp', 'en_name': 'French', 'flag': '🇫🇷'},
-    {'code': 'de', 'slug': 'tieng-duc', 'name': 'Tiếng Đức', 'en_name': 'German', 'flag': '🇩🇪'},
-    {'code': 'ru', 'slug': 'tieng-nga', 'name': 'Tiếng Nga', 'en_name': 'Russian', 'flag': '🇷🇺'},
-    {'code': 'th', 'slug': 'tieng-thai', 'name': 'Tiếng Thái', 'en_name': 'Thai', 'flag': '🇹🇭'},
-    {'code': 'es', 'slug': 'tieng-tay-ban-nha', 'name': 'Tiếng Tây Ban Nha', 'en_name': 'Spanish', 'flag': '🇪🇸'},
-    {'code': 'pt', 'slug': 'tieng-bo-dao-nha', 'name': 'Tiếng Bồ Đào Nha', 'en_name': 'Portuguese', 'flag': '🇵🇹'},
-    {'code': 'km', 'slug': 'tieng-khmer', 'name': 'Tiếng Khmer', 'en_name': 'Khmer', 'flag': '🇰🇭'},
-    {'code': 'lo', 'slug': 'tieng-lao', 'name': 'Tiếng Lào', 'en_name': 'Lao', 'flag': '🇱🇦'},
-]
+    if cur is None:
+        return key
+
+    if kwargs and isinstance(cur, str):
+        try:
+            return cur.format(**kwargs)
+        except Exception:
+            return cur
+
+    return cur
+
 
 def get_localized_languages(lang='vi'):
     """
-    Returns the list of supported languages with names localized for the current interface.
+    Returns the list of languages formatted for templates, with names localized
+    to the active language.
     """
     is_en = (lang == 'en')
     result = []
@@ -1286,5 +1957,15 @@ def get_localized_languages(lang='vi'):
     return result
 
 
-def get_language_display_name(code, lang='vi'):
-    return code
+def get_language_display_name(name, lang='vi'):
+    """
+    Maps a stored Vietnamese language name (e.g. 'Tiếng Nhật', as saved on Job/Service
+    records) to its localized display name. Falls back to the original value when the
+    active language is Vietnamese or when no match is found (e.g. free-text values).
+    """
+    if lang != 'en' or not name:
+        return name
+    for item in LOCALIZED_LANGUAGES_DATA:
+        if item['name_vi'] == name:
+            return item['name_en']
+    return name
