@@ -404,9 +404,13 @@
                     <div class="border border-slate-200/90 rounded-2xl p-5 bg-slate-50/40">
                         <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-3">
                             <div class="flex items-center gap-3">
-                                <div
-                                    class="w-11 h-11 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-xl flex items-center justify-center text-white font-extrabold text-sm shrink-0">
-                                    {{ proposal.translator.name[0] | upper }}
+                                <div class="relative w-11 h-11 rounded-xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
+                                    {% if proposal.translator.avatar_url %}
+                                    <img src="{{ proposal.translator.avatar_url }}" alt="{{ proposal.translator.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">
+                                    {% endif %}
+                                    <div style="{% if proposal.translator.avatar_url %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-sm shrink-0">
+                                        {{ proposal.translator.name[0] | upper }}
+                                    </div>
                                 </div>
                                 <div>
                                     <a href="{{ url_for('translator_profile', profile_id=proposal.translator.profile.id) }}"

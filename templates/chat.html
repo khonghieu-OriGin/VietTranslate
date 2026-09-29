@@ -10,8 +10,13 @@
         <!-- Chat Header -->
         <div class="bg-white rounded-t-2xl shadow-soft border border-slate-200/90 p-4 sm:p-5 flex items-center justify-between z-10">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-sm shrink-0">
-                    {{ other_user.name[0] | upper }}
+                <div class="relative w-10 h-10 rounded-xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 shrink-0">
+                    {% if other_user.avatar_url %}
+                    <img src="{{ other_user.avatar_url }}" alt="{{ other_user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">
+                    {% endif %}
+                    <div style="{% if other_user.avatar_url %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-sm shrink-0">
+                        {{ other_user.name[0] | upper }}
+                    </div>
                 </div>
                 <div>
                     <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ other_user.name }}</h2>
