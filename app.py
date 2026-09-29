@@ -512,11 +512,12 @@ if database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
     if os.environ.get('VERCEL') == '1':
-        # Vercel: filesystem ephemeral — phải dùng MONGO_URI hoặc DATABASE_URL
-        # Nếu không có, fallback sang :memory: với cảnh báo rõ ràng
+        # Vercel: filesystem ephemeral — BẮT BUỘC dùng DATABASE_URL hoặc MONGO_URI
         if not os.getenv("MONGO_URI"):
-            print("[DB WARNING] Chạy trên Vercel nhưng MONGO_URI và DATABASE_URL đều chưa được cấu hình!", file=sys.stderr)
-            print("[DB WARNING] Dữ liệu sẽ MẤT sau mỗi request do SQLite :memory: không lưu trữ!", file=sys.stderr)
+            error_msg = "[CRITICAL] Chạy trên Vercel nhưng DATABASE_URL (và MONGO_URI) chưa được cấu hình! Không dùng SQLite memory trong production để tránh mất dữ liệu."
+            print(error_msg, file=sys.stderr)
+            raise RuntimeError(error_msg)
+        # Nếu có MONGO_URI nhưng thiếu DATABASE_URL (chỉ dùng MongoDB):
         database_url = 'sqlite:///:memory:'
         _is_memory_db = True
     elif os.environ.get('RENDER'):
@@ -582,9 +583,17 @@ def _init_db():
         return
 
     try:
+        # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
+        dummy_user = db.session.query(User).first()
+        # Fetch thử một số Model khác để kiểm tra
+        dummy_schedule = db.session.query(TranslatorSchedule).first()
         user_count = db.session.execute(db.select(db.func.count()).select_from(User)).scalar()
     except Exception as e:
-        print(f"[DB] Cannot count users: {e}", file=sys.stderr)
+        error_msg = str(e)
+        if "UndefinedColumn" in error_msg or "no such column" in error_msg.lower():
+            print(f"\\n{'='*50}\\n[CRITICAL DB ERROR] DATABASE SCHEMA DRIFT DETECTED!\\nLỗi thiếu column trong database: {error_msg}\\n=> HÃY CHẠY MIGRATION SCRIPT (migration_sync_current_schema.sql)\\n{'='*50}\\n", file=sys.stderr)
+        else:
+            print(f"[DB] Cannot query database during init: {e}", file=sys.stderr)
         user_count = 1  # Giả định đã có data, không seed
 
     if user_count == 0:
