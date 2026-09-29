@@ -360,6 +360,7 @@ class TranslatorSchedule(db.Model):
     status = db.Column(db.String(20), default='reserved', index=True)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
     translator = db.relationship('User', backref=db.backref('schedules', lazy=True))
     contract = db.relationship('Contract', backref=db.backref('schedule', uselist=False))

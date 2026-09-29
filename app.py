@@ -1771,18 +1771,24 @@ def payment_mockup(contract_id):
     platform_fee = int(contract.agreed_price * 0.10)
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
-        from services.scheduling import confirm_slot
-        if not confirm_slot(contract.id):
+        from services.scheduling import confirm_slot, SlotExpiredError
+        try:
+            success = confirm_slot(contract.id)
+            if not success:
+                flash('Thanh toán thất bại: Không tìm thấy lịch hoặc trạng thái không hợp lệ.', 'error')
+                return redirect(url_for('index'))
+                
+            contract.status = 'in_progress'
+            db.session.commit()
+            flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+            
+        except SlotExpiredError as e:
             db.session.rollback()
-            flash('Thanh toán thất bại: Lịch đã quá hạn 30 phút hoặc không khả dụng. Hợp đồng đã bị hủy.', 'error')
+            flash(str(e), 'error')
             contract.status = 'cancelled'
             db.session.commit()
             return redirect(url_for('index'))
-            
-        contract.status = 'in_progress'
-        db.session.commit()
-        flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
-        return redirect(url_for('transaction_detail', contract_id=contract.id))
     return render_template('payment_mockup.html', contract=contract,
                            platform_fee=platform_fee, translator_receives=translator_receives)
 

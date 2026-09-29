@@ -19,6 +19,9 @@ class SchedulingError(Exception):
 class SlotTakenError(SchedulingError):
     pass
 
+class SlotExpiredError(SchedulingError):
+    pass
+
 def _resolve_datetime_to_utc(local_date: date, local_time: time) -> datetime:
     """Helper để chuẩn hóa timezone UTC khi lưu nếu cần (hiện tại schema đang dùng Date/Time)."""
     # Vì schema gốc lưu db.Date và db.Time mà không có timezone (naive), ta sẽ tuân thủ nguyên tắc "không sửa data type/schema cũ".
@@ -46,29 +49,42 @@ def busy_ranges(translator_id, check_date: date):
         ranges.append({'start': start_dt, 'end': end_dt, 'contract_id': s.contract_id})
     return ranges
 
-def release_expired(commit=True):
+def _release_expired_schedules():
     """
-    Giải phóng các lịch đang ở trạng thái 'reserved' nhưng đã hết hạn (quá 30 phút mà chưa thanh toán/xác nhận).
+    Internal helper: Giải phóng các lịch đang ở trạng thái 'reserved' nhưng đã hết hạn.
+    KHÔNG TỰ COMMIT. Chỉ thay đổi trạng thái và flush nếu cần.
     """
-    threshold = datetime.utcnow() - timedelta(minutes=30)
-    expired_schedules = (
-        TranslatorSchedule.query
-        .filter_by(status='reserved')
-        .filter(TranslatorSchedule.created_at < threshold)
-        .all()
-    )
+    now = datetime.utcnow()
+    # Tìm các schedule reserved mà expires_at <= now, 
+    # hoặc (expires_at IS NULL và created_at + 30m <= now)
     
+    expired_schedules = TranslatorSchedule.query.filter_by(status='reserved').all()
     count = 0
     for s in expired_schedules:
-        s.status = 'cancelled'
-        count += 1
-        
-    if count > 0:
-        if commit:
-            db.session.commit()
+        is_expired = False
+        if s.expires_at is not None:
+            if s.expires_at <= now:
+                is_expired = True
         else:
-            db.session.flush()
+            if s.created_at <= now - timedelta(minutes=30):
+                is_expired = True
+                
+        if is_expired:
+            s.status = 'cancelled'
+            count += 1
+            
+    if count > 0:
+        db.session.flush()
         logger.info(f"Released {count} expired schedule reservations.")
+    return count
+
+def release_expired(commit=True):
+    """
+    Giải phóng các lịch đang ở trạng thái 'reserved' nhưng đã hết hạn (dùng cho cron/manual cleanup).
+    """
+    count = _release_expired_schedules()
+    if commit and count > 0:
+        db.session.commit()
     return count
 
 def reserve_slot(
@@ -87,7 +103,7 @@ def reserve_slot(
     Sẽ raise SlotTakenError nếu trùng lịch.
     """
     # 1. Giải phóng reservation cũ trước khi kiểm tra (tránh false positive)
-    release_expired(commit=False)
+    _release_expired_schedules()
     
     # 2. Chuẩn hóa & kiểm tra tính hợp lệ
     parsed_date, parsed_start, parsed_end = normalize_schedule_datetime(
@@ -123,6 +139,7 @@ def reserve_slot(
             raise SlotTakenError(conflict_result.get('message', "Lịch bị trùng với một booking khác."))
 
         # 5. Tạo bản ghi reservation trong cùng transaction
+        now = datetime.utcnow()
         schedule = TranslatorSchedule(
             translator_id=translator_id,
             contract_id=contract_id,
@@ -133,7 +150,9 @@ def reserve_slot(
             end_time=parsed_end,
             buffer_before_minutes=buffer_before_minutes,
             buffer_after_minutes=buffer_after_minutes,
-            status='reserved'
+            status='reserved',
+            created_at=now,
+            expires_at=now + timedelta(minutes=30)
         )
         db.session.add(schedule)
         db.session.flush() # Gửi xuống DB để kiểm tra exclusion constraint (nếu có Postgres)
@@ -153,21 +172,35 @@ def confirm_slot(contract_id, commit=False):
     """
     Chuyển trạng thái từ reserved sang active khi đã thanh toán thành công (escrow).
     """
-    schedule = TranslatorSchedule.query.filter_by(contract_id=contract_id, status='reserved').first()
+    schedule = TranslatorSchedule.query.with_for_update().filter_by(contract_id=contract_id).first()
     if not schedule:
         return False
         
-    threshold = datetime.utcnow() - timedelta(minutes=30)
-    if schedule.created_at < threshold:
-        # Nếu đã expired thì không cho active
+    if schedule.status == 'active':
+        return True
+        
+    if schedule.status != 'reserved':
+        return False
+        
+    now = datetime.utcnow()
+    is_expired = False
+    if schedule.expires_at is not None:
+        if schedule.expires_at <= now:
+            is_expired = True
+    else:
+        if schedule.created_at <= now - timedelta(minutes=30):
+            is_expired = True
+            
+    if is_expired:
         schedule.status = 'cancelled'
         if commit:
             db.session.commit()
         else:
             db.session.flush()
-        return False
+        raise SlotExpiredError("Thời gian giữ lịch đã hết. Vui lòng đặt lại khung giờ.")
         
     schedule.status = 'active'
+    schedule.expires_at = None
     if commit:
         db.session.commit()
     else:

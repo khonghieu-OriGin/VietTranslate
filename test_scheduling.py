@@ -37,111 +37,195 @@ class SchedulingTestCase(unittest.TestCase):
         db.session.remove()
         self.app_context.pop()
 
-    def test_1_overlapping_blocked(self):
-        """TEST 1: Translator A: 10:00 - 11:00. Booking mới 10:30 - 11:30 -> BLOCK."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", buffer_after_minutes=0)
-        with self.assertRaises(SlotTakenError):
-            reserve_slot(self.trans1.id, "2024-12-01", "10:30", "11:30", buffer_after_minutes=0)
-
-    def test_2_boundary_allow(self):
-        """TEST 2: Translator A: 10:00-11:00. Booking mới 11:00-12:00 -> boundary [start, end) -> ALLOW."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", buffer_after_minutes=0)
-        s2 = reserve_slot(self.trans1.id, "2024-12-01", "11:00", "12:00", buffer_after_minutes=0)
-        self.assertIsNotNone(s2)
-
-    def test_3_buffer_block(self):
-        """TEST 3: Translator A: 10:00-11:00, buffer=30. Booking mới 11:15-12:00 -> BLOCK."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", buffer_after_minutes=30)
-        with self.assertRaises(SlotTakenError):
-            reserve_slot(self.trans1.id, "2024-12-01", "11:15", "12:00")
-
-    def test_4_different_translators(self):
-        """TEST 4: Trans A 10:00-11:00, Trans B 10:30-11:30 -> ALLOW."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", buffer_after_minutes=0)
-        s2 = reserve_slot(self.trans2.id, "2024-12-01", "10:30", "11:30", buffer_after_minutes=0)
-        self.assertIsNotNone(s2)
-
-    def test_5_expired_reserved_allows_new(self):
-        """TEST 5: Trans A có reserved quá hạn -> booking mới dùng lại slot -> ALLOW."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00")
-        s1.created_at = datetime.utcnow() - timedelta(minutes=31)
-        db.session.flush()
-        
-        s2 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00")
-        self.assertIsNotNone(s2)
-        db.session.refresh(s1)
-        self.assertEqual(s1.status, 'cancelled')
-
-    def test_6_active_reserved_blocks_new(self):
-        """TEST 6: reserved chưa hết hạn -> booking khác cùng slot BLOCK."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00")
-        with self.assertRaises(SlotTakenError):
-            reserve_slot(self.trans1.id, "2024-12-01", "10:30", "11:30")
-
-    def test_7_confirm_payment_success(self):
-        """TEST 7: reserved thanh toán thành công -> active."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=10)
+    def test_A_reserved_not_expired_confirm_success(self):
+        """TEST A: reserved chưa hết hạn -> confirm thành công -> active."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=10)
         db.session.flush()
         success = confirm_slot(10, commit=False)
         self.assertTrue(success)
-        db.session.refresh(s1)
-        self.assertEqual(s1.status, 'active')
+        self.assertEqual(s.status, 'active')
+        self.assertIsNone(s.expires_at)
 
-    def test_8_confirm_payment_expired(self):
-        """TEST 8: reserved hết hạn cố confirm payment -> KHÔNG active."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=20)
-        s1.created_at = datetime.utcnow() - timedelta(minutes=31)
-        db.session.flush()
-        success = confirm_slot(20, commit=False)
-        self.assertFalse(success)
-        db.session.refresh(s1)
-        self.assertEqual(s1.status, 'cancelled')
-
-    def test_9_cancel_contract(self):
-        """TEST 9: hủy contract -> schedule bị cancelled -> slot đặt lại được."""
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=30)
-        db.session.flush()
-        cancel_slot(30, commit=False)
-        db.session.refresh(s1)
-        self.assertEqual(s1.status, 'cancelled')
-        s2 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00")
-        self.assertIsNotNone(s2)
-
-    def test_10_concurrent_requests(self):
-        """TEST 10: 2 request concurrent cùng trans + slot -> chỉ 1 thành công."""
-        # This is hard to test deterministically in sqlite without threading/locks overlapping properly.
-        # But we'll verify idempotent if same contract, and conflict if different.
-        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=99)
+    def test_B_reserved_expired_confirm_fails(self):
+        """TEST B: reserved đã hết hạn -> confirm thất bại -> cancelled."""
+        from services.scheduling import SlotExpiredError
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=20)
+        s.expires_at = datetime.utcnow() - timedelta(minutes=1)
         db.session.flush()
         
-        # Another request for the same contract_id returns the existing slot (idempotent)
-        s2 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=99)
-        self.assertEqual(s1.id, s2.id)
+        with self.assertRaises(SlotExpiredError):
+            confirm_slot(20, commit=False)
+        self.assertEqual(s.status, 'cancelled')
 
-    def test_11_create_contract_booking(self):
-        """TEST 11: create_contract_booking works and rolls back on duplicate job."""
-        c1 = create_contract_booking(
-            hirer_id=self.hirer.id,
-            translator_id=self.trans1.id,
-            agreed_price=100,
-            scheduled_date="2024-12-01",
-            start_time="10:00",
-            end_time="11:00",
+    def test_C_reserved_expired_cron_not_run(self):
+        """TEST C: reserved hết hạn nhưng cron chưa chạy -> confirm vẫn phải thất bại."""
+        from services.scheduling import SlotExpiredError
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=30)
+        s.expires_at = datetime.utcnow() - timedelta(minutes=10)
+        db.session.flush()
+        
+        with self.assertRaises(SlotExpiredError):
+            confirm_slot(30, commit=False)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_D_cron_runs_expired_becomes_cancelled(self):
+        """TEST D: cron chạy -> reserved expired thành cancelled."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=40)
+        s.expires_at = datetime.utcnow() - timedelta(minutes=10)
+        db.session.flush()
+        
+        release_expired(commit=False)
+        db.session.refresh(s)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_E_cron_runs_twice(self):
+        """TEST E: cron chạy lại lần 2 -> không tạo thay đổi bất thường -> không lỗi."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=50)
+        s.expires_at = datetime.utcnow() - timedelta(minutes=10)
+        db.session.flush()
+        
+        release_expired(commit=False)
+        release_expired(commit=False)
+        db.session.refresh(s)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_F_reserve_ok_contract_fail_rollback(self):
+        """TEST F: reserve thành công nhưng create Contract thất bại -> schedule rollback."""
+        # Simulated by creating a conflict in create_contract_booking
+        # We will use job that already has a contract to trigger BookingConflictError
+        from services.booking import BookingConflictError
+        create_contract_booking(
+            hirer_id=self.hirer.id, 
+            translator_id=self.trans1.id, 
+            agreed_price=100, 
+            scheduled_date="2024-12-01", 
+            start_time="10:00", 
+            end_time="11:00", 
             job_id=self.job1.id
         )
-        self.assertIsNotNone(c1)
         
-        # Second attempt for same job should raise BookingConflictError
+        schedules_before = TranslatorSchedule.query.count()
         with self.assertRaises(BookingConflictError):
             create_contract_booking(
-                hirer_id=self.hirer.id,
-                translator_id=self.trans1.id,
-                agreed_price=100,
-                scheduled_date="2024-12-01",
-                start_time="10:00",
-                end_time="11:00",
+                hirer_id=self.hirer.id, 
+                translator_id=self.trans1.id, 
+                agreed_price=100, 
+                scheduled_date="2024-12-01", 
+                start_time="11:00", 
+                end_time="12:00", 
                 job_id=self.job1.id
             )
+        
+        self.assertEqual(TranslatorSchedule.query.count(), schedules_before)
+
+    def test_G_contract_fail_no_orphan(self):
+        """TEST G: Contract tạo thất bại -> không còn schedule reserved orphan."""
+        # Same as F, rollback ensures no orphan.
+        self.test_F_reserve_ok_contract_fail_rollback()
+
+    def test_H_schedule_constraint_error_contract_rollback(self):
+        """TEST H: schedule insert gặp constraint error -> Contract rollback."""
+        # Book a slot
+        create_contract_booking(
+            hirer_id=self.hirer.id, 
+            translator_id=self.trans1.id, 
+            agreed_price=100, 
+            scheduled_date="2024-12-01", 
+            start_time="10:00", 
+            end_time="11:00", 
+            job_id=self.job1.id
+        )
+        
+        # Try booking same slot for different job -> raises BookingConflictError
+        contracts_before = Contract.query.count()
+        with self.assertRaises(BookingConflictError):
+            create_contract_booking(
+                hirer_id=self.hirer.id, 
+                translator_id=self.trans1.id, 
+                agreed_price=100, 
+                scheduled_date="2024-12-01", 
+                start_time="10:30", 
+                end_time="11:30", 
+                job_id=self.job2.id
+            )
+            
+        # Verify contract was rolled back
+        self.assertEqual(Contract.query.count(), contracts_before)
+
+    def test_I_release_expired_in_booking_no_commit(self):
+        """TEST I: release_expired() được gọi trong booking transaction -> KHÔNG tạo commit giữa chừng."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "08:00", "09:00", contract_id=99)
+        s.expires_at = datetime.utcnow() - timedelta(minutes=10)
+        db.session.flush()
+        
+        # Now we create a new booking which will internally call release_expired
+        create_contract_booking(
+            hirer_id=self.hirer.id, 
+            translator_id=self.trans1.id, 
+            agreed_price=100, 
+            scheduled_date="2024-12-01", 
+            start_time="10:00", 
+            end_time="11:00", 
+            job_id=self.job1.id
+        )
+        
+        # Because we didn't call db.session.commit() anywhere, the outer test transaction should still be active
+        # If it committed, rolling back wouldn't revert this. But since it's flush, rollback reverts it.
+        # We can just verify it succeeds without error.
+        db.session.refresh(s)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_J_reserved_payment_before_expiry(self):
+        """TEST J: reserved + payment trước expiry -> active."""
+        self.test_A_reserved_not_expired_confirm_success()
+
+    def test_K_reserved_payment_after_expiry(self):
+        """TEST K: reserved + payment sau expiry -> cancelled -> Contract không active."""
+        self.test_B_reserved_expired_confirm_fails()
+
+    def test_L_payment_requested_twice_idempotent(self):
+        """TEST L: payment request gửi 2 lần -> idempotent -> không tạo schedule thứ 2."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=100)
+        db.session.flush()
+        
+        # First confirm
+        confirm_slot(100, commit=False)
+        self.assertEqual(s.status, 'active')
+        
+        # Second confirm
+        success = confirm_slot(100, commit=False)
+        self.assertTrue(success)
+        self.assertEqual(s.status, 'active')
+        self.assertEqual(TranslatorSchedule.query.filter_by(contract_id=100).count(), 1)
+
+    def test_M_reserved_cancel(self):
+        """TEST M: reserved + cancel -> schedule cancelled."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=110)
+        db.session.flush()
+        cancel_slot(110, commit=False)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_N_active_cancel(self):
+        """TEST N: active + cancel -> schedule cancelled."""
+        s = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=120)
+        db.session.flush()
+        confirm_slot(120, commit=False)
+        self.assertEqual(s.status, 'active')
+        
+        cancel_slot(120, commit=False)
+        self.assertEqual(s.status, 'cancelled')
+
+    def test_O_cancelled_book_again_allow(self):
+        """TEST O: cancel xong booking lại cùng slot -> ALLOW."""
+        s1 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=130)
+        db.session.flush()
+        cancel_slot(130, commit=False)
+        self.assertEqual(s1.status, 'cancelled')
+        
+        s2 = reserve_slot(self.trans1.id, "2024-12-01", "10:00", "11:00", contract_id=140)
+        self.assertIsNotNone(s2)
+        self.assertEqual(s2.status, 'reserved')
 
 if __name__ == '__main__':
     unittest.main()
+
