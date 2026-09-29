@@ -626,6 +626,12 @@ def _ensure_db():
         _db_ready = True
 
 
+@app.errorhandler(500)
+def handle_500(e):
+    import traceback
+    tb = traceback.format_exc()
+    return f"<pre>500 Error:\n{e}\n\nTraceback:\n{tb}</pre>", 500
+
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
 def login_required(f):
