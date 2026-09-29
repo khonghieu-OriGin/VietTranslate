@@ -679,6 +679,13 @@ def format_date_vn(val):
             return val
     return str(val)
 
+@app.template_filter('vnd')
+def vnd_filter(value):
+    try:
+        return '{:,.0f}'.format(float(value))
+    except (ValueError, TypeError):
+        return value
+
 class SimpleMongoUser:
     """Wrapper nhẹ để templates có thể dùng current_user.name, .role, v.v. với MongoDB user."""
     def __init__(self, data: dict):
