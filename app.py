@@ -1786,7 +1786,17 @@ def payment_mockup(contract_id):
         except SlotExpiredError as e:
             db.session.rollback()
             flash(str(e), 'error')
-            contract.status = 'cancelled'
+            
+            # Re-fetch objects after rollback to apply permanent cancellations
+            c = Contract.query.get(contract.id)
+            if c:
+                c.status = 'cancelled'
+                
+            from models import TranslatorSchedule
+            s = TranslatorSchedule.query.filter_by(contract_id=contract.id).first()
+            if s:
+                s.status = 'cancelled'
+                
             db.session.commit()
             return redirect(url_for('index'))
     return render_template('payment_mockup.html', contract=contract,
@@ -2282,8 +2292,11 @@ def api_invite_translator(job_id, translator_id):
 def cron_release_expired():
     # Simple secret verification
     cron_secret = request.args.get('secret') or request.headers.get('Authorization')
-    expected_secret = os.environ.get('CRON_SECRET', 'dev-cron-secret')
+    expected_secret = os.environ.get('CRON_SECRET')
     
+    if not expected_secret:
+        return jsonify({'error': 'CRON_SECRET not configured'}), 500
+        
     if cron_secret != expected_secret and cron_secret != f'Bearer {expected_secret}':
         return jsonify({'error': 'Unauthorized'}), 401
         

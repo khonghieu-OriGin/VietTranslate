@@ -160,7 +160,6 @@ def reserve_slot(
         return schedule
         
     except IntegrityError as e:
-        db.session.rollback()
         logger.error(f"PostgreSQL exclusion constraint or unique constraint triggered: {e}")
         raise SlotTakenError("Lịch đã bị chiếm bởi một giao dịch đồng thời.")
     except Exception as e:
@@ -192,11 +191,7 @@ def confirm_slot(contract_id, commit=False):
             is_expired = True
             
     if is_expired:
-        schedule.status = 'cancelled'
-        if commit:
-            db.session.commit()
-        else:
-            db.session.flush()
+        # Không cần thay đổi status ở đây nếu caller sẽ rollback sau khi catch exception
         raise SlotExpiredError("Thời gian giữ lịch đã hết. Vui lòng đặt lại khung giờ.")
         
     schedule.status = 'active'
