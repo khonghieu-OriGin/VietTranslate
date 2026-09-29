@@ -6,4 +6,7 @@ env/
 venv/
 *.log
 instance/database.db
+.env
+.env.local
+.env*.local
 

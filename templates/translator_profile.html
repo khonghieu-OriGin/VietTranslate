@@ -27,8 +27,13 @@
             <div class="bg-white rounded-2xl border border-slate-200/90 p-6 sm:p-8 shadow-soft">
                 <div class="flex flex-col sm:flex-row gap-6 items-start">
                     
-                    <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-brand-600 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white text-3xl sm:text-4xl font-extrabold shadow-sm">
-                        {{ profile.user.name[0] | upper }}
+                    <div class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-sm border border-slate-200/90 bg-slate-100 flex-shrink-0">
+                        {% if profile.avatar_url %}
+                        <img src="{{ profile.avatar_url }}" alt="{{ profile.user.name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">
+                        {% endif %}
+                        <div style="{% if profile.avatar_url %}display:none;{% else %}display:flex;{% endif %}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl sm:text-4xl font-extrabold shadow-sm">
+                            {{ profile.user.name[0] | upper }}
+                        </div>
                     </div>
 
                     <div class="flex-grow min-w-0">
@@ -176,7 +181,7 @@
                         
                         <!-- Basic -->
                         <div x-show="tab === 'basic'">
-                            <div class="text-2xl font-extrabold text-slate-900 mb-4">{{ "{:,.0f}".format(service.basic_price) }}₫</div>
+                            <div class="text-2xl font-extrabold text-slate-900 mb-4">{{ service.basic_price|vnd }} VND</div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.basic_delivery }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.cam_kết_chất_lượng_c') }}</li>
@@ -190,7 +195,7 @@
                         <!-- Standard -->
                         <div x-show="tab === 'standard'" x-cloak>
                             <div class="text-2xl font-extrabold text-slate-900 mb-4">
-                                {{ "{:,.0f}".format(service.standard_price or service.basic_price * 1.5) }}₫
+                                {{ (service.standard_price or service.basic_price * 1.5)|vnd }} VND
                             </div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.standard_delivery }}</li>
@@ -205,7 +210,7 @@
                         <!-- Premium -->
                         <div x-show="tab === 'premium'" x-cloak>
                             <div class="text-2xl font-extrabold text-slate-900 mb-4">
-                                {{ "{:,.0f}".format(service.premium_price or service.basic_price * 2.2) }}₫
+                                {{ (service.premium_price or service.basic_price * 2.2)|vnd }} VND
                             </div>
                             <ul class="text-xs space-y-2.5 mb-6 text-slate-600">
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.thời_gian') }} {{ service.premium_delivery }}</li>

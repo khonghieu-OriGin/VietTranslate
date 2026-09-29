@@ -4,386 +4,517 @@
 
 {% block head %}
 <style>
-    .tab-btn.active { background: #2563eb; color: white; font-weight: 700; box-shadow: 0 2px 8px rgba(37,99,235,0.25); }
-    .tab-btn { transition: all .2s cubic-bezier(0.4, 0, 0.2, 1); }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+    .tab-btn.active {
+        background: #2563eb;
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+    }
+
+    .tab-btn {
+        transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .tab-panel {
+        display: none;
+    }
+
+    .tab-panel.active {
+        display: block;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
-<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex flex-col md:flex-row gap-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col md:flex-row gap-8">
 
-        <!-- Sidebar -->
-        <aside class="w-full md:w-64 shrink-0">
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
-                <!-- Avatar -->
-                <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
-                    <div class="w-20 h-20 bg-gradient-to-br from-brand-600 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center text-white text-2xl font-black shadow-soft mb-3">
-                        {{ user.name[0] | upper }}
+            <!-- Sidebar -->
+            <aside class="w-full md:w-64 shrink-0">
+                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 overflow-hidden sticky top-24">
+                    <!-- Avatar -->
+                    <div class="p-6 text-center border-b border-slate-100 bg-slate-50/40">
+                        <div
+                            class="relative w-20 h-20 rounded-2xl mx-auto overflow-hidden shadow-soft border border-slate-200/90 bg-slate-100 mb-3">
+                            {% if user.avatar_url %}
+                            <img src="{{ user.avatar_url }}" alt="{{ user.name }}"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                class="w-full h-full object-cover object-top">
+                            {% endif %}
+                            <div style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
+                                class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-2xl font-black shadow-soft">
+                                {{ user.name[0] | upper }}
+                            </div>
+                        </div>
+                        <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ user.name }}</h2>
+                        <p class="text-xs text-slate-400 mt-0.5">
+                            {% if user.role == 'translator' %}{{ t('account_profile_page.role_translator') }}
+                            {% elif user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
+                            {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
+                        </p>
+                        {% if user.role == 'translator' and user.profile and user.profile.is_verified %}
+                        <span
+                            class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                            {{ t('account_profile_page.verified_badge') }}
+                        </span>
+                        {% endif %}
                     </div>
-                    <h2 class="font-bold text-slate-900 text-sm sm:text-base">{{ user.name }}</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        {% if user.role == 'translator' %}{{ t('account_profile_page.role_translator') }}
-                        {% elif user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
-                        {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
-                    </p>
-                    {% if user.role == 'translator' and user.profile and user.profile.is_verified %}
-                    <span class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
-                        {{ t('account_profile_page.verified_badge') }}
-                    </span>
-                    {% endif %}
+
+                    <!-- Nav -->
+                    <nav class="p-3 space-y-1">
+                        <a href="{{ url_for('account_profile') }}"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-50 text-brand-700 font-bold rounded-xl text-xs sm:text-sm">
+                            <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            {{ t('account_profile_page.nav_profile') }}
+                        </a>
+                        <a href="{{ url_for('account_history') }}"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2" />
+                            </svg>
+                            {{ t('account_profile_page.nav_history') }}
+                        </a>
+                        {% if user.role == 'translator' and user.profile %}
+                        <a href="{{ url_for('translator_profile', profile_id=user.profile.id) }}" target="_blank"
+                            class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            {{ t('account_profile_page.nav_public_page') }}
+                        </a>
+                        {% endif %}
+                    </nav>
                 </div>
-                
-                <!-- Nav -->
-                <nav class="p-3 space-y-1">
-                    <a href="{{ url_for('account_profile') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 bg-brand-50 text-brand-700 font-bold rounded-xl text-xs sm:text-sm">
-                        <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        {{ t('account_profile_page.nav_profile') }}
-                    </a>
-                    <a href="{{ url_for('account_history') }}" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>
-                        {{ t('account_profile_page.nav_history') }}
-                    </a>
-                    {% if user.role == 'translator' and user.profile %}
-                    <a href="{{ url_for('translator_profile', profile_id=user.profile.id) }}" target="_blank" class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
-                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                        {{ t('account_profile_page.nav_public_page') }}
-                    </a>
+            </aside>
+
+            <!-- Main Content -->
+            <div class="flex-grow space-y-6">
+
+                <!-- Tab Switcher -->
+                <div
+                    class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 flex overflow-x-auto whitespace-nowrap hide-scrollbar gap-1.5">
+                    <button class="tab-btn active shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold"
+                        onclick="switchTab('basic')">{{ t('account_profile_page.tab_basic') }}</button>
+                    {% if user.role == 'translator' %}
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
+                        onclick="switchTab('translator')">{{ t('account_profile_page.tab_translator') }}</button>
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
+                        onclick="switchTab('preferences')">{{ t('auto.cài_đặt_nhận_việc') }}</button>
                     {% endif %}
-                </nav>
-            </div>
-        </aside>
+                    {% if user.role == 'hirer' %}
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
+                        onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
+                        onclick="switchTab('preferences')">{{ t('account_profile_page.tab_preferences') }}</button>
+                    {% endif %}
+                    <button
+                        class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold"
+                        onclick="switchTab('security')">{{ t('account_profile_page.tab_security') }}</button>
+                </div>
 
-        <!-- Main Content -->
-        <div class="flex-grow space-y-6">
+                <!-- Tab 1: Thông tin cơ bản -->
+                <div id="tab-basic" class="tab-panel active">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            {{ t('account_profile_page.heading_basic') }}
+                        </h2>
 
-            <!-- Tab Switcher -->
-            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-1.5 flex overflow-x-auto whitespace-nowrap hide-scrollbar gap-1.5">
-                <button class="tab-btn active shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold" onclick="switchTab('basic')">{{ t('account_profile_page.tab_basic') }}</button>
-                {% if user.role == 'translator' %}
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('translator')">{{ t('account_profile_page.tab_translator') }}</button>
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('preferences')">{{ t('auto.cài_đặt_nhận_việc') }}</button>
-                {% endif %}
-                {% if user.role == 'hirer' %}
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
-                {% endif %}
-                <button class="tab-btn shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm text-slate-600 hover:bg-slate-50 font-bold" onclick="switchTab('security')">{{ t('account_profile_page.tab_security') }}</button>
-            </div>
-
-            <!-- Tab 1: Thông tin cơ bản -->
-            <div id="tab-basic" class="tab-panel active">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ t('account_profile_page.heading_basic') }}
-                    </h2>
-                    
-                    <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
-                        <input type="hidden" name="action" value="basic">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_name') }} <span class="text-red-500">*</span></label>
-                                <input type="text" name="name" required value="{{ user.name }}"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_email') }}</label>
-                                <input type="email" value="{{ user.email }}" readonly
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-400 text-xs sm:text-sm cursor-not-allowed">
-                                <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.email_hint') }}</p>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_phone') }}</label>
-                                <input type="tel" name="phone" value="{{ user.phone or '' }}"
-                                    placeholder="{{ t('account_profile_page.phone_placeholder') }}"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_role') }}</label>
-                                <div class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-600 text-xs sm:text-sm font-semibold">
-                                    {% if user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
-                                    {% elif user.role == 'translator' %}{{ t('account_profile_page.role_translator') }}
-                                    {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
+                            <input type="hidden" name="action" value="basic">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                                <div>
+                                    <label
+                                        class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                        t('account_profile_page.label_name') }} <span
+                                            class="text-red-500">*</span></label>
+                                    <input type="text" name="name" required value="{{ user.name }}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                        t('account_profile_page.label_email') }}</label>
+                                    <input type="email" value="{{ user.email }}" readonly
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-400 text-xs sm:text-sm cursor-not-allowed">
+                                    <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.email_hint')
+                                        }}</p>
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                        t('account_profile_page.label_phone') }}</label>
+                                    <input type="tel" name="phone" value="{{ user.phone or '' }}"
+                                        placeholder="{{ t('account_profile_page.phone_placeholder') }}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                </div>
+                                <div>
+                                    <label
+                                        class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                        t('account_profile_page.label_role') }}</label>
+                                    <div
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-100 text-slate-600 text-xs sm:text-sm font-semibold">
+                                        {% if user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
+                                        {% elif user.role == 'translator' %}{{ t('account_profile_page.role_translator')
+                                        }}
+                                        {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="flex justify-end pt-5 border-t border-slate-100">
-                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span>{{ t('account_profile_page.save_btn') }}</span>
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
 
-            <!-- Tab 2: Hồ sơ nghề nghiệp (chỉ translator) -->
-            {% if user.role == 'translator' %}
-            <div id="tab-translator" class="tab-panel">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ t('account_profile_page.heading_translator') }}
-                    </h2>
-                    
-                    <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
-                        <input type="hidden" name="action" value="translator_profile">
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_job_title') }}</label>
-                            <input type="text" name="title"
-                                value="{{ user.profile.title if user.profile else '' }}"
-                                placeholder="{{ t('account_profile_page.job_title_placeholder') }}"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('account_profile_page.label_fluent_languages') }}</label>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-2" id="lang-checkboxes">
-                                {% set selected_langs = (user.profile.languages or '').split(',') | map('trim') | list %}
-                                {% for lang in LANGUAGES %}
-                                <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition text-xs font-medium
-                                    {% if lang.name in selected_langs %}border-brand-500 bg-brand-50/80 text-brand-900 font-bold{% else %}border-slate-200 text-slate-700{% endif %}">
-                                    <input type="checkbox" name="lang_checks" value="{{ lang.name }}"
-                                        {% if lang.name in selected_langs %}checked{% endif %}
-                                        class="rounded text-brand-600 focus:ring-brand-500"
-                                        onchange="updateLangField()">
-                                    <span>{{ lang.flag }}</span>
-                                    <span>{{ lang.short_name }}</span>
-                                </label>
-                                {% endfor %}
+                            <div class="flex justify-end pt-5 border-t border-slate-100">
+                                <button type="submit"
+                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>{{ t('account_profile_page.save_btn') }}</span>
+                                </button>
                             </div>
-                            <input type="hidden" name="languages" id="languages-hidden" value="{{ user.profile.languages if user.profile else '' }}">
-                            <p class="text-[11px] text-slate-400">{{ t('account_profile_page.fluent_languages_hint') }}</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_badges') }}</label>
-                            <input type="text" name="badges"
-                                value="{{ user.profile.badges if user.profile else '' }}"
-                                placeholder="{{ t('account_profile_page.badges_placeholder') }}"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                            <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.badges_hint') }}</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_response_time') }}</label>
-                            <select name="response_time" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                {% set rt = user.profile.response_time if user.profile else '' %}
-                                <option value="< 1 giờ" {% if rt == '< 1 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_1h') }}</option>
-                                <option value="< 3 giờ" {% if rt == '< 3 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_3h') }}</option>
-                                <option value="< 12 giờ" {% if rt == '< 12 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_12h') }}</option>
-                                <option value="< 1 ngày" {% if rt == '< 1 ngày' %}selected{% endif %}>{{ t('account_profile_page.rt_under_1d') }}</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_bio') }}</label>
-                            <textarea name="bio" rows="6"
-                                placeholder="{{ t('account_profile_page.bio_placeholder') }}"
-                                class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.profile.bio if user.profile else '' }}</textarea>
-                        </div>
-
-                        <div class="flex justify-end pt-5 border-t border-slate-100">
-                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span>{{ t('account_profile_page.save_profile_btn') }}</span>
-                            </button>
-                        </div>
-                    </form>
+                        </form>
+                    </div>
                 </div>
-            </div>
-            
-            <div id="tab-preferences" class="tab-panel">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        Cài đặt nhận việc & thông báo
-                    </h2>
-                    
-                    <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
-                        <input type="hidden" name="action" value="translator_preference">
-                        
-                        {% set pref = user.preference %}
-                        {% set pref_langs = (pref.languages or '').split(',') if pref else [] %}
-                        {% set pref_services = (pref.service_types or '').split(',') if pref else [] %}
 
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ngôn ngữ</label>
-                            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                                {% for lang in ['Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp', 'Tiếng Đức', 'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha'] %}
-                                <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
-                                    <input type="checkbox" name="languages" value="{{ lang }}" class="rounded text-brand-600" {% if lang in pref_langs %}checked{% endif %}>
-                                    <span>{{ lang }}</span>
-                                </label>
-                                {% endfor %}
+                <!-- Tab 2: Hồ sơ nghề nghiệp (chỉ translator) -->
+                {% if user.role == 'translator' %}
+                <div id="tab-translator" class="tab-panel">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            {{ t('account_profile_page.heading_translator') }}
+                        </h2>
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                            <input type="hidden" name="action" value="translator_profile">
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_job_title') }}</label>
+                                <input type="text" name="title" value="{{ user.profile.title if user.profile else '' }}"
+                                    placeholder="{{ t('account_profile_page.job_title_placeholder') }}"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
                             </div>
-                        </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Loại công việc</label>
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                                {% for service in ['Dịch thuật', 'Phiên dịch', 'Hội họp', 'Kinh doanh', 'Du lịch', 'Sự kiện', 'Khác'] %}
-                                <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
-                                    <input type="checkbox" name="service_types" value="{{ service }}" class="rounded text-brand-600" {% if service in pref_services %}checked{% endif %}>
-                                    <span>{{ service }}</span>
-                                </label>
-                                {% endfor %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
+                                    t('account_profile_page.label_fluent_languages') }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-2" id="lang-checkboxes">
+                                    {% set selected_langs = (user.profile.languages or '').split(',') | map('trim') |
+                                    list %}
+                                    {% for lang in LANGUAGES %}
+                                    <label
+                                        class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition text-xs font-medium
+                                    {% if lang.name_vi in selected_langs %}border-brand-500 bg-brand-50/80 text-brand-900 font-bold{% else %}border-slate-200 text-slate-700{% endif %}">
+                                        <input type="checkbox" name="lang_checks" value="{{ lang.name_vi }}" {% if
+                                            lang.name_vi in selected_langs %}checked{% endif %}
+                                            class="rounded text-brand-600 focus:ring-brand-500"
+                                            onchange="updateLangField()">
+                                        <span>{{ lang.flag }}</span>
+                                        <span>{{ lang.short_name }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <input type="hidden" name="languages" id="languages-hidden"
+                                    value="{{ user.profile.languages if user.profile else '' }}">
+                                <p class="text-[11px] text-slate-400">{{ t('account_profile_page.fluent_languages_hint')
+                                    }}</p>
                             </div>
-                        </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Thông báo</label>
-                            <div class="space-y-3">
-                                <label class="flex items-center gap-3">
-                                    <input type="checkbox" name="notify_new_jobs" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_new_jobs %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Việc mới phù hợp</span>
-                                </label>
-                                <label class="flex items-center gap-3">
-                                    <input type="checkbox" name="notify_messages" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_messages %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Tin nhắn mới</span>
-                                </label>
-                                <label class="flex items-center gap-3">
-                                    <input type="checkbox" name="notify_contracts" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_contracts %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Hợp đồng</span>
-                                </label>
-                                <label class="flex items-center gap-3">
-                                    <input type="checkbox" name="notify_reviews" value="1" class="rounded text-brand-600" {% if not pref or pref.notify_reviews %}checked{% endif %}>
-                                    <span class="text-sm text-slate-700">Đánh giá mới</span>
-                                </label>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_badges') }}</label>
+                                <input type="text" name="badges"
+                                    value="{{ user.profile.badges if user.profile else '' }}"
+                                    placeholder="{{ t('account_profile_page.badges_placeholder') }}"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.badges_hint') }}
+                                </p>
                             </div>
-                        </div>
 
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_response_time') }}</label>
+                                <select name="response_time"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    {% set rt = user.profile.response_time if user.profile else '' %}
+                                    <option value="< 1 giờ" {% if rt=='< 1 giờ' %}selected{% endif %}>{{
+                                        t('account_profile_page.rt_under_1h') }}</option>
+                                    <option value="< 3 giờ" {% if rt=='< 3 giờ' %}selected{% endif %}>{{
+                                        t('account_profile_page.rt_under_3h') }}</option>
+                                    <option value="< 12 giờ" {% if rt=='< 12 giờ' %}selected{% endif %}>{{
+                                        t('account_profile_page.rt_under_12h') }}</option>
+                                    <option value="< 1 ngày" {% if rt=='< 1 ngày' %}selected{% endif %}>{{
+                                        t('account_profile_page.rt_under_1d') }}</option>
+                                </select>
+                            </div>
 
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_bio') }}</label>
+                                <textarea name="bio" rows="6"
+                                    placeholder="{{ t('account_profile_page.bio_placeholder') }}"
+                                    class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.profile.bio if user.profile else '' }}</textarea>
+                            </div>
 
-                        <div class="flex justify-end pt-5 border-t border-slate-100">
-                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span>Lưu cài đặt</span>
-                            </button>
-                        </div>
-                    </form>
+                            <div class="flex justify-end pt-5 border-t border-slate-100">
+                                <button type="submit"
+                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>{{ t('account_profile_page.save_profile_btn') }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-            </div>
-            {% endif %}
 
-            <!-- Tab Hirer Profile -->
-            {% if user.role == 'hirer' %}
-            <div id="tab-hirer" class="tab-panel">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ t('auto.hồ_sơ_công_ty__tổ_ch') }}
-                    </h2>
-                    
-                    <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
-                        <input type="hidden" name="action" value="hirer_profile">
-                        
-                        <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.chức_vụ') }}</label>
-                            <input type="text" name="title" value="{{ user.hirer_profile.title if user.hirer_profile else '' }}" 
-                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ t('auto.ví_dụ_trưởng_phòng_n') }}">
-                        </div>
-                        
-                        <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.công_ty') }}</label>
-                            <input type="text" name="company" value="{{ user.hirer_profile.company if user.hirer_profile else '' }}" 
-                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ t('auto.tên_công_ty_hoặc_tổ') }}">
-                        </div>
+                <div id="tab-preferences" class="tab-panel">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            {{ t('account_profile_page.heading_preferences') }}
+                        </h2>
 
-                        <div class="space-y-1.5">
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{ t('auto.khu_vực') }}</label>
-                            <input type="text" name="location" value="{{ user.hirer_profile.location if user.hirer_profile else '' }}" 
-                                class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
-                        </div>
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6">
+                            <input type="hidden" name="action" value="translator_preference">
 
-                        <div class="pt-2">
-                            <button type="submit" class="w-full sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition">
-                                {{ t('auto.lưu_thay_đổi') }}
-                            </button>
-                        </div>
-                    </form>
+                            {% set pref = user.preference %}
+                            {% set pref_langs = (pref.languages or '').split(',') if pref else [] %}
+                            {% set pref_services = (pref.service_types or '').split(',') if pref else [] %}
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
+                                    t('account_profile_page.label_pref_languages') }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    {% for lang in ['Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp',
+                                    'Tiếng Đức', 'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha'] %}
+                                    <label
+                                        class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="languages" value="{{ lang }}"
+                                            class="rounded text-brand-600" {% if lang in pref_langs %}checked{% endif
+                                            %}>
+                                        <span>{{ lang_name(lang) }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
+                                    t('account_profile_page.label_job_type') }}</label>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                                    {% set service_labels_vi = {'Dịch thuật': 'Dịch thuật', 'Phiên dịch': 'Phiên dịch',
+                                    'Hội họp': 'Hội họp', 'Kinh doanh': 'Kinh doanh', 'Du lịch': 'Du lịch', 'Sự kiện':
+                                    'Sự kiện', 'Khác': 'Khác'} %}
+                                    {% set service_labels_en = {'Dịch thuật': 'Translation', 'Phiên dịch':
+                                    'Interpretation', 'Hội họp': 'Meeting', 'Kinh doanh': 'Business', 'Du lịch':
+                                    'Travel', 'Sự kiện': 'Event', 'Khác': 'Other'} %}
+                                    {% for service in ['Dịch thuật', 'Phiên dịch', 'Hội họp', 'Kinh doanh', 'Du lịch',
+                                    'Sự kiện', 'Khác'] %}
+                                    <label
+                                        class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="service_types" value="{{ service }}"
+                                            class="rounded text-brand-600" {% if service in pref_services %}checked{%
+                                            endif %}>
+                                        <span>{{ service_labels_en[service] if current_lang == 'en' else
+                                            service_labels_vi[service] }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
+                                    t('account_profile_page.label_notifications') }}</label>
+                                <div class="space-y-3">
+                                    <label class="flex items-center gap-3">
+                                        <input type="checkbox" name="notify_new_jobs" value="1"
+                                            class="rounded text-brand-600" {% if not pref or pref.notify_new_jobs
+                                            %}checked{% endif %}>
+                                        <span class="text-sm text-slate-700">{{ t('account_profile_page.notif_new_jobs')
+                                            }}</span>
+                                    </label>
+                                    <label class="flex items-center gap-3">
+                                        <input type="checkbox" name="notify_messages" value="1"
+                                            class="rounded text-brand-600" {% if not pref or pref.notify_messages
+                                            %}checked{% endif %}>
+                                        <span class="text-sm text-slate-700">{{
+                                            t('account_profile_page.notif_new_messages') }}</span>
+                                    </label>
+                                    <label class="flex items-center gap-3">
+                                        <input type="checkbox" name="notify_contracts" value="1"
+                                            class="rounded text-brand-600" {% if not pref or pref.notify_contracts
+                                            %}checked{% endif %}>
+                                        <span class="text-sm text-slate-700">{{
+                                            t('account_profile_page.notif_contracts') }}</span>
+                                    </label>
+                                    <label class="flex items-center gap-3">
+                                        <input type="checkbox" name="notify_reviews" value="1"
+                                            class="rounded text-brand-600" {% if not pref or pref.notify_reviews
+                                            %}checked{% endif %}>
+                                        <span class="text-sm text-slate-700">{{
+                                            t('account_profile_page.notif_new_reviews') }}</span>
+                                    </label>
+                                </div>
+                            </div>
+
+
+
+                            <div class="flex justify-end pt-5 border-t border-slate-100">
+                                <button type="submit"
+                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>{{ t('account_profile_page.save_preferences_btn') }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
 
-            <!-- Tab 3/4: Bảo mật -->
-            <div id="tab-security" class="tab-panel">
-                <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                    <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                        {{ t('account_profile_page.heading_security') }}
-                    </h2>
-                    
-                    <form method="POST" action="{{ url_for('account_profile') }}" class="max-w-md space-y-4">
-                        <input type="hidden" name="action" value="change_password">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_old_password') }}</label>
-                            <input type="password" name="old_password" required
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_new_password') }}</label>
-                            <input type="password" name="new_password" required minlength="6"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_confirm_password') }}</label>
-                            <input type="password" name="confirm_password" required minlength="6"
-                                class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                        </div>
-                        <div class="flex justify-end pt-5 border-t border-slate-100">
-                            <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-                                <span>{{ t('account_profile_page.update_password_btn') }}</span>
-                            </button>
-                        </div>
-                    </form>
+                <!-- Tab Hirer Profile -->
+                {% if user.role == 'hirer' %}
+                <div id="tab-hirer" class="tab-panel">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            {{ t('auto.hồ_sơ_công_ty__tổ_ch') }}
+                        </h2>
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                            <input type="hidden" name="action" value="hirer_profile">
+
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
+                                    t('auto.chức_vụ') }}</label>
+                                <input type="text" name="title"
+                                    value="{{ user.hirer_profile.title if user.hirer_profile else '' }}"
+                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                    placeholder="{{ t('auto.ví_dụ_trưởng_phòng_n') }}">
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
+                                    t('auto.công_ty') }}</label>
+                                <input type="text" name="company"
+                                    value="{{ user.hirer_profile.company if user.hirer_profile else '' }}"
+                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                    placeholder="{{ t('auto.tên_công_ty_hoặc_tổ') }}">
+                            </div>
+
+                            <div class="space-y-1.5">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
+                                    t('auto.khu_vực') }}</label>
+                                <input type="text" name="location"
+                                    value="{{ user.hirer_profile.location if user.hirer_profile else '' }}"
+                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
+                                    placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
+                            </div>
+
+                            <div class="pt-2">
+                                <button type="submit"
+                                    class="w-full sm:w-auto px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs sm:text-sm shadow-sm transition">
+                                    {{ t('auto.lưu_thay_đổi') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-            </div>
+                {% endif %}
 
+                <!-- Tab 3/4: Bảo mật -->
+                <div id="tab-security" class="tab-panel">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                            {{ t('account_profile_page.heading_security') }}
+                        </h2>
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="max-w-md space-y-4">
+                            <input type="hidden" name="action" value="change_password">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_old_password') }}</label>
+                                <input type="password" name="old_password" required
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_new_password') }}</label>
+                                <input type="password" name="new_password" required minlength="6"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
+                                    t('account_profile_page.label_confirm_password') }}</label>
+                                <input type="password" name="confirm_password" required minlength="6"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                            </div>
+                            <div class="flex justify-end pt-5 border-t border-slate-100">
+                                <button type="submit"
+                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    <span>{{ t('account_profile_page.update_password_btn') }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
-</div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-function switchTab(tab) {
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.classList.add('text-slate-600', 'hover:bg-slate-50');
-    });
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.classList.remove('active');
+            b.classList.add('text-slate-600', 'hover:bg-slate-50');
+        });
 
-    document.getElementById('tab-' + tab).classList.add('active');
-    event.target.classList.add('active');
-    event.target.classList.remove('text-slate-600', 'hover:bg-slate-50');
-}
+        document.getElementById('tab-' + tab).classList.add('active');
+        event.target.classList.add('active');
+        event.target.classList.remove('text-slate-600', 'hover:bg-slate-50');
+    }
 
-function updateLangField() {
-    const checks = document.querySelectorAll('input[name="lang_checks"]:checked');
-    const vals = Array.from(checks).map(c => c.value);
-    document.getElementById('languages-hidden').value = vals.join(', ');
-    
-    document.querySelectorAll('#lang-checkboxes label').forEach(label => {
-        const cb = label.querySelector('input[type="checkbox"]');
-        if (cb.checked) {
-            label.classList.add('border-brand-500', 'bg-brand-50/80', 'text-brand-900', 'font-bold');
-            label.classList.remove('border-slate-200', 'text-slate-700');
-        } else {
-            label.classList.remove('border-brand-500', 'bg-brand-50/80', 'text-brand-900', 'font-bold');
-            label.classList.add('border-slate-200', 'text-slate-700');
-        }
-    });
-}
+    function updateLangField() {
+        const checks = document.querySelectorAll('input[name="lang_checks"]:checked');
+        const vals = Array.from(checks).map(c => c.value);
+        document.getElementById('languages-hidden').value = vals.join(', ');
+
+        document.querySelectorAll('#lang-checkboxes label').forEach(label => {
+            const cb = label.querySelector('input[type="checkbox"]');
+            if (cb.checked) {
+                label.classList.add('border-brand-500', 'bg-brand-50/80', 'text-brand-900', 'font-bold');
+                label.classList.remove('border-slate-200', 'text-slate-700');
+            } else {
+                label.classList.remove('border-brand-500', 'bg-brand-50/80', 'text-brand-900', 'font-bold');
+                label.classList.add('border-slate-200', 'text-slate-700');
+            }
+        });
+    }
 </script>
 {% endblock %}

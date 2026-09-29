@@ -57,6 +57,38 @@ class User(db.Model):
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
 
+    @property
+    def avatar_url(self):
+        email_map = {
+            'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
+            'trans_ru@test.com': '/static/avatars/avatar_ha.jpg',
+            'trans_jp@test.com': '/static/avatars/avatar_bich.jpg',
+            'trans_en@test.com': '/static/avatars/avatar_cuong.jpg',
+            'trans_cn@test.com': '/static/avatars/avatar_duc.jpg',
+            'trans_fr@test.com': '/static/avatars/avatar_huong.jpg',
+            'trans_de@test.com': '/static/avatars/avatar_khoa.jpg',
+            'trans_th@test.com': '/static/avatars/avatar_nam.jpg',
+            'trans_pt@test.com': '/static/avatars/avatar_huy.jpg',
+            'trans_es@test.com': '/static/avatars/avatar_lananh.jpg',
+        }
+        name_map = {
+            'phạm thị dung': '/static/avatars/avatar_dung.jpg',
+            'đặng thị thanh hà': '/static/avatars/avatar_ha.jpg',
+            'trần thị bích': '/static/avatars/avatar_bich.jpg',
+            'lê văn cường': '/static/avatars/avatar_cuong.jpg',
+            'hoàng minh đức': '/static/avatars/avatar_duc.jpg',
+            'nguyễn thị mai hương': '/static/avatars/avatar_huong.jpg',
+            'vũ đình khoa': '/static/avatars/avatar_khoa.jpg',
+            'lý hoàng nam': '/static/avatars/avatar_nam.jpg',
+            'bùi quang huy': '/static/avatars/avatar_huy.jpg',
+            'ngô thị lan anh': '/static/avatars/avatar_lananh.jpg',
+        }
+        if self.email and self.email.lower() in email_map:
+            return email_map[self.email.lower()]
+        if self.name and self.name.strip().lower() in name_map:
+            return name_map[self.name.strip().lower()]
+        return None
+
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -72,6 +104,10 @@ class TranslatorProfile(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
 
     services = db.relationship('Service', backref='profile', lazy=True)
+
+    @property
+    def avatar_url(self):
+        return self.user.avatar_url if self.user else None
 
 
 class TranslatorPreference(db.Model):
@@ -158,25 +194,19 @@ class Job(db.Model):
         }
         return mapping.get(self.category, 'other_interpretation')
 
-    @property
-    def display_category_text(self):
-        group_text = 'Dịch thuật' if self.display_category_group == 'translation' else 'Phiên dịch & Khác'
-        mapping = {
-            'document_translation': "Dịch tài liệu",
-            'website_translation': "Dịch website",
-            'subtitle': "Dịch phụ đề",
-            'proofreading': "Hiệu đính",
-            'localization': "Bản địa hóa",
-            'other_translation': "Dịch thuật khác",
-            'conference': "Hội nghị / Cabin",
-            'meeting': "Họp / Đàm phán",
-            'business': "Kinh doanh / Thương mại",
-            'travel': "Du lịch",
-            'escort': "Tháp tùng",
-            'event': "Sự kiện",
-            'other_interpretation': "Dịch vụ khác"
-        }
-        type_text = mapping.get(self.display_service_type, self.category or 'Khác')
+    def display_category_text(self, lang='vi'):
+        from translations import t as t_lookup
+        group_key = 'translation' if self.display_category_group == 'translation' else 'interpretation_other'
+        group_text = t_lookup(f'job_category.{group_key}', lang)
+        known_types = (
+            'document_translation', 'website_translation', 'subtitle', 'proofreading',
+            'localization', 'other_translation', 'conference', 'meeting', 'business',
+            'travel', 'escort', 'event', 'other_interpretation'
+        )
+        if self.display_service_type in known_types:
+            type_text = t_lookup(f'job_category.{self.display_service_type}', lang)
+        else:
+            type_text = self.category or t_lookup('job_category.other', lang)
         return f"{group_text} - {type_text}"
 
     @property

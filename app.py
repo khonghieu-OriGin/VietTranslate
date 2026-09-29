@@ -7,7 +7,7 @@ from datetime import datetime, date, timedelta
 from functools import wraps
 from sqlalchemy.exc import SQLAlchemyError
 import re
-from translations import t as t_lookup, get_localized_languages
+from translations import t as t_lookup, get_localized_languages, get_language_display_name
 from sqlalchemy.pool import StaticPool
 
 def get_locale():
@@ -509,11 +509,6 @@ if database_url:
         database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
-    # Supabase requires SSL
-    if 'postgresql' in database_url and 'sslmode' not in database_url:
-        sep = '&' if '?' in database_url else '?'
-        database_url += f'{sep}sslmode=require'
-    print(f"[DB] Sử dụng PostgreSQL (DATABASE_URL)", file=sys.stderr)
 else:
     if os.environ.get('VERCEL') == '1':
         # Vercel: filesystem ephemeral — phải dùng MONGO_URI hoặc DATABASE_URL
@@ -536,10 +531,10 @@ else:
         database_url = 'sqlite:///' + db_path
         print(f"[DB] Sử dụng SQLite cục bộ: {db_path}", file=sys.stderr)
 
+print(f"[DB] Using: {database_url[:50]}...", file=__import__('sys').stderr)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
-# Pool config cho SQLite (cả local và :memory:)
-if 'sqlite' in database_url:
+if os.environ.get('VERCEL') == '1':
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
@@ -565,7 +560,7 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-# ─── DATABASE INITIALIZATION ───────────────────────────────────────────────────
+import sys
 
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
@@ -742,7 +737,8 @@ def inject_globals():
         current_user=user,
         LANGUAGES=get_localized_languages(current_lang),
         current_lang=current_lang,
-        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs)
+        t=lambda key, **kwargs: t_lookup(key, current_lang, **kwargs),
+        lang_name=lambda name: get_language_display_name(name, current_lang)
     )
 
 @app.route('/set-language/<lang>')
@@ -1033,7 +1029,8 @@ def account_profile():
                 flash(_t('flash.password_changed'), 'success')
 
         return redirect(url_for('account_profile'))
-    return render_template('account_profile.html', user=user, LANGUAGES=LANGUAGES)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    return render_template('account_profile.html', user=user, LANGUAGES=get_localized_languages(current_lang))
 
 def get_translator_preferences(user_id):
     return TranslatorPreference.query.filter_by(translator_id=user_id).first()
@@ -1120,10 +1117,6 @@ def translator_list():
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
 
-@app.route('/api/ping')
-def api_ping():
-    return jsonify({'status': 'ok', 'db_uri_set': bool(os.getenv('DATABASE_URL')), 'version': 'v3'})
-
 @app.route('/api/health')
 def api_health():
     try:
@@ -1177,6 +1170,7 @@ def api_translators():
             'id': p.id,
             'user_id': p.user_id,
             'name': p.user.name,
+            'avatar_url': p.avatar_url,
             'initial': p.user.name[0].upper() if p.user.name else '?',
             'title': p.title or '',
             'languages': langs,
@@ -2201,7 +2195,8 @@ def api_unread_notifications_count():
 def api_recommended_jobs():
     from services.matching import get_recommended_jobs_for_translator
     limit = request.args.get('limit', 10, type=int)
-    recommended = get_recommended_jobs_for_translator(session['user_id'], limit)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    recommended = get_recommended_jobs_for_translator(session['user_id'], limit, current_lang)
     return jsonify(recommended)
 
 @app.route('/api/jobs/<int:job_id>/recommended-translators', methods=['GET'])
@@ -2210,12 +2205,13 @@ def api_recommended_translators(job_id):
     job = Job.query.get_or_404(job_id)
     if job.hirer_id != session['user_id']:
         abort(403)
-        
+
     from services.matching import get_recommended_translators_for_job
     limit = request.args.get('limit', 10, type=int)
+    current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     # Safe execute
     try:
-        recommended = get_recommended_translators_for_job(job_id, limit)
+        recommended = get_recommended_translators_for_job(job_id, limit, current_lang)
         return jsonify(recommended)
     except Exception as e:
         print(f"Error fetching recommended translators: {e}")
