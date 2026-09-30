@@ -545,6 +545,9 @@ else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_pre_ping': True,
         'pool_recycle': 300,
+        'connect_args': {
+            'prepare_threshold': None,
+        },
     }
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -565,6 +568,13 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 db.init_app(app)
+
+from sqlalchemy import event
+with app.app_context():
+    @event.listens_for(db.engine, "connect")
+    def set_psycopg_prepare_threshold(dbapi_connection, connection_record):
+        if hasattr(dbapi_connection, "prepare_threshold"):
+            dbapi_connection.prepare_threshold = None
 
 import sys
 
@@ -1226,49 +1236,60 @@ def debug_index():
 @app.route('/api/translators')
 def api_translators():
     """JSON API cho client-side filtering realtime."""
-    profiles = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).all()
-    data = []
-    for p in profiles:
-        # Lấy giá thấp nhất từ services
-        min_price = None
-        if p.services:
-            prices = [s.basic_price for s in p.services if s.basic_price]
-            min_price = min(prices) if prices else None
+    try:
+        from sqlalchemy.orm import joinedload
+        profiles = TranslatorProfile.query.options(
+            joinedload(TranslatorProfile.user),
+            joinedload(TranslatorProfile.services)
+        ).order_by(TranslatorProfile.rating.desc()).all()
+        data = []
+        for p in profiles:
+            if not p.user:
+                continue
+            # Lấy giá thấp nhất từ services
+            min_price = None
+            if p.services:
+                prices = [s.basic_price for s in p.services if s.basic_price]
+                min_price = min(prices) if prices else None
 
-        # Lấy thời gian hoàn thành thấp nhất từ services (parse số ngày)
-        min_days = None
-        if p.services:
-            for s in p.services:
-                for field in [s.basic_delivery, s.standard_delivery, s.premium_delivery]:
-                    if field:
-                        nums = re.findall(r'\d+', field)
-                        if nums:
-                            d = int(nums[0])
-                            if min_days is None or d < min_days:
-                                min_days = d
+            # Lấy thời gian hoàn thành thấp nhất từ services (parse số ngày)
+            min_days = None
+            if p.services:
+                for s in p.services:
+                    for field in [s.basic_delivery, s.standard_delivery, s.premium_delivery]:
+                        if field:
+                            nums = re.findall(r'\d+', field)
+                            if nums:
+                                d = int(nums[0])
+                                if min_days is None or d < min_days:
+                                    min_days = d
 
-        # Tách languages và badges thành list
-        langs = [l.strip() for l in (p.languages or '').split(',') if l.strip()]
-        badges = [b.strip() for b in (p.badges or '').split(',') if b.strip()]
+            # Tách languages và badges thành list
+            langs = [l.strip() for l in (p.languages or '').split(',') if l.strip()]
+            badges = [b.strip() for b in (p.badges or '').split(',') if b.strip()]
 
-        data.append({
-            'id': p.id,
-            'user_id': p.user_id,
-            'name': p.user.name,
-            'avatar_url': p.avatar_url,
-            'initial': p.user.name[0].upper() if p.user.name else '?',
-            'title': p.title or '',
-            'languages': langs,
-            'badges': badges,
-            'rating': float(p.rating or 0),
-            'total_reviews': p.total_reviews or 0,
-            'min_price': min_price,
-            'completion_days': min_days,
-            'is_verified': p.is_verified,
-            'profile_url': url_for('translator_profile', profile_id=p.id),
-            'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
-        })
-    return jsonify(data)
+            data.append({
+                'id': p.id,
+                'user_id': p.user_id,
+                'name': p.user.name,
+                'avatar_url': p.avatar_url,
+                'initial': p.user.name[0].upper() if p.user.name else '?',
+                'title': p.title or '',
+                'languages': langs,
+                'badges': badges,
+                'rating': float(p.rating or 0),
+                'total_reviews': p.total_reviews or 0,
+                'min_price': min_price,
+                'completion_days': min_days,
+                'is_verified': p.is_verified,
+                'profile_url': url_for('translator_profile', profile_id=p.id),
+                'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
+            })
+        return jsonify(data)
+    except Exception as e:
+        import traceback
+        print(f"Error in api_translators: {e}\n{traceback.format_exc()}", file=sys.stderr)
+        return jsonify([])
 
 @app.route('/translator/<int:profile_id>')
 def translator_profile(profile_id):

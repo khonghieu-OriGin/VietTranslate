@@ -280,6 +280,7 @@ TRANSLATIONS = {
             'contact_btn': 'Nhắn Tin',
             'book_btn': 'Đặt Lịch',
             'view_profile_btn': 'Xem Chi Tiết',
+            'search_placeholder': 'Tìm theo tên, ngôn ngữ...',
         },
 
         # ─── Job List Page ───
@@ -1157,6 +1158,7 @@ TRANSLATIONS = {
             'contact_btn': 'Message',
             'book_btn': 'Book Service',
             'view_profile_btn': 'View Profile',
+            'search_placeholder': 'Search by name, language...',
         },
 
         # ─── Job List Page ───
