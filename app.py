@@ -991,6 +991,12 @@ def login_required(f):
         if 'user_id' not in session:
             flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
+        
+        user = get_current_user()
+        if not user:
+            flash("Tài khoản của bạn đã bị vô hiệu hóa hoặc phiên đăng nhập không hợp lệ.", "error")
+            return redirect(url_for('login'))
+            
         return f(*args, **kwargs)
     return decorated
 
@@ -1048,7 +1054,11 @@ def get_current_user():
         session.clear()
         return None
     try:
-        return User.query.get(uid)
+        user = User.query.get(uid)
+        if user and not user.is_active:
+            session.clear()
+            return None
+        return user
     except SQLAlchemyError as e:
         print(f"[get_current_user SQLError] {e}")
         return None
@@ -1860,7 +1870,9 @@ def login():
                     flash(_t('flash.login_success'), 'success')
                     # TASK 4A: Role redirect
                     if user.is_admin:
-                        return redirect(url_for('admin_dashboard'))
+                        session.clear()
+                        flash("Tài khoản Quản trị vui lòng sử dụng cổng đăng nhập riêng.", "warning")
+                        return redirect(url_for('admin_login'))
                     if user.role == 'translator':
                         return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
@@ -1910,6 +1922,18 @@ def forgot_password():
                 expires_at=expires_at
             )
             db.session.add(reset_token)
+            
+            # Log nếu là admin
+            if user.is_admin:
+                from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+                AdminAuditLog.log(
+                    action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
+                    admin_id=user.id,
+                    description=f'Admin yêu cầu khôi phục mật khẩu. Email: {user.email}',
+                    ip_address=get_client_ip(),
+                    user_agent=request.headers.get('User-Agent', '')[:512],
+                )
+                
             db.session.commit()
             
             # Gửi email
@@ -1976,6 +2000,17 @@ def reset_password(token):
         # Vô hiệu hóa tất cả token khôi phục khác của user này
         for t in valid_tokens:
             t.is_used = True
+            
+        # Log nếu là admin
+        if user.is_admin:
+            from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+            AdminAuditLog.log(
+                action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
+                admin_id=user.id,
+                description=f'Admin đã đổi mật khẩu thành công thông qua chức năng khôi phục. Email: {user.email}',
+                ip_address=get_client_ip(),
+                user_agent=request.headers.get('User-Agent', '')[:512],
+            )
             
         db.session.commit()
         
