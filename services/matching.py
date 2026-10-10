@@ -266,7 +266,11 @@ def get_recommended_jobs_for_translator(user_id, limit=10, lang='vi'):
         
     # Lấy các việc đang mở, hỗ trợ fallback NULL cho PostgreSQL
     from app import db
-    open_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).all()
+    open_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
+        Job.status == 'open', 
+        db.or_(Job.is_flagged == False, Job.is_flagged == None),
+        User.is_active == True
+    ).all()
     
     scored_jobs = []
     for job in open_jobs:
@@ -307,8 +311,12 @@ def get_recommended_translators_for_job(job_id, limit=10, lang='vi'):
     if not job or job.status != 'open':
         return []
 
-    # Get all active translators
-    active_translators = User.query.filter_by(role='translator', is_active=True).all()
+    # Get all active and verified translators
+    active_translators = User.query.join(TranslatorProfile).filter(
+        User.role == 'translator', 
+        User.is_active == True,
+        TranslatorProfile.is_verified == True
+    ).all()
     
     scored_translators = []
     for translator in active_translators:

@@ -435,6 +435,17 @@ CREATE TABLE IF NOT EXISTS verification_submission_version (
 	FOREIGN KEY(user_id) REFERENCES "user" (id)
 );
 
+CREATE TABLE IF NOT EXISTS password_reset_token (
+	id SERIAL NOT NULL, 
+	user_id INTEGER NOT NULL, 
+	token_hash VARCHAR(128) NOT NULL, 
+	created_at TIMESTAMP WITHOUT TIME ZONE, 
+	expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL, 
+	is_used BOOLEAN, 
+	PRIMARY KEY (id), 
+	FOREIGN KEY(user_id) REFERENCES "user" (id)
+);
+
 -- 2. THÊM TẤT CẢ CÁC CỘT (Nếu thiếu, bỏ qua nếu đã có)
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS name VARCHAR(100);
 ALTER TABLE "user" ADD COLUMN IF NOT EXISTS email VARCHAR(120);
@@ -709,6 +720,11 @@ ALTER TABLE "verification_submission_version" ADD COLUMN IF NOT EXISTS snapshot_
 ALTER TABLE "verification_submission_version" ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP WITHOUT TIME ZONE;
 ALTER TABLE "verification_submission_version" ADD COLUMN IF NOT EXISTS ip_address VARCHAR(50);
 ALTER TABLE "verification_submission_version" ADD COLUMN IF NOT EXISTS user_agent VARCHAR(255);
+ALTER TABLE "password_reset_token" ADD COLUMN IF NOT EXISTS user_id INTEGER;
+ALTER TABLE "password_reset_token" ADD COLUMN IF NOT EXISTS token_hash VARCHAR(128);
+ALTER TABLE "password_reset_token" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE "password_reset_token" ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITHOUT TIME ZONE;
+ALTER TABLE "password_reset_token" ADD COLUMN IF NOT EXISTS is_used BOOLEAN;
 
 -- 3. CÁC INDEX VÀ RÀNG BUỘC ĐẶC BIỆT
 CREATE UNIQUE INDEX IF NOT EXISTS unique_super_admin ON "user" (is_admin) WHERE admin_role = 'super_admin';

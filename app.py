@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -1108,11 +1108,16 @@ def set_language(lang):
 
 @app.route('/')
 def index():
-    top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
-        TranslatorProfile.rating.desc()).limit(4).all()
-    if not top_translators:
-        top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
+    top_translators = TranslatorProfile.query.join(User).filter(
+        TranslatorProfile.is_verified == True,
+        User.is_active == True
+    ).order_by(TranslatorProfile.rating.desc()).limit(4).all()
+    
+    latest_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
+        Job.status == 'open', 
+        db.or_(Job.is_flagged == False, Job.is_flagged == None),
+        User.is_active == True
+    ).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
 
 
@@ -1875,6 +1880,109 @@ def login():
             return render_template('login.html', email=email)
 
     return render_template('login.html')
+
+
+import secrets
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        # Luôn thông báo chung chung để tránh lộ email
+        msg = "Nếu email hợp lệ, hướng dẫn khôi phục mật khẩu sẽ được gửi đến bạn."
+        
+        user = User.query.filter_by(email=email).first()
+        if user and user.is_active:
+            # Vô hiệu hóa token cũ
+            old_tokens = PasswordResetToken.query.filter_by(user_id=user.id, is_used=False).all()
+            for t in old_tokens:
+                t.is_used = True
+            
+            # Tạo token mới
+            token_str = secrets.token_urlsafe(32)
+            token_hash = generate_password_hash(token_str)
+            expires_at = datetime.utcnow() + timedelta(minutes=30)
+            
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=expires_at
+            )
+            db.session.add(reset_token)
+            db.session.commit()
+            
+            # Gửi email
+            from services.email import send_reset_password_email
+            reset_url = url_for('reset_password', token=token_str, email=email, _external=True)
+            success, err_msg = send_reset_password_email(user.email, reset_url)
+            
+            if not success:
+                # Rollback nếu gửi fail
+                db.session.delete(reset_token)
+                db.session.commit()
+                flash("Hệ thống email đang gặp sự cố. Vui lòng thử lại sau.", "error")
+                return render_template('forgot_password.html')
+                
+        flash(msg, 'success')
+        return redirect(url_for('login'))
+        
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    email = request.args.get('email', '')
+    if not email:
+        flash("Liên kết không hợp lệ.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("Liên kết không hợp lệ.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    # Tìm token chưa sử dụng, chưa hết hạn
+    valid_tokens = PasswordResetToken.query.filter_by(user_id=user.id, is_used=False).all()
+    matched_token = None
+    
+    for t in valid_tokens:
+        if t.is_valid() and check_password_hash(t.token_hash, token):
+            matched_token = t
+            break
+            
+    if not matched_token:
+        flash("Liên kết đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu lại.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if len(new_password) < 6:
+            flash("Mật khẩu phải có ít nhất 6 ký tự.", "error")
+            return render_template('reset_password.html', token=token, email=email)
+            
+        if new_password != confirm_password:
+            flash("Mật khẩu xác nhận không khớp.", "error")
+            return render_template('reset_password.html', token=token, email=email)
+            
+        # Cập nhật mật khẩu
+        user.password_hash = generate_password_hash(new_password)
+        
+        # Vô hiệu hóa token
+        matched_token.is_used = True
+        
+        # Vô hiệu hóa tất cả token khôi phục khác của user này
+        for t in valid_tokens:
+            t.is_used = True
+            
+        db.session.commit()
+        
+        flash("Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.", "success")
+        return redirect(url_for('login'))
+        
+    return render_template('reset_password.html', token=token, email=email)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -3092,7 +3200,10 @@ def translator_list():
     page = request.args.get('page', 1, type=int)
     per_page = 9
 
-    query = TranslatorProfile.query
+    query = TranslatorProfile.query.join(User).filter(
+        TranslatorProfile.is_verified == True,
+        User.is_active == True
+    )
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(TranslatorProfile.languages.ilike(f'%{safe_lang}%'))
@@ -3146,6 +3257,9 @@ def api_translators():
         profiles = TranslatorProfile.query.options(
             joinedload(TranslatorProfile.user),
             joinedload(TranslatorProfile.services)
+        ).join(User).filter(
+            TranslatorProfile.is_verified == True,
+            User.is_active == True
         ).order_by(TranslatorProfile.rating.desc()).all()
         data = []
         for p in profiles:
@@ -3199,6 +3313,11 @@ def api_translators():
 @app.route('/translator/<int:profile_id>')
 def translator_profile(profile_id):
     profile = TranslatorProfile.query.get_or_404(profile_id)
+    
+    from services.permissions import can_view_profile
+    if not can_view_profile(profile, get_current_user()):
+        abort(404)
+        
     # Reviews received by this translator
     reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
     return render_template('translator_profile.html', profile=profile, reviews=reviews)
@@ -3210,6 +3329,10 @@ def hirer_profile(hirer_id):
         abort(404)
         
     profile = user.hirer_profile
+    
+    from services.permissions import can_view_profile
+    if profile and not can_view_profile(profile, get_current_user()):
+        abort(404)
     
     from services.hirer import get_hirer_stats
     stats = get_hirer_stats(hirer_id)
@@ -3683,7 +3806,11 @@ def job_list():
     recommended = request.args.get('recommended')
     per_page = 10
 
-    query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+    query = Job.query.join(User, Job.hirer_id == User.id).filter(
+        Job.status == 'open', 
+        db.or_(Job.is_flagged == False, Job.is_flagged == None),
+        User.is_active == True
+    )
 
     user = get_current_user()
     if recommended and user and user.role == 'translator':
@@ -3714,13 +3841,10 @@ def job_detail(job_id):
 
     # ── 0. Access Control ─────────────────────────────────────────────────
     user = get_current_user()
-    is_owner = user and (user.id == job.hirer_id)
-    is_admin_user = session.get(ADMIN_SESSION_KEY) is not None
-
-    if job.is_flagged or job.status == 'pending':
-        if not (is_owner or is_admin_user):
-            flash('Bài đăng này đang chờ duyệt hoặc đã bị khoá.', 'warning')
-            return redirect(url_for('index'))
+    from services.permissions import can_view_job
+    if not can_view_job(job, user):
+        flash('Bài đăng này đang chờ duyệt, bị ẩn hoặc tài khoản người đăng không hoạt động.', 'warning')
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
@@ -5138,6 +5262,8 @@ def api_invite_translator(job_id, translator_id):
     translator = User.query.get_or_404(translator_id)
     if translator.role != 'translator' or not translator.is_active:
         return jsonify({'status': 'error', 'message': 'Phiên dịch viên không hợp lệ hoặc đã bị khóa.'}), 400
+    if not translator.profile or not translator.profile.is_verified:
+        return jsonify({'status': 'error', 'message': 'Phiên dịch viên chưa được xác minh hồ sơ.'}), 400
         
     from app import translator_accepts_job
     if not translator_accepts_job(translator, job):
