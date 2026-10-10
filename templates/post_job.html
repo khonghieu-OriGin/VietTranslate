@@ -33,6 +33,20 @@
         </p>
     </div>
 
+    {% if not hirer_verified %}
+    <div class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between text-xs sm:text-sm text-amber-900">
+        <span>💡 Mẹo: Job từ nhà tuyển dụng đã xác minh danh tính giúp tăng độ tin cậy với phiên dịch viên.</span>
+        {% if hirer_pending %}
+        <span class="shrink-0 text-center font-semibold text-amber-700">Đã gửi yêu cầu — chờ duyệt</span>
+        {% else %}
+        <form method="POST" action="{{ url_for('request_hirer_verification') }}" class="shrink-0">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-xl transition shadow-sm">Bật tích xanh</button>
+        </form>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-10">
         <form method="POST" action="{{ url_for('post_job') }}" class="space-y-8">
             
@@ -209,6 +223,7 @@ let scheduleRowCount = 0;
 
 function addScheduleRow() {
     scheduleRowCount++;
+    const idx = scheduleRowCount; // chỉ số riêng của dòng này, tránh callback ghi nhầm vào dòng mới nhất
     const rowId = 'schedule-row-' + scheduleRowCount;
     const container = document.getElementById('schedule-container');
     
@@ -249,18 +264,18 @@ function addScheduleRow() {
     container.insertAdjacentHTML('beforeend', rowHtml);
     
     // Init flatpickr for new row
-    flatpickr(\`#date-display-\${scheduleRowCount}\`, {
+    flatpickr('#date-display-' + idx, {
         {% if current_lang == 'vi' %}locale: 'vn',{% endif %}
         minDate: 'today',
         dateFormat: 'Y-m-d',
         altInput: true,
         altFormat: 'D, d/m/Y',
         onChange: function(sel, str) {
-            document.getElementById(\`date-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('date-hidden-' + idx).value = str;
         }
     });
 
-    flatpickr(\`#time-start-\${scheduleRowCount}\`, {
+    flatpickr('#time-start-' + idx, {
         enableTime: true,
         noCalendar: true,
         dateFormat: 'H:i',
@@ -268,11 +283,11 @@ function addScheduleRow() {
         minuteIncrement: 15,
         defaultHour: 8,
         onChange: function(sel, str) {
-            document.getElementById(\`time-start-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('time-start-hidden-' + idx).value = str;
         }
     });
 
-    flatpickr(\`#time-end-\${scheduleRowCount}\`, {
+    flatpickr('#time-end-' + idx, {
         enableTime: true,
         noCalendar: true,
         dateFormat: 'H:i',
@@ -280,7 +295,7 @@ function addScheduleRow() {
         minuteIncrement: 15,
         defaultHour: 17,
         onChange: function(sel, str) {
-            document.getElementById(\`time-end-hidden-\${scheduleRowCount}\`).value = str;
+            document.getElementById('time-end-hidden-' + idx).value = str;
         }
     });
 }
