@@ -1310,7 +1310,11 @@ def hirer_profile(hirer_id):
     total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
     completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
     
-    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
+    is_verified = bool(getattr(profile, 'is_verified', False))
+    viewer = get_current_user()
+    is_owner = bool(viewer and getattr(viewer, 'id', None) == user.id)
+    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs,
+                           completed_contracts=completed_contracts, is_verified=is_verified, is_owner=is_owner)
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
@@ -1628,7 +1632,10 @@ def post_job():
 
         flash(_t('flash.job_posted'), 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES)
+    hp = user.hirer_profile
+    return render_template('post_job.html', LANGUAGES=LANGUAGES,
+                           hirer_verified=bool(hp and hp.is_verified),
+                           hirer_pending=bool(hp and hp.verify_requested))
 
 @app.route('/jobs')
 def job_list():
@@ -2418,6 +2425,51 @@ def admin_verify_translator(profile_id):
     db.session.commit()
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
+
+@app.route('/admin/hirers')
+@admin_required
+def admin_hirers():
+    show = request.args.get('show', 'pending')
+    q = HirerProfile.query
+    if show == 'verified':
+        q = q.filter_by(is_verified=True)
+    else:
+        q = q.filter_by(is_verified=False, verify_requested=True)
+    return render_template('admin_hirers.html', profiles=q.all(), show=show)
+
+@app.route('/admin/hirers/<int:profile_id>/verify', methods=['POST'])
+@admin_required
+def admin_verify_hirer(profile_id):
+    profile = HirerProfile.query.get_or_404(profile_id)
+    verify = request.form.get('action') == 'verify'
+    profile.is_verified = verify
+    profile.verify_requested = False
+    msg = 'Đã xác minh' if verify else 'Đã từ chối/thu hồi xác minh'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['VERIFY_HIRER'] if verify else ADMIN_AUDIT_ACTIONS['REJECT_HIRER'],
+        target_type='hirer',
+        target_id=profile.id,
+        description=f'{msg} khách hàng {profile.user.name} ({profile.user.email})',
+    )
+    db.session.commit()
+    flash(f'{msg} {profile.user.name}.', 'success')
+    return redirect(url_for('admin_hirers'))
+
+@app.route('/hirer/request-verification', methods=['POST'])
+@login_required
+def request_hirer_verification():
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        abort(403)
+    profile = user.hirer_profile
+    if not profile:
+        profile = HirerProfile(user_id=user.id)
+        db.session.add(profile)
+    if not profile.is_verified:
+        profile.verify_requested = True
+        db.session.commit()
+        flash('Đã gửi yêu cầu xác minh. Quản trị viên sẽ xem xét sớm.', 'success')
+    return redirect(request.referrer or url_for('hirer_profile', hirer_id=user.id))
 
 @app.route('/admin/reports')
 @admin_required
