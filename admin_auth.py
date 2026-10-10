@@ -145,7 +145,7 @@ def create_admin_session(user):
 
     now_ts = datetime.utcnow().timestamp()
     session[ADMIN_SESSION_KEY] = user.id
-    session[ADMIN_SESSION_ROLE] = getattr(user, 'admin_role', None) or 'super_admin'
+    session[ADMIN_SESSION_ROLE] = getattr(user, 'admin_role', None)
     session[ADMIN_SESSION_CREATED] = now_ts
     session[ADMIN_SESSION_LAST_SEEN] = now_ts
     session[ADMIN_SESSION_CSRF] = secrets.token_hex(32)
@@ -210,8 +210,9 @@ def get_current_admin():
         from models import User
         user = User.query.get(admin_id)
         # Xác minh lại server-side: phải là admin và còn active
-        if user and user.is_admin and user.is_active:
-            return user
+        if user and getattr(user, 'is_admin', False) and getattr(user, 'is_active', False):
+            if getattr(user, 'admin_role', None) in ADMIN_ROLES:
+                return user
         return None
     except SQLAlchemyError as e:
         print(f'[ADMIN AUTH] DB error in get_current_admin: {e}')
@@ -247,7 +248,7 @@ def admin_login_required(f):
 
         # 3. Lưu admin vào g để dùng trong request
         g.current_admin = admin
-        g.admin_role = session.get(ADMIN_SESSION_ROLE, 'moderator')
+        g.admin_role = admin.admin_role
         g.csrf_token = get_csrf_token()
 
         # 4. Refresh idle timer

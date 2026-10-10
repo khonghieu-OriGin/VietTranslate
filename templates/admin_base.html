@@ -803,6 +803,7 @@
             <!-- DUYỆT & KIỂM DUYỆT -->
             <div class="nav-section-label">Duyệt & Kiểm duyệt</div>
 
+            {% if has_permission('view_translators') %}
             <a href="{{ url_for('admin_translators') }}"
                class="nav-item {% if request.endpoint == 'admin_translators' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -813,7 +814,9 @@
                 <span class="nav-badge">{{ admin_badge_pending_translators }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
+            {% if has_permission('view_jobs') %}
             <a href="{{ url_for('admin_jobs') }}"
                class="nav-item {% if request.endpoint == 'admin_jobs' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -824,7 +827,9 @@
                 <span class="nav-badge warning">{{ admin_badge_flagged_jobs }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
+            {% if has_permission('view_reports') %}
             <a href="{{ url_for('admin_reports') if 'admin_reports' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_reports' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -836,10 +841,12 @@
                 <span class="nav-badge">{{ admin_badge_reports }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
             <!-- QUẢN LÝ -->
             <div class="nav-section-label">Quản lý</div>
 
+            {% if has_permission('view_users') %}
             <a href="{{ url_for('admin_users') }}"
                class="nav-item {% if request.endpoint == 'admin_users' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -849,7 +856,9 @@
                 </svg>
                 Users
             </a>
+            {% endif %}
 
+            {% if has_permission('view_proposals') %}
             <a href="{{ url_for('admin_proposals') if 'admin_proposals' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_proposals' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -858,7 +867,9 @@
                 </svg>
                 Proposal
             </a>
+            {% endif %}
 
+            {% if has_permission('view_contracts') %}
             <a href="{{ url_for('admin_contracts') if 'admin_contracts' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_contracts' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -866,7 +877,9 @@
                 </svg>
                 Contract
             </a>
+            {% endif %}
 
+            {% if has_permission('view_schedules') %}
             <a href="{{ url_for('admin_schedules') if 'admin_schedules' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_schedules' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -874,7 +887,9 @@
                 </svg>
                 Schedule
             </a>
+            {% endif %}
 
+            {% if has_permission('view_payments') %}
             <a href="{{ url_for('admin_payments') if 'admin_payments' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_payments' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -882,7 +897,9 @@
                 </svg>
                 Payment
             </a>
+            {% endif %}
 
+            {% if has_permission('view_reviews') %}
             <a href="{{ url_for('admin_reviews') if 'admin_reviews' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_reviews' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -890,10 +907,12 @@
                 </svg>
                 Review
             </a>
+            {% endif %}
 
             <!-- HỆ THỐNG -->
             <div class="nav-section-label">Hệ thống</div>
 
+            {% if has_permission('view_notifications') %}
             <a href="{{ url_for('admin_notifications') if 'admin_notifications' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_notifications' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -905,6 +924,7 @@
                     <span class="nav-badge info">{{ admin_badge_notifications }}</span>
                 {% endif %}
             </a>
+            {% endif %}
 
             <a href="{{ url_for('admin_analytics') if 'admin_analytics' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
@@ -914,6 +934,7 @@
                 Analytics
             </a>
 
+            {% if has_permission('view_audit_logs') %}
             <a href="{{ url_for('admin_audit_logs') if 'admin_audit_logs' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_audit_logs' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -922,7 +943,9 @@
                 </svg>
                 Audit Log
             </a>
+            {% endif %}
 
+            {% if has_permission('manage_admins') %}
             <a href="{{ url_for('admin_admins') if 'admin_admins' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_admins' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -930,7 +953,9 @@
                 </svg>
                 Manage Admins
             </a>
+            {% endif %}
 
+            {% if has_permission('manage_settings') or admin_role == 'super_admin' %}
             <a href="{{ url_for('admin_settings') if 'admin_settings' in get_admin_routes() else '#' }}"
                class="nav-item {% if request.endpoint == 'admin_settings' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -939,6 +964,7 @@
                 </svg>
                 Settings
             </a>
+            {% endif %}
 
         </nav>
 

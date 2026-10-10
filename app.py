@@ -1845,6 +1845,9 @@ def login():
                 if not user.is_active:
                     flash(_t('flash.account_locked'), 'error')
                     return render_template('login.html', email=email)
+                if getattr(user, 'role', '') == 'admin' and not getattr(user, 'is_admin', False):
+                    flash('Tài khoản của bạn đã bị thu hồi quyền truy cập.', 'error')
+                    return render_template('login.html', email=email)
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
@@ -4602,7 +4605,9 @@ def admin_verify_translator(profile_id):
     return redirect(url_for('admin_translators'))
 
 @app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
 def admin_review_verification(verification_id, action):
     """Phê duyệt hoặc từ chối yêu cầu xác minh của phiên dịch viên."""
     from services.verification import review_verification_request
@@ -4640,7 +4645,7 @@ def admin_reports():
 @app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('resolve_report')
 def admin_update_report(report_id, action):
     report = Report.query.get_or_404(report_id)
     
@@ -4732,7 +4737,7 @@ def admin_reviews():
 @app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('hide_review')
 def admin_toggle_review(review_id):
     r = Review.query.get_or_404(review_id)
     r.is_hidden = not r.is_hidden
@@ -4808,7 +4813,7 @@ def admin_notifications():
 @app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('view_notifications')
 def admin_notifications_read(notif_id):
     n = AdminNotification.query.get_or_404(notif_id)
     n.is_read = True
@@ -4818,7 +4823,7 @@ def admin_notifications_read(notif_id):
 @app.route('/admin/notifications/read-all', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('view_notifications')
 def admin_notifications_mark_all():
     AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
@@ -4862,7 +4867,7 @@ def admin_audit_logs():
 
 @app.route('/admin/admins')
 @admin_login_required
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_admins():
     # Only super_admin or users with manage_admins can see all details easily
     # But let's allow all admins to view the list, just restrict actions in UI
@@ -4872,7 +4877,7 @@ def admin_admins():
 @app.route('/admin/admins/add', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -4883,6 +4888,11 @@ def admin_add_admin():
     password = request.form.get('password')
     admin_role = request.form.get('admin_role')
     
+    # Chỉ cho phép tạo các role cấp dưới
+    if admin_role not in ['moderator', 'support', 'finance']:
+        flash('Chức vụ không hợp lệ. Không thể tạo chức vụ này.', 'error')
+        return redirect(url_for('admin_admins'))
+        
     if User.query.filter_by(email=email).first():
         flash('Email đã tồn tại trong hệ thống.', 'error')
         return redirect(url_for('admin_admins'))
@@ -4912,7 +4922,7 @@ def admin_add_admin():
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -4923,11 +4933,60 @@ def admin_toggle_admin_status(admin_id):
         flash('Không thể tự vô hiệu hóa tài khoản của chính mình.', 'error')
         return redirect(url_for('admin_admins'))
         
+    if getattr(target_admin, 'admin_role', None) == 'super_admin':
+        flash('Không thể vô hiệu hóa tài khoản Super Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
     target_admin.is_active = not target_admin.is_active
     db.session.commit()
     
-    msg = 'Đã vô hiệu hóa admin' if not target_admin.is_active else 'Đã kích hoạt admin'
+    if not target_admin.is_active:
+        msg = 'Đã vô hiệu hóa admin'
+        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_BLOCKED']
+    else:
+        msg = 'Đã kích hoạt admin'
+        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_RESTORED']
+        
+    _audit_log(
+        action=action_key,
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f'{msg}: {target_admin.email}'
+    )
+    
     flash(msg, 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/revoke', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('manage_admins')
+def admin_revoke_admin_status(admin_id):
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        abort(403)
+        
+    target_admin = User.query.get_or_404(admin_id)
+    if target_admin.id == session.get('admin_id'):
+        flash('Không thể tự thu hồi tư cách của chính mình.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    if getattr(target_admin, 'admin_role', None) == 'super_admin':
+        flash('Không thể thu hồi tư cách của Super Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin.is_admin = False
+    target_admin.admin_role = None
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['ADMIN_PRIVILEGES_REVOKED'],
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f'Đã thu hồi tư cách Admin vĩnh viễn: {target_admin.email}'
+    )
+    
+    flash('Đã thu hồi tư cách Admin vĩnh viễn đối với tài khoản này.', 'success')
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/search')
@@ -4938,27 +4997,33 @@ def admin_search():
     results = {'users': [], 'jobs': [], 'contracts': []}
     
     if len(q) >= 2:
+        from admin_auth import _has_permission
+        role = getattr(g, 'admin_role', None)
+        
         # Search users
-        results['users'] = User.query.filter(
-            db.or_(
-                User.name.ilike(f'%{q}%'),
-                User.email.ilike(f'%{q}%')
-            )
-        ).limit(20).all()
+        if _has_permission(role, 'view_users'):
+            results['users'] = User.query.filter(
+                db.or_(
+                    User.name.ilike(f'%{q}%'),
+                    User.email.ilike(f'%{q}%')
+                )
+            ).limit(20).all()
         
         # Search jobs
-        results['jobs'] = Job.query.filter(
-            db.or_(
-                Job.title.ilike(f'%{q}%'),
-                Job.description.ilike(f'%{q}%')
-            )
-        ).limit(20).all()
+        if _has_permission(role, 'view_jobs'):
+            results['jobs'] = Job.query.filter(
+                db.or_(
+                    Job.title.ilike(f'%{q}%'),
+                    Job.description.ilike(f'%{q}%')
+                )
+            ).limit(20).all()
         
         # Search contracts (by ID if numeric)
-        if q.isdigit():
-            c = Contract.query.get(int(q))
-            if c:
-                results['contracts'].append(c)
+        if _has_permission(role, 'view_contracts'):
+            if q.isdigit():
+                c = Contract.query.get(int(q))
+                if c:
+                    results['contracts'].append(c)
                 
     return render_template('admin_search.html', query=q, results=results)
 
