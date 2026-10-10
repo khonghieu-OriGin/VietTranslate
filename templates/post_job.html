@@ -36,14 +36,7 @@
     {% if not hirer_verified %}
     <div class="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-3 justify-between text-xs sm:text-sm text-amber-900">
         <span>💡 Mẹo: Job từ nhà tuyển dụng đã xác minh danh tính giúp tăng độ tin cậy với phiên dịch viên.</span>
-        {% if hirer_pending %}
-        <span class="shrink-0 text-center font-semibold text-amber-700">Đã gửi yêu cầu — chờ duyệt</span>
-        {% else %}
-        <form method="POST" action="{{ url_for('request_hirer_verification') }}" class="shrink-0">
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-xl transition shadow-sm">Bật tích xanh</button>
-        </form>
-        {% endif %}
+        <a href="{{ url_for('account_profile', tab='hirer_verify') }}" class="shrink-0 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-2 px-4 rounded-xl transition shadow-sm">Bật tích xanh</a>
     </div>
     {% endif %}
 

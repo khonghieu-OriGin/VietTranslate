@@ -523,6 +523,13 @@
                                         <div class="px-4 py-2.5 border-b border-slate-100 bg-slate-50/60">
                                             <p class="font-bold text-slate-900 truncate">{{ current_user.name }}</p>
                                             <p class="text-slate-400 truncate">{{ current_user.email }}</p>
+                                            {% if current_user.role == 'hirer' %}
+                                            {% if current_user.hirer_profile and current_user.hirer_profile.is_verified %}
+                                            <span class="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">✓ Đã xác minh</span>
+                                            {% else %}
+                                            <a href="{{ url_for('account_profile', tab='hirer_verify') }}" class="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-2 py-0.5 rounded-full transition">Chưa xác minh · Xác minh ngay →</a>
+                                            {% endif %}
+                                            {% endif %}
                                         </div>
                                         <a href="{{ url_for('account_profile') }}"
                                             class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition">
@@ -772,6 +779,32 @@
     </div>
     {% endif %}
     {% endwith %}
+
+    <!-- Banner nhắc xác minh hồ sơ khách hàng -->
+    {% if current_user and current_user.role == 'hirer'
+          and not (current_user.hirer_profile and current_user.hirer_profile.is_verified)
+          and request.endpoint not in ['account_profile', 'hirer_profile'] %}
+    <div id="hirer-verify-banner" class="hidden max-w-4xl mx-auto px-4 mt-4">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm">
+            <span class="flex-1">🔔 Hồ sơ của bạn chưa được xác minh. Điền đủ thông tin để nhận tích xanh và tăng độ tin cậy với phiên dịch viên.</span>
+            <a href="{{ url_for('account_profile', tab='hirer_verify') }}" class="shrink-0 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-1.5 px-4 rounded-lg transition">Xác minh ngay</a>
+            <button type="button" id="hirer-verify-banner-close" aria-label="Đóng" class="shrink-0 text-amber-700 hover:text-amber-900 font-bold px-1">✕</button>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var b = document.getElementById('hirer-verify-banner');
+        if (!b) return;
+        var dismissed = false;
+        try { dismissed = sessionStorage.getItem('hirerVerifyBannerDismissed') === '1'; } catch (e) {}
+        if (!dismissed) b.classList.remove('hidden');
+        document.getElementById('hirer-verify-banner-close').addEventListener('click', function () {
+            b.classList.add('hidden');
+            try { sessionStorage.setItem('hirerVerifyBannerDismissed', '1'); } catch (e) {}
+        });
+    })();
+    </script>
+    {% endif %}
 
     <!-- Main Content Area -->
     <main class="flex-grow">
