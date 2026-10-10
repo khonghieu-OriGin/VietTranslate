@@ -186,6 +186,9 @@
                     <button id="tab-btn-hirer"
                         class="tab-btn {% if active_tab == 'hirer' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer"
                         onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
+                    <button id="tab-btn-hirer_verify"
+                        class="tab-btn {% if active_tab == 'hirer_verify' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer"
+                        onclick="switchTab('hirer_verify')">Xác minh{% if user.hirer_profile and user.hirer_profile.is_verified %} <span class="text-emerald-600">✓</span>{% endif %}</button>
                     <button id="tab-btn-preferences"
                         class="tab-btn {% if active_tab == 'preferences' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer"
                         onclick="switchTab('preferences')">{{ t('account_profile_page.tab_preferences') }}</button>
@@ -1865,6 +1868,72 @@
                             sync();
                         })();
                         </script>
+                    </div>
+                </div>
+
+                <!-- Tab Xác minh hồ sơ khách hàng: tự động xác minh khi điền đủ thông tin, không cần admin duyệt -->
+                {% set v_biz = (atype == 'business') %}
+                {% set v_items = [
+                    ('Tên công ty / tổ chức', hp and hp.company),
+                    ('Mã số thuế', hp and hp.tax_code),
+                    ('Lĩnh vực hoạt động', hp and hp.industry),
+                    ('Quy mô công ty', hp and hp.company_size),
+                    ('Địa chỉ trụ sở / chi nhánh', hp and hp.address),
+                    ('Email doanh nghiệp', hp and hp.company_email),
+                    ('Người đại diện và chức vụ', hp and hp.rep_name and hp.title),
+                    ('Số điện thoại liên hệ', hp and hp.contact_phone),
+                ] if v_biz else [
+                    ('Họ và tên', user.name),
+                    ('Số điện thoại liên hệ', hp and hp.contact_phone),
+                    ('Tỉnh / thành phố', hp and hp.location),
+                    ('Lĩnh vực thường thuê phiên dịch', hp and hp.hiring_field),
+                ] %}
+                {% set v_done = v_items | selectattr(1) | list | length %}
+                <div id="tab-hirer_verify" class="tab-panel {% if active_tab == 'hirer_verify' %}active{% endif %}">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                                    Xác minh hồ sơ khách hàng
+                                </h2>
+                                <p class="text-xs text-slate-500 mt-1">Điền đầy đủ thông tin bên dưới để nhận huy hiệu "✓ Đã xác minh". Hệ thống tự xác minh ngay, không cần chờ admin duyệt.</p>
+                            </div>
+                            {% if hp and hp.is_verified %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">✓ Đã xác minh</span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">Chưa xác minh</span>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                                <span>Hoàn thiện hồ sơ</span>
+                                <span>{{ v_done }}/{{ v_items | length }}</span>
+                            </div>
+                            <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ (v_done * 100 / (v_items | length)) | round | int }}%"></div>
+                            </div>
+                        </div>
+
+                        <ul class="space-y-2.5">
+                            {% for label, ok in v_items %}
+                            <li class="flex items-center gap-2.5 text-sm {% if ok %}text-slate-800{% else %}text-slate-500{% endif %}">
+                                {% if ok %}
+                                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-black">✓</span>
+                                {% else %}
+                                <span class="w-5 h-5 rounded-full border border-slate-300"></span>
+                                {% endif %}
+                                {{ label }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+
+                        {% if not (hp and hp.is_verified) %}
+                        <button type="button" onclick="switchTab('hirer')" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-6 rounded-xl transition shadow-sm text-xs sm:text-sm">Hoàn thiện hồ sơ để xác minh</button>
+                        {% else %}
+                        <a href="{{ url_for('hirer_profile', hirer_id=user.id) }}" class="inline-block text-brand-600 hover:text-brand-700 font-bold text-xs sm:text-sm">Xem hồ sơ công khai →</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}

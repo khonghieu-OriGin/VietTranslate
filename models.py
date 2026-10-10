@@ -157,8 +157,6 @@ class HirerProfile(db.Model):
     company = db.Column(db.String(200))
     location = db.Column(db.String(100))
     rating = db.Column(db.Float, default=0.0)
-    is_verified = db.Column(db.Boolean, default=False, nullable=False, server_default=db.false())
-    verify_requested = db.Column(db.Boolean, default=False, nullable=False, server_default=db.false())
 
     # ── Hồ sơ mở rộng: 'business' (Doanh nghiệp / Tổ chức) hoặc 'individual' (Cá nhân)
     account_type = db.Column(db.String(20), default='individual')
@@ -726,8 +724,6 @@ ADMIN_AUDIT_ACTIONS = {
     'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
     'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
     'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
-    'VERIFY_HIRER': 'VERIFY_HIRER',
-    'REJECT_HIRER': 'REJECT_HIRER',
     'APPROVE_JOB': 'APPROVE_JOB',
     'REJECT_JOB': 'REJECT_JOB',
     'FLAG_JOB': 'FLAG_JOB',
