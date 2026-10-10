@@ -67,11 +67,18 @@
                             {% elif user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
                             {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
                         </p>
-                        {% if user.role == 'translator' and user.profile and user.profile.is_verified %}
-                        <span
-                            class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
-                            {{ t('account_profile_page.verified_badge') }}
-                        </span>
+                        {% if user.role == 'translator' and user.profile %}
+                            {% if user.profile.is_verified %}
+                            <span
+                                class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                                {{ t('account_profile_page.verified_badge') }}
+                            </span>
+                            {% else %}
+                            <span
+                                class="mt-2.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
+                                Chưa xác minh
+                            </span>
+                            {% endif %}
                         {% endif %}
                     </div>
 

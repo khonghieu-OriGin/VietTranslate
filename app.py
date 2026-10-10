@@ -542,7 +542,7 @@ def save_user_avatar(file, user_id, current_avatar=None):
     clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
-    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
 
@@ -599,7 +599,7 @@ def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
     if not current_avatar:
         return
-    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
     if not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
         old_base = os.path.basename(current_avatar)
         old_path = os.path.join(folder, old_base)
