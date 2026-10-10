@@ -637,24 +637,89 @@ def _init_db():
                 conn.execute(text("ALTER TABLE message ADD COLUMN image_url TEXT"))
                 conn.commit()
             except Exception:
-                pass
+                try: conn.rollback()
+                except Exception: pass
             try:
                 conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url TEXT"))
                 conn.commit()
             except Exception:
-                pass
+                try: conn.rollback()
+                except Exception: pass
             try:
                 conn.execute(text("ALTER TABLE message ALTER COLUMN image_url TYPE TEXT"))
                 conn.commit()
             except Exception:
-                pass
+                try: conn.rollback()
+                except Exception: pass
             try:
                 conn.execute(text("ALTER TABLE direct_message ALTER COLUMN image_url TYPE TEXT"))
                 conn.commit()
             except Exception:
-                pass
+                try: conn.rollback()
+                except Exception: pass
+
+            # Tự động đồng bộ các cột còn thiếu của translator_verification để tránh lỗi UndefinedColumn
+            verification_cols = [
+                ("current_step", "INTEGER DEFAULT 1"),
+                ("draft_data", "TEXT"),
+                ("full_name", "VARCHAR(100)"),
+                ("phone", "VARCHAR(20)"),
+                ("gender", "VARCHAR(20)"),
+                ("dob", "VARCHAR(20)"),
+                ("location", "VARCHAR(100)"),
+                ("bio", "TEXT"),
+                ("source_language", "VARCHAR(100)"),
+                ("target_language", "VARCHAR(100)"),
+                ("interpreting_direction", "VARCHAR(50)"),
+                ("language_proficiency", "VARCHAR(50)"),
+                ("specializations", "TEXT"),
+                ("interpreting_types", "TEXT"),
+                ("education_level", "VARCHAR(100)"),
+                ("university", "VARCHAR(255)"),
+                ("major", "VARCHAR(255)"),
+                ("cert_year", "INTEGER"),
+                ("current_position", "VARCHAR(255)"),
+                ("notable_clients", "TEXT"),
+                ("featured_projects", "TEXT"),
+                ("certificate_type", "VARCHAR(100)"),
+                ("certificate_name", "VARCHAR(255)"),
+                ("primary_language", "VARCHAR(100)"),
+                ("experience_years", "INTEGER DEFAULT 0"),
+                ("notes", "TEXT"),
+                ("cv_filename", "VARCHAR(255)"),
+                ("cv_url", "VARCHAR(500)"),
+                ("certificate_filename", "VARCHAR(255)"),
+                ("certificate_url", "VARCHAR(500)"),
+                ("id_card_filename", "VARCHAR(255)"),
+                ("id_card_url", "VARCHAR(500)"),
+                ("status", "VARCHAR(20) DEFAULT 'draft'"),
+                ("rejection_reason", "TEXT"),
+                ("reviewed_by", "INTEGER"),
+                ("reviewed_at", "TIMESTAMP"),
+            ]
+            for col_name, col_type in verification_cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE translator_verification ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    try: conn.rollback()
+                    except Exception: pass
+
+            # Tự động đồng bộ các cột của translator_schedule nếu thiếu
+            schedule_cols = [
+                ("buffer_before_minutes", "INTEGER"),
+                ("buffer_after_minutes", "INTEGER"),
+                ("expires_at", "TIMESTAMP"),
+            ]
+            for col_name, col_type in schedule_cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE translator_schedule ADD COLUMN IF NOT EXISTS {col_name} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    try: conn.rollback()
+                    except Exception: pass
     except Exception as e:
-        print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
+        print(f"[DB] db.create_all() or migration error: {e}", file=sys.stderr)
         return
 
     # Tự động đồng bộ cột avatar nếu chưa tồn tại trong bảng user
@@ -1760,100 +1825,116 @@ def compute_profile_completion(user):
     if not user or getattr(user, 'role', '') != 'translator':
         return None
 
-    prof = getattr(user, 'profile', None)
-    verif = getattr(user, 'latest_verification', None)
+    try:
+        prof = getattr(user, 'profile', None)
+        try:
+            verif = getattr(user, 'latest_verification', None)
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            verif = None
 
-    criteria = [
-        {
-            'key': 'name',
-            'title': 'Họ và tên định danh',
-            'completed': bool(user.name and user.name.strip()),
-            'action_tab': 'basic',
-            'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
-        },
-        {
-            'key': 'avatar',
-            'title': 'Ảnh đại diện cá nhân',
-            'completed': bool(user.avatar or user.avatar_url),
-            'action_tab': 'basic',
-            'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
-        },
-        {
-            'key': 'phone',
-            'title': 'Số điện thoại liên hệ',
-            'completed': bool(user.phone and user.phone.strip()),
-            'action_tab': 'basic',
-            'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
-        },
-        {
-            'key': 'title',
-            'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
-            'completed': bool(prof and prof.title and prof.title.strip()),
-            'action_tab': 'translator',
-            'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
-        },
-        {
-            'key': 'bio',
-            'title': 'Giới thiệu bản thân & Kinh nghiệm',
-            'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
-            'action_tab': 'translator',
-            'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
-        },
-        {
-            'key': 'languages',
-            'title': 'Ngôn ngữ thành thạo',
-            'completed': bool(prof and prof.languages and prof.languages.strip()),
-            'action_tab': 'translator',
-            'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
-        },
-        {
-            'key': 'services',
-            'title': 'Gói dịch vụ & Bảng giá',
-            'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
-            'action_tab': 'translator',
-            'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
-        },
-        {
-            'key': 'verification',
-            'title': 'Hồ sơ xác minh & CV',
-            'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
-            'action_tab': 'verification',
-            'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
-        }
-    ]
+        criteria = [
+            {
+                'key': 'name',
+                'title': 'Họ và tên định danh',
+                'completed': bool(user.name and user.name.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
+            },
+            {
+                'key': 'avatar',
+                'title': 'Ảnh đại diện cá nhân',
+                'completed': bool(user.avatar or user.avatar_url),
+                'action_tab': 'basic',
+                'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
+            },
+            {
+                'key': 'phone',
+                'title': 'Số điện thoại liên hệ',
+                'completed': bool(user.phone and user.phone.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
+            },
+            {
+                'key': 'title',
+                'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
+                'completed': bool(prof and prof.title and prof.title.strip()),
+                'action_tab': 'translator',
+                'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
+            },
+            {
+                'key': 'bio',
+                'title': 'Giới thiệu bản thân & Kinh nghiệm',
+                'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
+                'action_tab': 'translator',
+                'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
+            },
+            {
+                'key': 'languages',
+                'title': 'Ngôn ngữ thành thạo',
+                'completed': bool(prof and prof.languages and prof.languages.strip()),
+                'action_tab': 'translator',
+                'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
+            },
+            {
+                'key': 'services',
+                'title': 'Gói dịch vụ & Bảng giá',
+                'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
+                'action_tab': 'translator',
+                'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
+            },
+            {
+                'key': 'verification',
+                'title': 'Hồ sơ xác minh & CV',
+                'completed': bool(prof and (prof.is_verified or (verif and getattr(verif, 'status', None) in ('pending', 'approved', 'verified')))),
+                'action_tab': 'verification',
+                'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
+            }
+        ]
 
-    completed_count = sum(1 for c in criteria if c['completed'])
-    total_count = len(criteria)
-    percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
-    missing_items = [c for c in criteria if not c['completed']]
+        completed_count = sum(1 for c in criteria if c['completed'])
+        total_count = len(criteria)
+        percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
+        missing_items = [c for c in criteria if not c['completed']]
 
-    if prof and prof.is_verified:
-        verification_state = 'verified'
-    elif verif:
-        if verif.status in ('approved', 'verified'):
+        if prof and prof.is_verified:
             verification_state = 'verified'
-        elif verif.status in ('pending', 'in_review'):
-            verification_state = 'pending'
-        elif verif.status in ('needs_revision', 'revision_requested'):
-            verification_state = 'needs_revision'
-        elif verif.status == 'draft':
-            verification_state = 'draft'
-        elif verif.status == 'rejected':
-            verification_state = 'rejected'
+        elif verif:
+            v_status = getattr(verif, 'status', 'not_started')
+            if v_status in ('approved', 'verified'):
+                verification_state = 'verified'
+            elif v_status in ('pending', 'in_review'):
+                verification_state = 'pending'
+            elif v_status in ('needs_revision', 'revision_requested'):
+                verification_state = 'needs_revision'
+            elif v_status == 'draft':
+                verification_state = 'draft'
+            elif v_status == 'rejected':
+                verification_state = 'rejected'
+            else:
+                verification_state = v_status
         else:
-            verification_state = verif.status
-    else:
-        verification_state = 'not_started'
+            verification_state = 'not_started'
 
-    return {
-        'completed_count': completed_count,
-        'total_count': total_count,
-        'percentage': percentage,
-        'criteria': criteria,
-        'missing_items': missing_items,
-        'verification_state': verification_state,
-        'latest_verification': verif
-    }
+        return {
+            'completed_count': completed_count,
+            'total_count': total_count,
+            'percentage': percentage,
+            'criteria': criteria,
+            'missing_items': missing_items,
+            'verification_state': verification_state,
+            'latest_verification': verif
+        }
+    except Exception as e:
+        print(f"[compute_profile_completion error] {e}", file=sys.stderr)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
 
 
 @app.route('/account', methods=['GET', 'POST'])
@@ -2054,7 +2135,14 @@ def account_profile():
             unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
         except Exception:
             unread_notifs_count = 0
-        profile_completion = compute_profile_completion(user)
+        try:
+            profile_completion = compute_profile_completion(user)
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            profile_completion = None
 
     return render_template(
         'account_profile.html',
