@@ -867,6 +867,7 @@ def _init_db():
         dummy_schedule = db.session.query(TranslatorSchedule).first()
         user_count = db.session.execute(db.select(db.func.count()).select_from(User)).scalar()
     except Exception as e:
+        db.session.rollback()
         error_msg = str(e)
         if "UndefinedColumn" in error_msg or "no such column" in error_msg.lower():
             print(f"\\n{'='*50}\\n[CRITICAL DB ERROR] DATABASE SCHEMA DRIFT DETECTED!\\nLỗi thiếu column trong database: {error_msg}\\n=> HÃY CHẠY MIGRATION SCRIPT (migration_sync_current_schema.sql)\\n{'='*50}\\n", file=sys.stderr)
@@ -910,6 +911,7 @@ def _ensure_db():
         try:
             _init_db()
         except Exception as e:
+            db.session.rollback()
             print(f"[DB before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
 
