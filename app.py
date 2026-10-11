@@ -569,13 +569,6 @@ def allowed_file(filename):
 
 db.init_app(app)
 
-from sqlalchemy import event
-with app.app_context():
-    @event.listens_for(db.engine, "connect")
-    def set_psycopg_prepare_threshold(dbapi_connection, connection_record):
-        if hasattr(dbapi_connection, "prepare_threshold"):
-            dbapi_connection.prepare_threshold = None
-
 import sys
 
 def _init_db():
