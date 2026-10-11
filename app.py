@@ -478,10 +478,16 @@ else:
 print(f"[DB] Using: {database_url[:50]}...", file=__import__('sys').stderr)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
-if 'sqlite' in database_url:
+if 'sqlite' in database_url and ':memory:' in database_url:
+    # DB in-memory cần đúng một kết nối dùng chung
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'poolclass': StaticPool,
         'connect_args': {'check_same_thread': False},
+    }
+elif 'sqlite' in database_url:
+    # SQLite file: mỗi request một kết nối riêng để transaction không giẫm lên nhau
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'connect_args': {'check_same_thread': False, 'timeout': 15},
     }
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -823,20 +829,25 @@ def _ensure_new_columns():
     except Exception as e:
         print(f"[DB Sync Error] {e}", file=sys.stderr)
 
-def _ensure_job_columns():
-    """Bổ sung các cột mới của bảng job (additive, nullable) nếu DB cũ chưa có. Xem migrations/migration_job_management.sql."""
+def _ensure_columns(table, cols):
+    """Bổ sung cột mới (additive, nullable) nếu DB cũ chưa có. Xem thư mục migrations/."""
     try:
         from sqlalchemy import inspect, text
-        existing = {c['name'] for c in inspect(db.engine).get_columns('job')}
-        cols = {'specialty': 'VARCHAR(100)', 'word_count': 'INTEGER', 'extra_requirements': 'TEXT',
-                'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'}
+        existing = {c['name'] for c in inspect(db.engine).get_columns(table)}
         for name, ddl in cols.items():
             if name not in existing:
-                db.session.execute(text(f'ALTER TABLE job ADD COLUMN {name} {ddl}'))
+                db.session.execute(text(f'ALTER TABLE {table} ADD COLUMN {name} {ddl}'))
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"[DB] _ensure_job_columns error: {e}", file=sys.stderr)
+        print(f"[DB] _ensure_columns({table}) error: {e}", file=sys.stderr)
+
+
+def _ensure_job_columns():
+    _ensure_columns('job', {'specialty': 'VARCHAR(100)', 'word_count': 'INTEGER', 'extra_requirements': 'TEXT',
+                            'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'})
+    _ensure_columns('proposal', {'scope': 'TEXT', 'delivery_terms': 'TEXT', 'revision_terms': 'TEXT',
+                                 'valid_until': 'DATE', 'responded_at': 'TIMESTAMP', 'response_note': 'TEXT'})
 
 
 def _init_db():
@@ -5119,12 +5130,30 @@ def job_detail(job_id):
                     return render_template('job_detail.html', job=job, form_data=request.form)
 
         # ── 4. Create Proposal (unchanged logic) ──────────────────────────────
+        price_raw = (request.form.get('price') or '').strip()
+        if not price_raw.isdigit() or int(price_raw) <= 0 or int(price_raw) > 10**10:
+            flash('Vui lòng nhập giá đề xuất lớn hơn 0.', 'error')
+            return render_template('job_detail.html', job=job, form_data=request.form)
+        valid_until = None
+        if (request.form.get('valid_until') or '').strip():
+            try:
+                valid_until = datetime.strptime(request.form['valid_until'].strip(), '%Y-%m-%d').date()
+            except ValueError:
+                valid_until = None
+            if valid_until is None or valid_until < date.today():
+                flash('Ngày hết hạn báo giá không hợp lệ hoặc đã ở quá khứ.', 'error')
+                return render_template('job_detail.html', job=job, form_data=request.form)
+        field = lambda k, n=2000: (request.form.get(k) or '').strip()[:n]
         proposal = Proposal(
             job_id=job.id,
             translator_id=session['user_id'],
-            cover_letter=request.form.get('cover_letter', ''),
-            price=int(request.form.get('price') or 0),
-            time_estimate=time_estimate_str
+            cover_letter=field('cover_letter', 5000),
+            price=int(price_raw),
+            time_estimate=time_estimate_str,
+            scope=field('scope') or None,
+            delivery_terms=field('delivery_terms') or None,
+            revision_terms=field('revision_terms') or None,
+            valid_until=valid_until,
         )
         db.session.add(proposal)
         db.session.flush()
@@ -5152,7 +5181,15 @@ def job_detail(job_id):
         flash('Đề xuất của bạn đã được gửi!', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
     is_owner = bool(user and user.id == job.hirer_id)
+    from services.proposals import build_proposal_views, job_accepts_selection, effective_status, PROPOSAL_STATUS_LABELS
+    my_proposal = None
+    if user and user.role == 'translator' and not isinstance(user.id, str):
+        my_proposal = Proposal.query.filter_by(job_id=job.id, translator_id=user.id).first()
     return render_template('job_detail.html', job=job, is_owner=is_owner,
+                           existing_proposal=my_proposal,
+                           my_proposal_label=(PROPOSAL_STATUS_LABELS.get(effective_status(my_proposal)) if my_proposal else ''),
+                           proposal_views=build_proposal_views(job) if is_owner else [],
+                           selectable=job_accepts_selection(job),
                            can_view_files=can_view_job_files(user, job),
                            job_policy=job_edit_policy(job) if is_owner else None,
                            status_label=job_status_label(job))
@@ -5188,59 +5225,70 @@ def api_schedule_check(job_id):
 @app.route('/accept-proposal/<int:proposal_id>', methods=['POST'])
 @login_required
 def accept_proposal(proposal_id):
+    """Chấp nhận báo giá (form POST). Logic dùng chung với API: services.proposals."""
+    from services.proposals import accept_proposal_for_hirer, ProposalError
+    prop = db.session.get(Proposal, proposal_id)
+    back = url_for('job_detail', job_id=prop.job_id) if prop else url_for('index')
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        return redirect(back)
     try:
-        # Lock Proposal and Job to prevent concurrent accepts for the same job/proposal
-        proposal = Proposal.query.with_for_update().get_or_404(proposal_id)
-        job = Job.query.with_for_update().get(proposal.job_id)
+        contract = accept_proposal_for_hirer(proposal_id, session['user_id'])
+    except ProposalError as e:
+        flash(e.message, 'error')
+        return redirect(back)
+    flash('Đã chấp nhận báo giá! Vui lòng thanh toán để bắt đầu.', 'success')
+    return redirect(url_for('payment_mockup', contract_id=contract.id))
 
-        if not job or job.hirer_id != session['user_id']:
-            flash('Không có quyền.', 'error')
-            db.session.rollback()
-            return redirect(url_for('index'))
 
-        # Check Job open/active
-        if job.status != 'open':
-            flash('Công việc này không còn mở.', 'error')
-            db.session.rollback()
-            return redirect(url_for('job_detail', job_id=job.id))
+def _proposal_api_guard():
+    user = _require_hirer()
+    if not user:
+        return None, (jsonify({'ok': False, 'message': 'Chỉ khách thuê mới thực hiện được thao tác này.'}), 403)
+    if not _csrf_ok():
+        return None, (jsonify({'ok': False, 'message': 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.'}), 403)
+    return user, None
 
-        # Check Proposal pending
-        if proposal.status != 'pending':
-            flash('Đề xuất này đã được xử lý.', 'error')
-            db.session.rollback()
-            return redirect(url_for('job_detail', job_id=job.id))
 
-        from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
-        from services.schedule import ScheduleCheckError
-        
-        try:
-            contract = create_contract_booking(
-                hirer_id=job.hirer_id,
-                translator_id=proposal.translator_id,
-                agreed_price=proposal.price,
-                scheduled_date=job.event_date,
-                start_time=job.event_time_start,
-                end_time=job.event_time_end,
-                location=job.event_location,
-                job_id=job.id,
-                proposal_id=proposal.id
-            )
-            flash('Đã chấp nhận đề xuất! Vui lòng thanh toán để bắt đầu.', 'success')
-            return redirect(url_for('payment_mockup', contract_id=contract.id))
-            
-        except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
-            flash(str(e), 'error')
-            return redirect(url_for('job_detail', job_id=job.id))
+@app.route('/api/proposals/<int:proposal_id>/accept', methods=['POST'])
+@login_required
+def api_accept_proposal(proposal_id):
+    from services.proposals import accept_proposal_for_hirer, ProposalError
+    user, err = _proposal_api_guard()
+    if err:
+        return err
+    try:
+        contract = accept_proposal_for_hirer(proposal_id, user.id)
+    except ProposalError as e:
+        return jsonify({'ok': False, 'message': e.message}), e.status
+    return jsonify({'ok': True, 'message': 'Đã chấp nhận báo giá. Vui lòng thanh toán để bắt đầu.',
+                    'redirect': url_for('payment_mockup', contract_id=contract.id)})
 
-    except Exception as e:
-        db.session.rollback()
-        from werkzeug.exceptions import HTTPException
-        if isinstance(e, HTTPException):
-            raise
-        import logging
-        logging.error("Exception in accept_proposal for proposal %s: %s", proposal_id, e)
-        flash(_t('flash.system_error'), 'error')
-        return redirect(url_for('index'))
+
+@app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
+@login_required
+def api_reject_proposal(proposal_id):
+    from services.proposals import reject_proposal_for_hirer, ProposalError
+    user, err = _proposal_api_guard()
+    if err:
+        return err
+    try:
+        reject_proposal_for_hirer(proposal_id, user.id, request.form.get('note', ''))
+    except ProposalError as e:
+        return jsonify({'ok': False, 'message': e.message}), e.status
+    return jsonify({'ok': True, 'message': 'Đã từ chối báo giá.'})
+
+
+@app.route('/api/jobs/<int:job_id>/proposals')
+@login_required
+def api_job_proposals(job_id):
+    from services.proposals import build_proposal_views
+    user = _require_hirer()
+    job = db.session.get(Job, job_id)
+    if not user or not job or job.hirer_id != user.id:
+        return jsonify({'error': 'not_found'}), 404
+    return jsonify({'items': build_proposal_views(job)})
+
 
 @app.route('/payment-mockup/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
