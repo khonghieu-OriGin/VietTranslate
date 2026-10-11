@@ -1,6 +1,7 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment, FavoriteTranslator, ContractEvent
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, SavedJob, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment, FavoriteTranslator, ContractEvent
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -860,6 +861,25 @@ def _init_db():
     """
     try:
         db.create_all()
+        # Tự động đồng bộ các cột mới của proposal (updated_at, client_note, withdrawn_reason)
+        with db.engine.connect() as conn:
+            engine_url = str(db.engine.url).lower()
+            if 'sqlite' in engine_url:
+                cols = [row[1] for row in conn.execute(db.text("PRAGMA table_info(proposal)")).fetchall()]
+                if cols:
+                    if 'updated_at' not in cols:
+                        conn.execute(db.text("ALTER TABLE proposal ADD COLUMN updated_at TIMESTAMP"))
+                    if 'client_note' not in cols:
+                        conn.execute(db.text("ALTER TABLE proposal ADD COLUMN client_note TEXT"))
+                    if 'withdrawn_reason' not in cols:
+                        conn.execute(db.text("ALTER TABLE proposal ADD COLUMN withdrawn_reason VARCHAR(255)"))
+                    conn.commit()
+            elif 'postgresql' in engine_url:
+                conn.execute(db.text("ALTER TABLE proposal ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now()"))
+                conn.execute(db.text("ALTER TABLE proposal ADD COLUMN IF NOT EXISTS client_note TEXT"))
+                conn.execute(db.text("ALTER TABLE proposal ADD COLUMN IF NOT EXISTS withdrawn_reason VARCHAR(255)"))
+                conn.commit()
+
         from sqlalchemy import text
         is_postgres = (db.engine.dialect.name == 'postgresql')
         with db.engine.connect() as conn:
@@ -1915,11 +1935,92 @@ def about():
 def payment_info():
     return render_template('payment_info.html')
 
+# ─── NEWS / TIN TỨC ───────────────────────────────────────────────────────────
+
+from news_data import (
+    CATEGORIES as NEWS_CATEGORIES,
+    POPULAR_TOPICS,
+    get_article_by_slug,
+    get_articles_by_category,
+    get_featured_articles,
+    get_latest_articles,
+    get_popular_articles,
+    get_related_articles,
+    get_category_name as _get_category_name,
+    format_date_news,
+)
+
+@app.route('/tin-tuc')
+def news_list():
+    category = request.args.get('category', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = 6
+
+    # Get featured articles (only on first page, all categories)
+    featured = get_featured_articles() if (page == 1 and category in ('all', None, '')) else []
+
+    # Get articles for listing
+    all_articles = get_articles_by_category(category if category != 'all' else None)
+
+    # Exclude featured slugs from latest to avoid duplication
+    featured_slugs = [a['slug'] for a in featured]
+    listing_articles = [a for a in all_articles if a['slug'] not in featured_slugs]
+
+    # Pagination
+    total = len(listing_articles)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated = listing_articles[start:end]
+    show_more = end < total
+
+    return render_template('news_list.html',
+        categories=NEWS_CATEGORIES,
+        active_category=category,
+        featured_articles=featured,
+        latest_articles=paginated,
+        popular_articles=get_popular_articles(5),
+        popular_topics=POPULAR_TOPICS,
+        current_page=page,
+        show_more=show_more,
+        get_category_name=_get_category_name,
+        format_date=format_date_news,
+    )
+
+
+@app.route('/tin-tuc/<slug>')
+def news_detail(slug):
+    article = get_article_by_slug(slug)
+    if not article:
+        abort(404)
+
+    # Extract TOC from content (h2, h3 with id attributes)
+    import re as _re
+    toc_items = []
+    headings = _re.findall(r'<h([23])\s+id="([^"]+)"[^>]*>([^<]+)</h[23]>', article['content'])
+    for level, hid, text in headings:
+        toc_items.append({'level': int(level), 'id': hid, 'text': text.strip()})
+
+    related = get_related_articles(article, limit=3)
+
+    return render_template('news_detail.html',
+        article=article,
+        toc_items=toc_items,
+        related_articles=related,
+        popular_articles=get_popular_articles(5),
+        popular_topics=POPULAR_TOPICS,
+        get_category_name=_get_category_name,
+        format_date=format_date_news,
+    )
+
 # ─── AUTH ──────────────────────────────────────────────────────────────────────
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # Login dùng SQL only.
+    next_url = request.args.get('next') or request.form.get('next')
+
+    def is_safe_redirect(url):
+        return bool(url and url.startswith('/') and not url.startswith('//'))
+
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
@@ -1929,39 +2030,41 @@ def login():
             if user:
                 if not user.is_active:
                     flash(_t('flash.account_locked'), 'error')
-                    return render_template('login.html', email=email)
+                    return render_template('login.html', email=email, next_url=next_url)
                 if getattr(user, 'role', '') == 'admin' and not getattr(user, 'is_admin', False):
                     flash('Tài khoản của bạn đã bị thu hồi quyền truy cập.', 'error')
-                    return render_template('login.html', email=email)
+                    return render_template('login.html', email=email, next_url=next_url)
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
                     session['user_id'] = user.id  # SQL integer ID
                     flash(_t('flash.login_success'), 'success')
-                    # TASK 4A: Role redirect
+                    # Role redirect
                     if user.is_admin:
                         session.clear()
                         flash("Tài khoản Quản trị vui lòng sử dụng cổng đăng nhập riêng.", "warning")
                         return redirect(url_for('admin_login'))
+                    if is_safe_redirect(next_url):
+                        return redirect(next_url)
                     if user.role == 'translator':
                         return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
-                    return render_template('login.html', email=email)
+                    return render_template('login.html', email=email, next_url=next_url)
             else:
                 flash(_t('flash.account_not_found'), 'error')
-                return render_template('login.html', email=email)
+                return render_template('login.html', email=email, next_url=next_url)
         except SQLAlchemyError as e:
             print(f"[AUTH SQL ERROR] {e}")
             flash(_t('flash.system_overload'), 'error')
-            return render_template('login.html', email=email)
+            return render_template('login.html', email=email, next_url=next_url)
         except Exception as e:
             print(f"[AUTH ERROR] {e}")
             flash(_t('flash.db_error'), 'error')
-            return render_template('login.html', email=email)
+            return render_template('login.html', email=email, next_url=next_url)
 
-    return render_template('login.html')
+    return render_template('login.html', next_url=next_url)
 
 
 import secrets
@@ -5015,6 +5118,817 @@ def job_attachment(attachment_id):
     return resp
 
 
+@app.route('/applied-jobs', endpoint='applied_jobs')
+@app.route('/my-jobs', endpoint='my_jobs')
+@login_required
+def applied_jobs():
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+
+    # Tab phân loại: 'applied' (Đang ứng tuyển), 'contracts' (Hợp đồng đang làm), 'completed' (Hoàn thành), 'saved' (Đã lưu)
+    filter_param = request.args.get('filter', '').strip().lower()
+    tab = request.args.get('tab', '').strip().lower()
+    if not tab:
+        if filter_param in ['active']:
+            tab = 'contracts'
+        elif filter_param in ['completed']:
+            tab = 'completed'
+        elif filter_param in ['saved']:
+            tab = 'saved'
+        else:
+            tab = 'applied'
+
+    status_filter = request.args.get('status', 'all').strip().lower()
+    search_query = request.args.get('q', '').strip()
+    sort_by = request.args.get('sort', 'newest').strip().lower()
+
+    # Truy vấn proposals của translator
+    query = Proposal.query.filter_by(translator_id=user.id)
+    if search_query:
+        query = query.join(Job).filter(Job.title.ilike(f'%{search_query}%'))
+
+    if sort_by == 'oldest':
+        query = query.order_by(Proposal.created_at.asc())
+    elif sort_by == 'price_desc':
+        query = query.order_by(Proposal.price.desc())
+    elif sort_by == 'price_asc':
+        query = query.order_by(Proposal.price.asc())
+    else:
+        query = query.order_by(Proposal.created_at.desc())
+
+    all_user_proposals = query.all()
+
+    # Thống kê số lượng theo 8 trạng thái chuẩn nghiệp vụ
+    status_counts = {
+        'all': len(all_user_proposals),
+        'pending': 0,
+        'reviewing': 0,
+        'needs_response': 0,
+        'selected': 0,
+        'accepted': 0,
+        'rejected': 0,
+        'withdrawn': 0,
+        'job_closed': 0,
+    }
+    for p in all_user_proposals:
+        eff = p.effective_status
+        if eff in status_counts:
+            status_counts[eff] += 1
+
+    # Lọc danh sách theo status_filter
+    if status_filter != 'all':
+        filtered_proposals = [p for p in all_user_proposals if p.effective_status == status_filter]
+    else:
+        filtered_proposals = all_user_proposals
+
+    # Lấy Contracts và SavedJobs cho các tab phụ trợ
+    all_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
+    active_statuses = ('escrow_pending', 'escrow_paid', 'in_progress', 'delivered')
+    completed_statuses = ('completed', 'reviewed')
+    active_contracts = [c for c in all_contracts if c.status in active_statuses]
+    completed_contracts = [c for c in all_contracts if c.status in completed_statuses]
+
+    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
+    saved_jobs = [s.job for s in saved_records if s.job]
+
+    counts = {
+        'applied': len(all_user_proposals),
+        'active': len(active_contracts),
+        'completed': len(completed_contracts),
+        'saved': len(saved_jobs),
+    }
+
+    return render_template('applied_jobs.html',
+        proposals=filtered_proposals,
+        status_counts=status_counts,
+        status_filter=status_filter,
+        search_query=search_query,
+        sort_by=sort_by,
+        tab=tab,
+        active_contracts=active_contracts,
+        completed_contracts=completed_contracts,
+        saved_jobs=saved_jobs,
+        counts=counts
+    )
+
+
+@app.route('/api/proposals/<int:proposal_id>/withdraw', methods=['POST'])
+@login_required
+def api_withdraw_proposal(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.translator_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
+    
+    if proposal.effective_status in ['accepted']:
+        return jsonify({'success': False, 'message': 'Không thể rút đơn khi đã được ký hợp đồng nhận việc.'}), 400
+    if proposal.status == 'withdrawn':
+        return jsonify({'success': False, 'message': 'Đơn này đã được rút trước đó.'}), 400
+        
+    reason = request.form.get('reason', '').strip()
+    if not reason and request.is_json:
+        reason = request.json.get('reason', '').strip()
+    proposal.status = 'withdrawn'
+    proposal.withdrawn_reason = reason or 'Phiên dịch viên chủ động rút đơn'
+    proposal.updated_at = datetime.utcnow()
+    
+    if proposal.job and proposal.job.hirer_id:
+        try:
+            create_notification(
+                user_id=proposal.job.hirer_id,
+                notification_type='JOB_APPLICATION',
+                title='Ứng viên đã rút đơn',
+                message=f'Phiên dịch viên {user.name} đã rút đơn ứng tuyển cho công việc "{proposal.job.title}".',
+                url=url_for('job_detail', job_id=proposal.job_id),
+                related_job_id=proposal.job_id,
+                related_proposal_id=proposal.id
+            )
+        except Exception:
+            pass
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã rút đơn ứng tuyển thành công.'
+    })
+
+
+@app.route('/api/proposals/<int:proposal_id>/update', methods=['POST'])
+@login_required
+def api_update_proposal(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.translator_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
+        
+    if proposal.effective_status in ['accepted', 'withdrawn', 'job_closed', 'rejected']:
+        return jsonify({'success': False, 'message': 'Không thể chỉnh sửa đơn ở trạng thái hiện tại.'}), 400
+        
+    cover_letter = request.form.get('cover_letter', '').strip()
+    price = request.form.get('price', type=int)
+    time_estimate = request.form.get('time_estimate', '').strip()
+    
+    if cover_letter:
+        proposal.cover_letter = cover_letter
+    if price and price > 0:
+        proposal.price = price
+    if time_estimate:
+        proposal.time_estimate = time_estimate
+        
+    # Nếu trước đó ở trạng thái needs_response, đưa về pending (đã phản hồi)
+    if proposal.status == 'needs_response':
+        proposal.status = 'pending'
+        
+    proposal.updated_at = datetime.utcnow()
+    
+    if proposal.job and proposal.job.hirer_id:
+        try:
+            create_notification(
+                user_id=proposal.job.hirer_id,
+                notification_type='JOB_APPLICATION',
+                title='Ứng viên cập nhật thông tin',
+                message=f'Phiên dịch viên {user.name} đã cập nhật thông tin đề xuất cho công việc "{proposal.job.title}".',
+                url=url_for('job_detail', job_id=proposal.job_id),
+                related_job_id=proposal.job_id,
+                related_proposal_id=proposal.id
+            )
+        except Exception:
+            pass
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã cập nhật thông tin đơn ứng tuyển thành công.'
+    })
+
+
+@app.route('/api/proposals/<int:proposal_id>/confirm-job', methods=['POST'])
+@login_required
+def api_confirm_job_acceptance(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    if proposal.translator_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên đơn này.'}), 403
+        
+    if proposal.effective_status != 'selected':
+        return jsonify({'success': False, 'message': 'Chỉ có thể xác nhận nhận việc khi đơn ở trạng thái Được chọn / Chờ xác nhận.'}), 400
+        
+    job = proposal.job
+    if not job or job.status not in ['open', 'selected']:
+        return jsonify({'success': False, 'message': 'Công việc này hiện không còn khả dụng.'}), 400
+        
+    from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
+    from services.schedule import ScheduleCheckError
+    
+    try:
+        contract = create_contract_booking(
+            hirer_id=job.hirer_id,
+            translator_id=proposal.translator_id,
+            agreed_price=proposal.price,
+            scheduled_date=job.event_date,
+            start_time=job.event_time_start,
+            end_time=job.event_time_end,
+            location=job.event_location,
+            job_id=job.id,
+            proposal_id=proposal.id
+        )
+        proposal.status = 'accepted'
+        proposal.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        # Gửi thông báo cho Hirer
+        try:
+            create_notification(
+                user_id=job.hirer_id,
+                notification_type='CONTRACT_CREATED',
+                title='Phiên dịch viên đã xác nhận nhận việc!',
+                message=f'Phiên dịch viên {user.name} đã đồng ý nhận công việc "{job.title}". Hợp đồng đã sẵn sàng để thanh toán ký quỹ.',
+                url=url_for('payment_mockup', contract_id=contract.id),
+                related_job_id=job.id,
+                related_contract_id=contract.id
+            )
+        except Exception:
+            pass
+        
+        return jsonify({
+            'success': True,
+            'message': 'Chúc mừng! Bạn đã xác nhận nhận việc thành công.',
+            'redirect_url': url_for('accepted_jobs')
+        })
+    except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.error("Lỗi khi xác nhận nhận việc: %s", e)
+        return jsonify({'success': False, 'message': 'Đã xảy ra lỗi khi tạo hợp đồng. Vui lòng thử lại.'}), 500
+
+
+@app.route('/api/proposals/<int:proposal_id>/select', methods=['POST'])
+@login_required
+def api_hirer_select_proposal(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    job = proposal.job
+    if not job or job.hirer_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên công việc này.'}), 403
+    if job.status != 'open':
+        return jsonify({'success': False, 'message': 'Công việc này không còn mở tuyển dụng.'}), 400
+    if proposal.status != 'pending':
+        return jsonify({'success': False, 'message': 'Đề xuất này đã được xử lý.'}), 400
+        
+    proposal.status = 'selected'
+    proposal.updated_at = datetime.utcnow()
+    
+    # Gửi thông báo cho ứng viên được chọn
+    try:
+        create_notification(
+            user_id=proposal.translator_id,
+            notification_type='JOB_APPLICATION',
+            title='Bạn đã được chọn cho công việc!',
+            message=f'Khách hàng {user.name} đã lựa chọn bạn cho công việc "{job.title}". Vui lòng xác nhận nhận việc.',
+            url=url_for('applied_jobs'),
+            related_job_id=job.id,
+            related_proposal_id=proposal.id
+        )
+    except Exception:
+        pass
+        
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã chọn ứng viên thành công. Đang chờ ứng viên xác nhận nhận việc.'
+    })
+
+
+@app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
+@login_required
+def api_hirer_reject_proposal(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    job = proposal.job
+    if not job or job.hirer_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên công việc này.'}), 403
+        
+    reason = request.form.get('reason', '').strip()
+    if not reason and request.is_json:
+        reason = request.json.get('reason', '').strip()
+        
+    proposal.status = 'rejected'
+    proposal.client_note = reason or 'Cảm ơn bạn đã quan tâm. Chúng tôi đã chọn ứng viên khác phù hợp hơn.'
+    proposal.updated_at = datetime.utcnow()
+    
+    try:
+        create_notification(
+            user_id=proposal.translator_id,
+            notification_type='JOB_APPLICATION',
+            title='Thông báo kết quả ứng tuyển',
+            message=f'Bên tuyển dụng đã xem xét đề xuất cho công việc "{job.title}" và quyết định chọn ứng viên khác.',
+            url=url_for('applied_jobs'),
+            related_job_id=job.id,
+            related_proposal_id=proposal.id
+        )
+    except Exception:
+        pass
+        
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã từ chối đề xuất.'
+    })
+
+
+@app.route('/api/proposals/<int:proposal_id>/request-info', methods=['POST'])
+@login_required
+def api_hirer_request_info(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    job = proposal.job
+    if not job or job.hirer_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên công việc này.'}), 403
+        
+    note = request.form.get('note', '').strip()
+    if not note and request.is_json:
+        note = request.json.get('note', '').strip()
+    if not note:
+        return jsonify({'success': False, 'message': 'Vui lòng nhập nội dung cần yêu cầu bổ sung.'}), 400
+        
+    proposal.status = 'needs_response'
+    proposal.client_note = note
+    proposal.updated_at = datetime.utcnow()
+    
+    try:
+        create_notification(
+            user_id=proposal.translator_id,
+            notification_type='JOB_APPLICATION',
+            title='Yêu cầu bổ sung thông tin ứng tuyển',
+            message=f'Khách hàng {user.name} có câu hỏi/yêu cầu bổ sung cho công việc "{job.title}": {note}',
+            url=url_for('applied_jobs'),
+            related_job_id=job.id,
+            related_proposal_id=proposal.id
+        )
+    except Exception:
+        pass
+        
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã gửi yêu cầu bổ sung thông tin tới ứng viên.'
+    })
+
+
+# ─── TRANG ĐÃ NHẬN (QUẢN LÝ CA LÀM ĐÃ XÁC NHẬN CHO PHIÊN DỊCH VIÊN) ───────────
+
+@app.route('/accepted-jobs', endpoint='accepted_jobs')
+@login_required
+def accepted_jobs():
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+
+    status_filter = request.args.get('status', 'all').strip().lower()
+    search_query = request.args.get('q', '').strip()
+    sort_by = request.args.get('sort', 'event_asc').strip().lower()
+    tab = request.args.get('tab', '').strip().lower()
+
+    # Hỗ trợ tham số tab nếu có (ví dụ ?tab=upcoming từ menu Lịch làm việc)
+    if tab and status_filter == 'all':
+        if tab in ['upcoming', 'in_progress', 'delivered', 'completed', 'cancelled', 'escrow_pending']:
+            status_filter = tab
+
+    # Lấy toàn bộ hợp đồng / ca làm của phiên dịch viên hiện tại
+    query = Contract.query.filter_by(translator_id=user.id)
+    if search_query:
+        query = query.outerjoin(Job, Contract.job_id == Job.id).filter(
+            db.or_(
+                Job.title.ilike(f'%{search_query}%'),
+                Contract.location.ilike(f'%{search_query}%'),
+                db.cast(Contract.id, db.String).ilike(f'%{search_query}%')
+            )
+        )
+
+    all_user_contracts = query.all()
+
+    # Thống kê số lượng theo 6 trạng thái chuẩn nghiệp vụ VietTranslate
+    status_counts = {
+        'all': len(all_user_contracts),
+        'escrow_pending': 0,
+        'upcoming': 0,
+        'in_progress': 0,
+        'delivered': 0,
+        'completed': 0,
+        'cancelled': 0,
+    }
+    for c in all_user_contracts:
+        code = c.shift_status_info['code']
+        if code in status_counts:
+            status_counts[code] += 1
+
+    # Lọc danh sách theo status_filter
+    if status_filter != 'all':
+        filtered_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == status_filter]
+    else:
+        filtered_contracts = all_user_contracts
+
+    # Sắp xếp danh sách
+    if sort_by == 'event_desc':
+        filtered_contracts.sort(key=lambda c: c.event_sort_date, reverse=True)
+    elif sort_by == 'newest':
+        filtered_contracts.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
+    elif sort_by == 'price_desc':
+        filtered_contracts.sort(key=lambda c: c.agreed_price or 0, reverse=True)
+    elif sort_by == 'price_asc':
+        filtered_contracts.sort(key=lambda c: c.agreed_price or 0)
+    else:  # 'event_asc' mặc định: ca diễn ra gần nhất lên trước
+        filtered_contracts.sort(key=lambda c: c.event_sort_date)
+
+    counts = {
+        'total': len(all_user_contracts),
+        'active_or_upcoming': status_counts['upcoming'] + status_counts['in_progress'],
+        'delivered': status_counts['delivered'],
+        'completed': status_counts['completed'],
+        'pending': status_counts['escrow_pending'],
+    }
+
+    return render_template('accepted_jobs.html',
+        contracts=filtered_contracts,
+        status_counts=status_counts,
+        status_filter=status_filter,
+        search_query=search_query,
+        sort_by=sort_by,
+        counts=counts
+    )
+
+
+@app.route('/api/contracts/<int:contract_id>/report-issue', methods=['POST'])
+@login_required
+def api_report_contract_issue(contract_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    contract = Contract.query.get_or_404(contract_id)
+    if user.id not in [contract.translator_id, contract.hirer_id]:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên ca làm này.'}), 403
+
+    reason = request.form.get('reason', '').strip()
+    if not reason and request.is_json:
+        reason = request.json.get('reason', '').strip()
+    description = request.form.get('description', '').strip()
+    if not description and request.is_json:
+        description = request.json.get('description', '').strip()
+
+    if not reason:
+        return jsonify({'success': False, 'message': 'Vui lòng chọn hoặc nhập loại sự cố.'}), 400
+
+    report = Report(
+        reporter_id=user.id,
+        target_type='contract',
+        target_id=contract.id,
+        related_contract_id=contract.id,
+        related_job_id=contract.job_id,
+        reason=reason,
+        description=description or 'Báo sự cố phát sinh trong ca làm việc.',
+        status='new'
+    )
+    db.session.add(report)
+
+    # Thêm thông báo trong tin nhắn hợp đồng để hai bên đều nắm thông tin
+    msg = Message(
+        contract_id=contract.id,
+        sender_id=user.id,
+        content=f'⚠️ [Báo sự cố ca #{contract.id}]: {reason}. {description}'
+    )
+    db.session.add(msg)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Đã gửi báo cáo sự cố thành công! Ban điều phối sẽ liên hệ hỗ trợ bạn kịp thời.'
+    })
+
+
+@app.route('/api/contracts/<int:contract_id>/complete-shift', methods=['POST'])
+@login_required
+def api_complete_shift(contract_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    contract = Contract.query.get_or_404(contract_id)
+    if user.id != contract.translator_id:
+        return jsonify({'success': False, 'message': 'Chỉ phiên dịch viên phụ trách ca mới có thể báo hoàn thành.'}), 403
+
+    if contract.status not in ['in_progress', 'escrow_paid']:
+        return jsonify({'success': False, 'message': 'Ca làm hiện không ở trạng thái cho phép báo hoàn thành.'}), 400
+
+    note = request.form.get('note', '').strip()
+    if not note and request.is_json:
+        note = request.json.get('note', '').strip()
+
+    contract.status = 'delivered'
+    contract.updated_at = datetime.utcnow()
+
+    completion_msg = Message(
+        contract_id=contract.id,
+        sender_id=user.id,
+        content=f'✅ [Báo cáo hoàn thành ca làm]: Phiên dịch viên đã thực hiện xong ca làm việc. Ghi chú: {note or "Ca làm đã hoàn tất theo kế hoạch."}'
+    )
+    db.session.add(completion_msg)
+
+    try:
+        create_notification(
+            user_id=contract.hirer_id,
+            notification_type='CONTRACT_COMPLETED',
+            title='Ca làm đã hoàn tất - Chờ bạn nghiệm thu',
+            message=f'Phiên dịch viên {user.name} đã báo kết thúc ca làm "#{contract.id}". Vui lòng kiểm tra và nghiệm thu giải ngân.',
+            url=url_for('transaction_detail', contract_id=contract.id),
+            related_contract_id=contract.id
+        )
+    except Exception:
+        pass
+
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Đã gửi báo cáo hoàn thành ca làm! Vui lòng chờ khách hàng nghiệm thu giải ngân.'
+    })
+
+
+@app.route('/api/contracts/<int:contract_id>/checkin', methods=['POST'])
+@login_required
+def api_contract_checkin(contract_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    contract = Contract.query.get_or_404(contract_id)
+    if user.id != contract.translator_id:
+        return jsonify({'success': False, 'message': 'Chỉ phiên dịch viên phụ trách mới có quyền check-in ca làm.'}), 403
+
+    now_str = datetime.now().strftime('%H:%M %d/%m/%Y')
+    checkin_msg = Message(
+        contract_id=contract.id,
+        sender_id=user.id,
+        content=f'📍 [Check-in ca làm]: Phiên dịch viên {user.name} đã có mặt / sẵn sàng vào ca lúc {now_str}.'
+    )
+    db.session.add(checkin_msg)
+
+    try:
+        create_notification(
+            user_id=contract.hirer_id,
+            notification_type='NEW_MESSAGE',
+            title='Phiên dịch viên đã check-in',
+            message=f'Phiên dịch viên {user.name} đã check-in sẵn sàng cho ca làm "#{contract.id}".',
+            url=url_for('transaction_detail', contract_id=contract.id),
+            related_contract_id=contract.id
+        )
+    except Exception:
+        pass
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Check-in thành công! Chúc bạn có ca làm việc chuyên nghiệp và hiệu quả.'
+    })
+
+
+@app.route('/completed-jobs', endpoint='completed_jobs')
+@login_required
+def completed_jobs():
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+    if user.role != 'translator':
+        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('index'))
+
+    # Các tham số bộ lọc & tìm kiếm
+    q = request.args.get('q', '').strip()
+    acceptance_filter = request.args.get('acceptance', 'all').strip().lower()
+    payment_filter = request.args.get('payment', 'all').strip().lower()
+    time_range = request.args.get('time_range', 'all').strip().lower()
+    sort_by = request.args.get('sort', 'newest').strip().lower()
+
+    # Điều kiện ca đưa vào danh sách lịch sử kết thúc:
+    # 1. Thuộc tài khoản phiên dịch viên hiện tại: translator_id == user.id
+    # 2. Ca đã kết thúc theo quy trình: 'delivered', 'completed', 'reviewed'
+    completed_status_codes = ['delivered', 'completed', 'reviewed']
+    query = Contract.query.filter_by(translator_id=user.id).filter(Contract.status.in_(completed_status_codes))
+
+    if q:
+        q_clean = q.lstrip('#').replace('CA-', '').replace('ca-', '')
+        query = query.outerjoin(Job, Contract.job_id == Job.id).outerjoin(User, Contract.hirer_id == User.id).filter(
+            db.or_(
+                Job.title.ilike(f'%{q}%'),
+                Job.field.ilike(f'%{q}%'),
+                Contract.location.ilike(f'%{q}%'),
+                User.name.ilike(f'%{q}%'),
+                db.cast(Contract.id, db.String).ilike(f'%{q_clean}%')
+            )
+        )
+
+    all_user_completed = query.all()
+
+    # Thống kê tổng quan dựa trên toàn bộ dữ liệu thực tế của tài khoản
+    total_finished_count = len(all_user_completed)
+    accepted_contracts = [c for c in all_user_completed if c.status in ['completed', 'reviewed']]
+    pending_contracts = [c for c in all_user_completed if c.status == 'delivered']
+
+    total_net_earned = sum(c.translator_net_amount for c in accepted_contracts)
+    total_gross_earned = sum(c.agreed_price for c in accepted_contracts)
+    total_platform_fee = sum(c.platform_fee for c in accepted_contracts)
+    total_held_escrow = sum(c.translator_net_amount for c in pending_contracts)
+
+    # Đánh giá sao trung bình từ khách hàng
+    rated_reviews = [c.client_review for c in all_user_completed if c.client_review and c.client_review.rating]
+    avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
+    total_reviews_count = len(rated_reviews)
+
+    filter_counts = {
+        'all': total_finished_count,
+        'accepted': len(accepted_contracts),
+        'pending': len(pending_contracts),
+        'paid': len(accepted_contracts),
+        'escrow_held': len(pending_contracts)
+    }
+
+    filtered_list = list(all_user_completed)
+
+    # Lọc theo trạng thái nghiệm thu
+    if acceptance_filter == 'accepted':
+        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
+    elif acceptance_filter == 'pending':
+        filtered_list = [c for c in filtered_list if c.status == 'delivered']
+
+    # Lọc theo trạng thái thanh toán
+    if payment_filter == 'paid':
+        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
+    elif payment_filter == 'escrow_held':
+        filtered_list = [c for c in filtered_list if c.status == 'delivered']
+
+    # Lọc theo khoảng thời gian thực hiện
+    today = date.today()
+    if time_range == 'this_month':
+        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
+    elif time_range == 'last_month':
+        last_month = today.month - 1 if today.month > 1 else 12
+        last_year = today.year if today.month > 1 else today.year - 1
+        filtered_list = [c for c in filtered_list if c.event_sort_date.year == last_year and c.event_sort_date.month == last_month]
+    elif time_range == 'this_year':
+        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year]
+
+    # Sắp xếp
+    if sort_by == 'oldest':
+        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min))
+    elif sort_by == 'highest_pay':
+        filtered_list.sort(key=lambda c: c.agreed_price or 0, reverse=True)
+    elif sort_by == 'lowest_pay':
+        filtered_list.sort(key=lambda c: c.agreed_price or 0)
+    elif sort_by == 'top_rated':
+        filtered_list.sort(key=lambda c: (c.client_review.rating if c.client_review else 0), reverse=True)
+    else:  # 'newest'
+        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min), reverse=True)
+
+    metrics = {
+        'total_finished': total_finished_count,
+        'accepted_count': len(accepted_contracts),
+        'pending_count': len(pending_contracts),
+        'total_net_earned': total_net_earned,
+        'total_gross_earned': total_gross_earned,
+        'total_platform_fee': total_platform_fee,
+        'total_held_escrow': total_held_escrow,
+        'avg_rating': avg_rating,
+        'total_reviews_count': total_reviews_count
+    }
+
+    return render_template('completed_jobs.html',
+        contracts=filtered_list,
+        metrics=metrics,
+        filter_counts=filter_counts,
+        q=q,
+        acceptance_filter=acceptance_filter,
+        payment_filter=payment_filter,
+        time_range=time_range,
+        sort_by=sort_by
+    )
+
+
+@app.route('/api/contracts/<int:contract_id>/receipt-detail', methods=['GET'])
+@login_required
+def api_contract_receipt_detail(contract_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    contract = Contract.query.get_or_404(contract_id)
+    if contract.translator_id != user.id and contract.hirer_id != user.id and not getattr(user, 'is_admin', False):
+        return jsonify({'success': False, 'message': 'Bạn không có quyền truy cập thông tin ca này.'}), 403
+
+    review_data = None
+    if contract.client_review:
+        review_data = {
+            'rating': contract.client_review.rating,
+            'comment': contract.client_review.comment or '',
+            'created_at': contract.client_review.created_at.strftime('%d/%m/%Y %H:%M') if contract.client_review.created_at else ''
+        }
+
+    deliverables_data = [
+        {
+            'id': d.id,
+            'filename': d.filename,
+            'created_at': d.created_at.strftime('%d/%m/%Y %H:%M') if d.created_at else ''
+        } for d in contract.deliverables
+    ]
+
+    payment_record = contract.payments[0] if contract.payments else None
+
+    return jsonify({
+        'success': True,
+        'contract': {
+            'id': contract.id,
+            'job_title': contract.job.title if contract.job else (contract.service.name if contract.service else f'Ca #{contract.id}'),
+            'job_code': f'CA-{contract.id}',
+            'hirer_name': contract.hirer.name if contract.hirer else 'Bên tuyển dụng',
+            'hirer_id': contract.hirer_id,
+            'scheduled_date': contract.scheduled_date or 'Theo thỏa thuận',
+            'scheduled_time': f"{contract.scheduled_time_start or ''} - {contract.scheduled_time_end or ''}".strip(' -'),
+            'location': contract.location or 'Trực tuyến / Thỏa thuận',
+            'source_lang': contract.job.source_language if contract.job else '',
+            'target_lang': contract.job.target_language if contract.job else '',
+            'field': contract.job.field if contract.job else '',
+            'agreed_price': contract.agreed_price,
+            'platform_fee': contract.platform_fee,
+            'translator_net_amount': contract.translator_net_amount,
+            'shift_status': contract.shift_status_info,
+            'acceptance_status': contract.acceptance_status_info,
+            'payment_status': contract.payment_status_info,
+            'has_payment_record': payment_record is not None,
+            'transaction_ref': payment_record.transaction_ref if payment_record else f'ESCROW-CA{contract.id}',
+            'payment_method': payment_record.payment_method if payment_record else 'Escrow Bảo chứng VietTranslate',
+            'review': review_data,
+            'deliverables': deliverables_data,
+            'transaction_url': url_for('transaction_detail', contract_id=contract.id)
+        }
+    })
+
+
+@app.route('/api/proposals/<int:proposal_id>/detail', methods=['GET'])
+@login_required
+def api_proposal_detail(proposal_id):
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
+    proposal = Proposal.query.get_or_404(proposal_id)
+    job = proposal.job
+    if proposal.translator_id != user.id and (not job or job.hirer_id != user.id):
+        return jsonify({'success': False, 'message': 'Bạn không có quyền xem đơn này.'}), 403
+        
+    return jsonify({
+        'success': True,
+        'proposal': {
+            'id': proposal.id,
+            'price': proposal.price,
+            'time_estimate': proposal.time_estimate,
+            'cover_letter': proposal.cover_letter,
+            'client_note': proposal.client_note,
+            'withdrawn_reason': proposal.withdrawn_reason,
+            'effective_status': proposal.effective_status,
+            'status_info': proposal.status_info,
+            'created_at': proposal.created_at.strftime('%d/%m/%Y %H:%M') if proposal.created_at else '',
+            'updated_at': proposal.updated_at.strftime('%d/%m/%Y %H:%M') if proposal.updated_at else '',
+            'timeline': [{
+                'title': ev['title'],
+                'desc': ev['desc'],
+                'time': ev['time'].strftime('%d/%m/%Y %H:%M') if ev.get('time') else ''
+            } for ev in proposal.timeline]
+        },
+        'job': {
+            'id': job.id if job else None,
+            'title': job.title if job else '',
+            'source_lang': job.source_lang if job else '',
+            'target_lang': job.target_lang if job else '',
+            'event_date': job.event_date if job else '',
+            'event_location': job.event_location if job else '',
+            'status': job.status if job else '',
+            'deadline': job.deadline.strftime('%d/%m/%Y') if (job and job.deadline) else ''
+        }
+    })
+
 @app.route('/jobs')
 def job_list():
     lang = request.args.get('lang', '')
@@ -5024,12 +5938,15 @@ def job_list():
     recommended = request.args.get('recommended')
     per_page = 10
 
+    # Lấy các công việc đang mở, đã duyệt, không bị gắn cờ và còn trong thời hạn ứng tuyển
+    today = date.today()
     query = Job.query.join(User, Job.hirer_id == User.id).filter(
-        Job.status == 'open', 
+        Job.status == 'open',
         Job.moderation_status == 'approved',
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
         User.is_active == True
     )
+    query = query.filter(db.or_(Job.deadline.is_(None), Job.deadline >= today))
 
     user = get_current_user()
     if recommended and user and user.role == 'translator':
@@ -5050,14 +5967,28 @@ def job_list():
     else:
         query = query.order_by(Job.created_at.desc())
 
+    is_recommended = request.args.get('recommended')
+    if is_recommended and session.get('user_id'):
+        from services.matching import get_recommended_jobs_for_translator
+        try:
+            current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+            rec_jobs = get_recommended_jobs_for_translator(session['user_id'], limit=50, lang=current_lang)
+            rec_ids = [r['job_id'] for r in rec_jobs]
+            if rec_ids:
+                query = query.filter(Job.id.in_(rec_ids))
+        except Exception as e:
+            import logging
+            logging.warning("Error fetching recommended jobs in job_list: %s", e)
+
+    # Lấy toàn bộ danh sách hợp lệ để client-side filter & pagination hoạt động đầy đủ
+    all_jobs = query.all()
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    return render_template('job_list.html', jobs=pagination.items, pagination=pagination,
+    return render_template('job_list.html', jobs=all_jobs, pagination=pagination,
                            lang_filter=lang, LANGUAGES=LANGUAGES, is_recommended=bool(recommended))
 
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
     job = Job.query.get_or_404(job_id)
-
     # ── 0. Access Control ─────────────────────────────────────────────────
     user = get_current_user()
     from services.permissions import can_view_job
@@ -5065,12 +5996,36 @@ def job_detail(job_id):
         flash('Bài đăng này đang chờ duyệt, bị ẩn hoặc tài khoản người đăng không hoạt động.', 'warning')
         return redirect(url_for('index'))
 
+    # Xác định trạng thái hết hạn ứng tuyển
+    today = date.today()
+    is_expired = bool(job.deadline and job.deadline < today)
+
+    # Trạng thái đã lưu và đề xuất đã tồn tại
+    is_saved = False
+    existing_proposal = None
+    profile_incomplete = False
+    profile_missing_fields = []
+
+    if user:
+        is_saved = SavedJob.query.filter_by(job_id=job.id, user_id=user.id).first() is not None
+        if user.role == 'translator':
+            existing_proposal = Proposal.query.filter_by(
+                job_id=job.id, translator_id=user.id
+            ).first()
+
+            # Kiểm tra thông tin hồ sơ bắt buộc của phiên dịch viên
+            if not user.phone or not str(user.phone).strip():
+                profile_missing_fields.append('Số điện thoại liên hệ')
+            if not user.profile or not user.profile.languages or not str(user.profile.languages).strip():
+                profile_missing_fields.append('Ngôn ngữ chuyên môn')
+            if profile_missing_fields:
+                profile_incomplete = True
+
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
-        user = get_current_user()
         if not user:
             flash(_t('flash.login_required'), 'warning')
-            return redirect(url_for('login'))
+            return redirect(url_for('login', next=url_for('job_detail', job_id=job.id)))
         if user.role != 'translator':
             flash(_t('flash.translator_only_apply'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
@@ -5078,24 +6033,34 @@ def job_detail(job_id):
         if job.status != 'open':
             flash(_t('flash.job_closed'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
+
+        if is_expired:
+            flash('Công việc này đã hết hạn nhận hồ sơ ứng tuyển.', 'error')
+            return redirect(url_for('job_detail', job_id=job.id))
             
         if user.id == job.hirer_id:
             flash(_t('flash.cannot_apply_own_job'), 'error')
             return redirect(url_for('job_detail', job_id=job.id))
 
         # ── 2. Duplicate proposal guard ───────────────────────────────────────
-        existing_proposal = Proposal.query.filter_by(
-            job_id=job.id, translator_id=session['user_id']
-        ).first()
         if existing_proposal:
             flash(_t('flash.already_applied'), 'warning')
             return redirect(url_for('job_detail', job_id=job.id))
+
+        # ── 2.5. Profile completeness guard ───────────────────────────────────
+        if profile_incomplete:
+            flash(
+                f'Hồ sơ của bạn còn thiếu thông tin bắt buộc ({", ".join(profile_missing_fields)}). '
+                f'Vui lòng hoàn thiện hồ sơ trước khi ứng tuyển.',
+                'warning'
+            )
+            return redirect(url_for('profile'))
 
         # ── 3. Schedule conflict check ────────────────────────────────────────
         from services.schedule import check_job_schedule_conflicts
 
         try:
-            result = check_job_schedule_conflicts(job, session['user_id'])
+            result = check_job_schedule_conflicts(job, user.id)
             if result.get('has_schedule') and not result.get('available'):
                 # Tìm ngày đầu tiên bị trùng để báo lỗi
                 for day in result.get('days', []):
@@ -5104,10 +6069,20 @@ def job_detail(job_id):
                               f'({day["conflict_start"]}–{day["conflict_end"]}). '
                               f'Vui lòng kiểm tra lịch của bạn.', 'error')
                         break
-                return render_template('job_detail.html', job=job, form_data=request.form)
+                return render_template(
+                    'job_detail.html', job=job, form_data=request.form,
+                    is_saved=is_saved, existing_proposal=existing_proposal,
+                    is_expired=is_expired, profile_incomplete=profile_incomplete,
+                    profile_missing_fields=profile_missing_fields
+                )
         except Exception as e:
             flash(str(e), 'error')
-            return render_template('job_detail.html', job=job, form_data=request.form)
+            return render_template(
+                'job_detail.html', job=job, form_data=request.form,
+                is_saved=is_saved, existing_proposal=existing_proposal,
+                is_expired=is_expired, profile_incomplete=profile_incomplete,
+                profile_missing_fields=profile_missing_fields
+            )
 
         # ── 3.5. Time Estimate Parsing & Validation ───────────────────────────
         completion_type = request.form.get('completion_type')
@@ -5121,30 +6096,30 @@ def job_detail(job_id):
                     val_int = int(val)
                     if val_int <= 0:
                         flash('Thời gian hoàn thành phải lớn hơn 0.', 'error')
-                        return render_template('job_detail.html', job=job, form_data=request.form)
+                        return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
                     unit_str = "ngày" if unit == 'days' else "giờ"
                     time_estimate_str = f"{val_int} {unit_str}"
                 except ValueError:
                     flash('Giá trị thời gian hoàn thành phải là một số.', 'error')
-                    return render_template('job_detail.html', job=job, form_data=request.form)
+                    return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
         elif completion_type == 'deadline':
             date_val = request.form.get('estimated_completion_date')
             if date_val:
                 try:
                     parsed_date = datetime.strptime(date_val, '%Y-%m-%d').date()
-                    if parsed_date < datetime.today().date():
+                    if parsed_date < date.today():
                         flash('Ngày hoàn thành không được nằm trong quá khứ.', 'error')
-                        return render_template('job_detail.html', job=job, form_data=request.form)
+                        return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
                     time_estimate_str = parsed_date.strftime('%d/%m/%Y')
                 except ValueError:
                     flash('Định dạng ngày không hợp lệ.', 'error')
-                    return render_template('job_detail.html', job=job, form_data=request.form)
+                    return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
 
-        # ── 4. Create Proposal (unchanged logic) ──────────────────────────────
+        # ── 4. Create Proposal ────────────────────────────────────────────────
         price_raw = (request.form.get('price') or '').strip()
         if not price_raw.isdigit() or int(price_raw) <= 0 or int(price_raw) > 10**10:
             flash('Vui lòng nhập giá đề xuất lớn hơn 0.', 'error')
-            return render_template('job_detail.html', job=job, form_data=request.form)
+            return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
         valid_until = None
         if (request.form.get('valid_until') or '').strip():
             try:
@@ -5153,57 +6128,107 @@ def job_detail(job_id):
                 valid_until = None
             if valid_until is None or valid_until < date.today():
                 flash('Ngày hết hạn báo giá không hợp lệ hoặc đã ở quá khứ.', 'error')
-                return render_template('job_detail.html', job=job, form_data=request.form)
+                return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
         field = lambda k, n=2000: (request.form.get(k) or '').strip()[:n]
-        proposal = Proposal(
-            job_id=job.id,
-            translator_id=session['user_id'],
-            cover_letter=field('cover_letter', 5000),
-            price=int(price_raw),
-            time_estimate=time_estimate_str,
-            scope=field('scope') or None,
-            delivery_terms=field('delivery_terms') or None,
-            revision_terms=field('revision_terms') or None,
-            valid_until=valid_until,
-        )
-        db.session.add(proposal)
-        db.session.flush()
+        try:
+            proposal = Proposal(
+                job_id=job.id,
+                translator_id=user.id,
+                cover_letter=field('cover_letter', 5000),
+                price=int(price_raw),
+                time_estimate=time_estimate_str,
+                scope=field('scope') or None,
+                delivery_terms=field('delivery_terms') or None,
+                revision_terms=field('revision_terms') or None,
+                valid_until=valid_until,
+            )
+            db.session.add(proposal)
+            db.session.flush()
 
-        # Notify the hirer about new applicant (avoid duplicate for same proposal)
-        from models import Notification
-        existing_notif = Notification.query.filter_by(
-            user_id=job.hirer_id, 
-            type='JOB_APPLICATION', 
-            related_proposal_id=proposal.id
-        ).first()
+            # Thông báo cho khách thuê về ứng viên mới
+            from models import Notification
+            existing_notif = Notification.query.filter_by(
+                user_id=job.hirer_id, 
+                type='JOB_APPLICATION', 
+                related_proposal_id=proposal.id
+            ).first()
 
-        if not existing_notif:
+            if not existing_notif:
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_APPLICATION',
+                    title='Có ứng viên mới',
+                    message=f'Một phiên dịch viên vừa ứng tuyển vào công việc "{job.title}".',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id,
+                    related_proposal_id=proposal.id
+                )
+
+            # Thông báo xác nhận cho chính phiên dịch viên
             create_notification(
-                user_id=job.hirer_id,
+                user_id=user.id,
                 notification_type='JOB_APPLICATION',
-                title='Có ứng viên mới',
-                message=f'Một phiên dịch viên vừa ứng tuyển vào công việc "{job.title}".',
+                title='Ứng tuyển thành công',
+                message=f'Đơn ứng tuyển của bạn cho công việc "{job.title}" đã được gửi thành công. Vui lòng chờ khách thuê phản hồi.',
                 url=url_for('job_detail', job_id=job.id),
                 related_job_id=job.id,
                 related_proposal_id=proposal.id
             )
-            
-        db.session.commit()
-        flash('Đề xuất của bạn đã được gửi!', 'success')
-        return redirect(url_for('job_detail', job_id=job.id))
+                
+            db.session.commit()
+            flash('Đề xuất của bạn đã được gửi thành công!', 'success')
+            return redirect(url_for('job_detail', job_id=job.id))
+        except Exception as e:
+            db.session.rollback()
+            import logging
+            logging.error("Lỗi khi tạo proposal: %s", e)
+            flash('Đã xảy ra lỗi khi gửi đề xuất. Vui lòng thử lại.', 'error')
+            return render_template('job_detail.html', job=job, form_data=request.form, is_saved=is_saved, existing_proposal=existing_proposal, is_expired=is_expired, profile_incomplete=profile_incomplete, profile_missing_fields=profile_missing_fields)
+
     is_owner = bool(user and user.id == job.hirer_id)
     from services.proposals import build_proposal_views, job_accepts_selection, effective_status, PROPOSAL_STATUS_LABELS
-    my_proposal = None
-    if user and user.role == 'translator' and not isinstance(user.id, str):
-        my_proposal = Proposal.query.filter_by(job_id=job.id, translator_id=user.id).first()
-    return render_template('job_detail.html', job=job, is_owner=is_owner,
-                           existing_proposal=my_proposal,
-                           my_proposal_label=(PROPOSAL_STATUS_LABELS.get(effective_status(my_proposal)) if my_proposal else ''),
-                           proposal_views=build_proposal_views(job) if is_owner else [],
-                           selectable=job_accepts_selection(job),
-                           can_view_files=can_view_job_files(user, job),
-                           job_policy=job_edit_policy(job) if is_owner else None,
-                           status_label=job_status_label(job))
+    return render_template(
+        'job_detail.html', job=job, is_saved=is_saved,
+        existing_proposal=existing_proposal,
+        my_proposal_label=(PROPOSAL_STATUS_LABELS.get(effective_status(existing_proposal)) if existing_proposal else ''),
+        proposal_views=build_proposal_views(job) if is_owner else [],
+        selectable=job_accepts_selection(job),
+        is_expired=is_expired,
+        profile_incomplete=profile_incomplete,
+        profile_missing_fields=profile_missing_fields,
+        is_owner=is_owner,
+        can_view_files=can_view_job_files(user, job),
+        job_policy=job_edit_policy(job) if is_owner else None,
+        status_label=job_status_label(job)
+    )
+
+
+@app.route('/api/jobs/<int:job_id>/save', methods=['POST'])
+def api_toggle_save_job(job_id):
+    """API lưu hoặc bỏ lưu công việc dành cho người dùng đã đăng nhập."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập để lưu công việc.'}), 401
+    
+    job = Job.query.get_or_404(job_id)
+    saved = SavedJob.query.filter_by(user_id=user.id, job_id=job.id).first()
+    if saved:
+        db.session.delete(saved)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'saved': False,
+            'message': 'Đã bỏ lưu công việc thành công.'
+        })
+    else:
+        new_save = SavedJob(user_id=user.id, job_id=job.id)
+        db.session.add(new_save)
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'saved': True,
+            'message': 'Đã lưu công việc thành công.'
+        })
 
 
 @app.route('/api/jobs/<int:job_id>/schedule-check', methods=['GET'])
@@ -5649,6 +6674,9 @@ def approve_contract(contract_id):
         else:
             try:
                 accept_delivery(contract.id, session['user_id'])
+                if contract.schedule:
+                    contract.schedule.status = 'completed'
+                    db.session.commit()
                 flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
             except ProjectError as e:
                 flash(e.message, 'error')
@@ -7482,8 +8510,39 @@ def api_recommended_jobs():
     from services.matching import get_recommended_jobs_for_translator
     limit = request.args.get('limit', 10, type=int)
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-    recommended = get_recommended_jobs_for_translator(session['user_id'], limit, current_lang)
-    return jsonify(recommended)
+    try:
+        recommended = get_recommended_jobs_for_translator(session['user_id'], limit, current_lang)
+        results = []
+        today = date.today()
+        for rec in recommended:
+            job = Job.query.get(rec['job_id'])
+            if job and job.status == 'open' and not job.is_flagged:
+                if job.deadline and job.deadline < today:
+                    continue
+                results.append({
+                    'id': job.id,
+                    'job_id': job.id,
+                    'title': job.title,
+                    'category_group': job.display_category_group,
+                    'category_text': job.display_category_text(current_lang),
+                    'service_type': job.display_service_type,
+                    'source_lang': job.source_lang,
+                    'target_lang': job.target_lang,
+                    'budget_min': job.budget_min,
+                    'budget_max': job.budget_max,
+                    'budget_type': job.budget_type or 'negotiable',
+                    'event_location': job.event_location or '',
+                    'event_date': job.event_date or '',
+                    'applicant_count': job.applicant_count,
+                    'match_score': rec['match_score'],
+                    'match_reasons': rec['reasons'],
+                    'match_reason': rec['reasons'][0] if rec['reasons'] else ''
+                })
+        return jsonify(results)
+    except Exception as e:
+        import logging
+        logging.warning("Error fetching recommended jobs API: %s", e)
+        return jsonify([])
 
 @app.route('/api/jobs/<int:job_id>/recommended-translators', methods=['GET'])
 @login_required
