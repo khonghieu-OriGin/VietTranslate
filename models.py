@@ -807,6 +807,19 @@ class Contract(db.Model):
     service = db.relationship('Service', backref='contracts')
 
 
+class ContractEvent(db.Model):
+    """Lịch sử xử lý của dự án (nghiệm thu, yêu cầu chỉnh sửa, bàn giao...)."""
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    event_type = db.Column(db.String(40), nullable=False)
+    note = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    contract = db.relationship('Contract', backref=db.backref('events', lazy=True, cascade='all, delete-orphan'))
+
+
 class Message(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False)
