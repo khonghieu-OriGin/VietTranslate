@@ -816,6 +816,19 @@
             </a>
             {% endif %}
 
+            {% if has_permission('view_hirers') %}
+            <a href="{{ url_for('admin_hirers') }}"
+               class="nav-item {% if request.endpoint in ('admin_hirers', 'admin_hirer_verify') %}active{% endif %}">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                Người đăng
+                {% if admin_badge_pending_hirers and admin_badge_pending_hirers > 0 %}
+                <span class="nav-badge warning">{{ admin_badge_pending_hirers }}</span>
+                {% endif %}
+            </a>
+            {% endif %}
+
             {% if has_permission('view_jobs') %}
             <a href="{{ url_for('admin_jobs') }}"
                class="nav-item {% if request.endpoint == 'admin_jobs' %}active{% endif %}">

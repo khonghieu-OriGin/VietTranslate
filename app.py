@@ -762,15 +762,35 @@ def _apply_hirer_profile_form(user, profile, form, files):
     user.phone = phone
     if logo:
         profile.logo = logo
-    # Điền đủ và hợp lệ toàn bộ thông tin bắt buộc => tự động được xác minh (không cần admin duyệt)
-    profile.is_verified = True
+
+    # Lưu thông tin tài khoản ngân hàng nếu có
+    bank_name = get('bank_name')
+    bank_acc = get('bank_account_number')
+    if bank_name:
+        profile.bank_name = bank_name
+    if bank_acc:
+        profile.bank_account_number = bank_acc
+
+    # Lưu file giấy ủy quyền / GPKD nếu có upload
+    auth_file = files.get('authorization_doc')
+    if auth_file and auth_file.filename:
+        from werkzeug.utils import secure_filename
+        sec_name = secure_filename(f"auth_{user.id}_{int(datetime.utcnow().timestamp())}_{auth_file.filename}")
+        doc_dir = os.path.join(app.root_path, 'static', 'uploads', 'hirer_docs')
+        os.makedirs(doc_dir, exist_ok=True)
+        auth_file.save(os.path.join(doc_dir, sec_name))
+        profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
+
+    # Chuyển hồ sơ vào trạng thái chờ thẩm định nếu chưa được xác minh
+    if not profile.is_verified:
+        profile.verification_status = 'pending'
     return []
 
 
 def _ensure_new_columns():
     """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
     from sqlalchemy import inspect, text
-    for model in (HirerProfile, TranslatorPreference):
+    for model in (HirerProfile, TranslatorPreference, Job, User):
         table = model.__table__
         try:
             existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
@@ -962,9 +982,11 @@ def inject_admin_badges():
 
     badges = {}
     try:
-        from models import TranslatorVerification
+        from models import TranslatorVerification, HirerProfile
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
         badges['admin_badge_pending_verifications'] = TranslatorVerification.query.filter_by(status='pending').count()
+        badges['admin_badge_pending_hirers'] = HirerProfile.query.filter_by(verification_status='pending').count()
+        badges['admin_badge_pending_jobs'] = Job.query.filter_by(moderation_status='pending').count()
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
@@ -972,6 +994,8 @@ def inject_admin_badges():
         badges = {
             'admin_badge_pending_translators': 0,
             'admin_badge_pending_verifications': 0,
+            'admin_badge_pending_hirers': 0,
+            'admin_badge_pending_jobs': 0,
             'admin_badge_flagged_jobs': 0,
             'admin_badge_reports': 0,
             'admin_badge_notifications': 0,
@@ -2474,7 +2498,10 @@ def account_profile():
             else:
                 db.session.commit()
                 flash(_t('flash.hirer_profile_updated'), 'success')
-                flash('Hồ sơ đã đủ thông tin — bạn đã được xác minh ✓', 'success')
+                if profile.is_verified:
+                    flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
+                else:
+                    flash('Hồ sơ đã được lưu và gửi yêu cầu xác minh tới Admin. Chức năng đăng job sẽ được kích hoạt sau khi Admin xét duyệt.', 'info')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -3852,7 +3879,15 @@ def post_job():
         flash(_t('flash.hirer_only_post'), 'error')
         return redirect(url_for('index'))
 
+    # TASK 3: BACKEND GATE - KIỂM TRA ĐIỀU KIỆN NGƯỜI ĐĂNG TUYỂN
+    from services.hirer_verification import can_hirer_post_job
+    can_post, cannot_post_reason, is_within_7_days = can_hirer_post_job(user)
+
     if request.method == 'POST':
+        if not can_post:
+            flash(cannot_post_reason, 'error')
+            return redirect(url_for('account_profile', tab='hirer_profile'))
+
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
@@ -3876,7 +3911,7 @@ def post_job():
         if not is_valid:
             for err in errors:
                 flash(err['message'], 'error')
-            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form)
+            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form, hirer_verified=can_post)
 
         # Fallback for legacy fields (lấy ngày đầu tiên)
         legacy_date = entries[0]['scheduled_date'] if entries else ''
@@ -3909,10 +3944,17 @@ def post_job():
             event_time_end=legacy_end,
             event_location=request.form.get('event_location', ''),
             deadline=deadline,
-            status='pending'
+            status='pending',
+            moderation_status='pending',
+            submission_version=1
         )
         db.session.add(job)
         db.session.flush() # Để lấy job.id
+
+        # Đánh giá 39 tiêu chí tự động và lưu snapshot
+        from services.job_moderation import evaluate_job_39_criteria
+        eval_result = evaluate_job_39_criteria(job)
+        job.moderation_checklist_data = json.dumps(eval_result)
 
         # Lưu chi tiết vào JobSchedule
         from models import JobSchedule
@@ -3930,16 +3972,64 @@ def post_job():
                 )
                 db.session.add(js)
 
+        # Tạo thông báo quản trị Admin
+        try:
+            from models import AdminNotification
+            db.session.add(AdminNotification(
+                type='NEW_JOB',
+                title=f'Job mới chờ duyệt: #{job.id}',
+                message=f'{user.name} vừa nộp job "{job.title}". Kết quả: {eval_result["summary_label"]}',
+                related_id=job.id,
+                url=url_for('admin_job_review', job_id=job.id)
+            ))
+        except Exception:
+            pass
+
         db.session.commit()
 
         # Job chỉ hiện trên trang chính và báo cho phiên dịch viên sau khi admin duyệt
-        flash('Job đã gửi, đang chờ admin duyệt.' if get_locale() == 'vi'
+        flash('Job đã gửi, đang chờ admin duyệt theo tiêu chuẩn an toàn.' if get_locale() == 'vi'
               else 'Job submitted — awaiting admin approval.', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
 
-    hp = user.hirer_profile
     return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={},
-                           hirer_verified=bool(hp and hp.is_verified))
+                           hirer_verified=can_post)
+
+@app.route('/job/<int:job_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_job(job_id):
+    """Người đăng chỉnh sửa nội dung job. Job sau khi sửa sẽ quay về 'Chờ duyệt' (Task 8.4)."""
+    job = Job.query.get_or_404(job_id)
+    user = get_current_user()
+    if not user or user.id != job.hirer_id:
+        abort(403)
+
+    from services.hirer_verification import can_hirer_post_job
+    can_post, _, _ = can_hirer_post_job(user)
+
+    if request.method == 'POST':
+        job.title = request.form.get('title', job.title)
+        job.description = request.form.get('description', job.description)
+        if request.form.get('budget_min'):
+            job.budget_min = int(request.form.get('budget_min') or 0)
+        if request.form.get('budget_max'):
+            job.budget_max = int(request.form.get('budget_max') or 0)
+        job.event_location = request.form.get('event_location', job.event_location)
+
+        # Sửa job đã duyệt: chuyển về pending để duyệt lại phiên bản mới (Task 8.4)
+        job.moderation_status = 'pending'
+        job.status = 'pending'
+        job.submission_version = (job.submission_version or 1) + 1
+
+        from services.job_moderation import evaluate_job_39_criteria
+        eval_result = evaluate_job_39_criteria(job)
+        job.moderation_checklist_data = json.dumps(eval_result)
+
+        db.session.commit()
+        flash('Nội dung công việc đã được cập nhật và chuyển vào hàng chờ duyệt lại.', 'success')
+        return redirect(url_for('job_detail', job_id=job.id))
+
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=job, edit_mode=True, job=job, hirer_verified=can_post)
 
 @app.route('/jobs')
 def job_list():
@@ -3952,6 +4042,7 @@ def job_list():
 
     query = Job.query.join(User, Job.hirer_id == User.id).filter(
         Job.status == 'open', 
+        Job.moderation_status == 'approved',
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
         User.is_active == True
     )
@@ -4481,6 +4572,83 @@ def get_messages(contract_id):
                      'content': m.content, 'image_url': getattr(m, 'image_url', None),
                      'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''} for m in msgs])
 
+@app.route('/api/jobs/<int:job_id>/report', methods=['POST'])
+@login_required
+def report_job(job_id):
+    """
+    Phiên dịch viên hoặc người dùng gửi báo cáo vi phạm về Job.
+    Task 8.1: Khi đạt đủ 3 báo cáo độc lập từ 3 người dùng khác nhau,
+    Job sẽ tự động bị gắn cờ (is_flagged=True, moderation_status='flagged') và tạm ẩn.
+    """
+    job = Job.query.get_or_404(job_id)
+    user = get_current_user()
+    
+    data = request.get_json() or {}
+    reason = data.get('reason', '').strip()
+    description = data.get('description', '').strip()
+    evidence_url = data.get('evidence_url', '').strip()
+
+    if not reason:
+        return jsonify({'status': 'error', 'message': 'Vui lòng chọn lý do báo cáo.'}), 400
+
+    # Kiểm tra xem user này đã gửi báo cáo cho job này chưa (chống gửi lặp)
+    existing_report = Report.query.filter_by(
+        reporter_id=user.id, target_type='job', target_id=job.id
+    ).first()
+    if existing_report:
+        return jsonify({'status': 'error', 'message': 'Bạn đã gửi báo cáo cho công việc này rồi.'}), 400
+
+    report = Report(
+        reporter_id=user.id,
+        target_type='job',
+        target_id=job.id,
+        reason=reason,
+        description=description,
+        evidence_url=evidence_url or None,
+        related_job_id=job.id,
+        status='new'
+    )
+    db.session.add(report)
+    db.session.flush()
+
+    # Đếm số người báo cáo độc lập
+    distinct_reporters_count = db.session.query(
+        db.func.count(db.func.distinct(Report.reporter_id))
+    ).filter(Report.target_type == 'job', Report.target_id == job.id).scalar()
+
+    auto_flagged = False
+    if distinct_reporters_count >= 3:
+        job.is_flagged = True
+        job.moderation_status = 'flagged'
+        auto_flagged = True
+        
+        AdminAuditLog.log(
+            action=ADMIN_AUDIT_ACTIONS['FLAG_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Hệ thống tự động tạm ẩn và gắn cờ Job #{job.id} sau khi nhận đủ 3 báo cáo độc lập.',
+            extra_data={'distinct_reporters': distinct_reporters_count}
+        )
+        
+        try:
+            from models import AdminNotification
+            db.session.add(AdminNotification(
+                type='NEW_REPORT',
+                title=f'Cảnh báo: Job #{job.id} bị tự động gắn cờ',
+                message=f'Công việc "{job.title}" đã nhận đủ {distinct_reporters_count} báo cáo độc lập và đã được tạm ẩn tự động khỏi sàn.',
+                related_id=job.id,
+                url=url_for('admin_job_review', job_id=job.id)
+            ))
+        except Exception:
+            pass
+
+    db.session.commit()
+    return jsonify({
+        'status': 'ok',
+        'message': 'Cảm ơn bạn đã gửi báo cáo. Ban quản trị sẽ rà soát nội dung này.',
+        'auto_flagged': auto_flagged
+    })
+
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
 def send_message(contract_id):
@@ -4492,6 +4660,15 @@ def send_message(contract_id):
     content = request.json.get('content', '').strip()
     image_url = request.json.get('image_url', '').strip()
     if content or image_url:
+        # TASK 8.3: QUÉT TIN NHẮN PHÁT HIỆN LIÊN HỆ NGOÀI / THANH TOÁN NGOÀI (C1/C2)
+        from services.job_moderation import scan_text_violations
+        viols = scan_text_violations(content)
+        has_warning = False
+        warning_msg = None
+        if viols:
+            has_warning = True
+            warning_msg = 'Lưu ý: Tin nhắn chứa thông tin liên hệ hoặc thanh toán ngoài nền tảng. VietTranslate khuyến cáo chỉ giao dịch qua hệ thống để đảm bảo an toàn Escrow.'
+
         db.session.add(Message(
             contract_id=contract_id, sender_id=sender_id,
             content=content or ('[Hình ảnh]' if image_url else ''),
@@ -4523,8 +4700,13 @@ def send_message(contract_id):
                     pass
 
         db.session.commit()
-        return jsonify({'status': 'ok'})
+        return jsonify({
+            'status': 'ok',
+            'has_warning': has_warning,
+            'warning_message': warning_msg
+        })
     return jsonify({'status': 'error'}), 400
+
 
 # ─── ADMIN AUTH ROUTES ───────────────────────────────────────────────────────
 
@@ -4693,17 +4875,208 @@ def admin_dashboard():
 @require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
-    query = Job.query
-    if status_filter == 'flagged':
-        query = query.filter_by(is_flagged=True)
-    elif status_filter == 'open':
-        query = query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
-    elif status_filter == 'pending':
-        query = query.filter(Job.status == 'pending', db.or_(Job.is_flagged == False, Job.is_flagged == None))
-    elif status_filter == 'completed':
-        query = query.filter_by(status='completed')
-    jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
+    from services.job_moderation import evaluate_job_39_criteria
+    
+    # Lấy tất cả job để đánh giá tiêu chí
+    all_jobs = Job.query.order_by(Job.created_at.desc()).all()
+    
+    job_items = []
+    pending_count = 0
+    critical_count = 0
+    
+    for job in all_jobs:
+        eval_res = evaluate_job_39_criteria(job)
+        is_pending = (job.moderation_status == 'pending' or job.status == 'pending') and not job.is_flagged
+        is_critical = (eval_res['total_critical'] > 0)
+        
+        if is_pending:
+            pending_count += 1
+        if is_critical and not job.is_flagged:
+            critical_count += 1
+            
+        # Áp dụng bộ lọc
+        include = True
+        if status_filter == 'pending':
+            include = is_pending
+        elif status_filter == 'critical':
+            include = is_critical
+        elif status_filter == 'needs_revision':
+            include = (job.moderation_status == 'needs_revision' or (eval_res['total_warnings'] > 0 and is_pending))
+        elif status_filter == 'open':
+            include = (job.moderation_status == 'approved' or job.status == 'open') and not job.is_flagged
+        elif status_filter == 'flagged':
+            include = bool(job.is_flagged or job.moderation_status == 'flagged')
+        elif status_filter == 'archived':
+            include = (job.moderation_status == 'archived' or job.status == 'archived')
+            
+        if include:
+            job_items.append({'job': job, 'eval': eval_res})
+            
+    return render_template(
+        'admin_jobs.html',
+        job_items=job_items,
+        status_filter=status_filter,
+        pending_count=pending_count,
+        critical_count=critical_count
+    )
+
+@app.route('/admin/jobs/<int:job_id>/review', methods=['GET'])
+@admin_login_required
+@require_permission('view_jobs')
+def admin_job_review(job_id):
+    """Màn hình chi tiết xét duyệt Job theo chuẩn Hình 3."""
+    job = Job.query.get_or_404(job_id)
+    from services.job_moderation import evaluate_job_39_criteria
+    eval_result = evaluate_job_39_criteria(job)
+    return render_template('admin_job_review.html', job=job, eval_result=eval_result)
+
+@app.route('/admin/jobs/<int:job_id>/moderate', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_moderate_job(job_id):
+    """Ra quyết định kiểm duyệt Job (Duyệt, Yêu cầu sửa, Từ chối)."""
+    job = Job.query.get_or_404(job_id)
+    decision = request.form.get('decision', 'approve')
+    from services.job_moderation import evaluate_job_39_criteria
+    import json
+    
+    # Kiểm tra ghi đè tiêu chí thủ công C7
+    chk_c7 = (request.form.get('chk_C7') == '1')
+    manual_overrides = {'C7': chk_c7}
+    eval_res = evaluate_job_39_criteria(job, manual_overrides=manual_overrides)
+    job.moderation_checklist_data = json.dumps(eval_res)
+    job.moderated_at = datetime.utcnow()
+    job.moderated_by = session.get('admin_id')
+
+    admin_user = get_current_user()
+    
+    if decision == 'approve':
+        job.moderation_status = 'approved'
+        job.status = 'open'
+        job.is_flagged = False
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Phê duyệt job "{job.title}" (ID={job.id}) đạt kiểm duyệt.',
+            extra_data={'checklist_summary': eval_res['summary_label']}
+        )
+        # Gửi thông báo cho Hirer
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Công việc đã được phê duyệt',
+                    message=f'Công việc "{job.title}" của bạn đã được kiểm duyệt và hiển thị công khai.',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        flash('Đã phê duyệt công việc thành công. Job đã hiển thị công khai.', 'success')
+        
+    elif decision == 'needs_revision':
+        notes = request.form.get('revision_notes', '').strip()
+        job.moderation_status = 'needs_revision'
+        job.status = 'pending'
+        job.moderation_notes = notes
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REQUEST_JOB_REVISION'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Yêu cầu chỉnh sửa job "{job.title}" (ID={job.id})',
+            extra_data={'notes': notes}
+        )
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Yêu cầu chỉnh sửa công việc',
+                    message=f'Job "{job.title}" cần chỉnh sửa: {notes}',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        flash('Đã gửi yêu cầu chỉnh sửa tới người đăng tuyển.', 'warning')
+        
+    elif decision == 'reject':
+        reason = request.form.get('rejection_reason', '').strip()
+        job.moderation_status = 'rejected'
+        job.status = 'pending'
+        job.moderation_notes = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REJECT_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Từ chối job "{job.title}" (ID={job.id})',
+            extra_data={'reason': reason}
+        )
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Công việc bị từ chối phê duyệt',
+                    message=f'Job "{job.title}" đã bị từ chối: {reason}',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        flash('Đã từ chối công việc.', 'error')
+
+    db.session.commit()
+    return redirect(url_for('admin_jobs'))
+
+@app.route('/admin/jobs/<int:job_id>/edit-title', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_edit_job_title(job_id):
+    """Admin sửa nhẹ định dạng tiêu đề (D3)."""
+    job = Job.query.get_or_404(job_id)
+    old_title = job.title
+    new_title = request.form.get('new_title', '').strip()
+    if new_title and len(new_title) >= 10:
+        job.title = new_title
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['UPDATE_JOB_TITLE'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Admin chuẩn hóa tiêu đề job #{job.id}',
+            extra_data={'old_title': old_title, 'new_title': new_title}
+        )
+        db.session.commit()
+        flash('Đã cập nhật tiêu đề chuẩn hóa cho bài đăng.', 'success')
+    else:
+        flash('Tiêu đề mới không hợp lệ (tối thiểu 10 ký tự).', 'error')
+    return redirect(url_for('admin_job_review', job_id=job.id))
+
+@app.route('/admin/jobs/<int:job_id>/archive', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_archive_job(job_id):
+    """Lưu trữ job an toàn (ẩn khỏi danh sách nhưng bảo toàn báo giá & hợp đồng)."""
+    job = Job.query.get_or_404(job_id)
+    job.moderation_status = 'archived'
+    job.status = 'archived'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['ARCHIVE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Lưu trữ an toàn job #{job.id} "{job.title}"',
+    )
+    db.session.commit()
+    flash(f'Đã chuyển bài đăng #{job.id} sang trạng thái Lưu trữ an toàn.', 'success')
+    return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
 @admin_login_required
@@ -4712,6 +5085,11 @@ def admin_jobs():
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
+    if job.is_flagged:
+        job.moderation_status = 'flagged'
+    else:
+        job.moderation_status = 'approved' if job.status == 'open' else 'pending'
+        
     action_key = ADMIN_AUDIT_ACTIONS['FLAG_JOB'] if job.is_flagged else ADMIN_AUDIT_ACTIONS['UNFLAG_JOB']
     action_text = 'Đã gắn cờ vi phạm' if job.is_flagged else 'Đã khôi phục'
     _audit_log(
@@ -4730,18 +5108,17 @@ def admin_flag_job(job_id):
 @require_permission('approve_job')
 def admin_approve_job(job_id):
     job = Job.query.get_or_404(job_id)
-    if job.status == 'pending':
-        job.status = 'open'
-        _audit_log(
-            action=ADMIN_AUDIT_ACTIONS.get('UPDATE_JOB_STATUS', 'UPDATE_JOB_STATUS'),
-            target_type='job',
-            target_id=job.id,
-            description=f'Phê duyệt job "{job.title}" (ID={job.id})',
-        )
-        db.session.commit()
-        flash('Đã phê duyệt bài đăng thành công.', 'success')
-    else:
-        flash('Bài đăng không ở trạng thái chờ duyệt.', 'warning')
+    job.status = 'open'
+    job.moderation_status = 'approved'
+    job.is_flagged = False
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+    )
+    db.session.commit()
+    flash('Đã phê duyệt bài đăng thành công.', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
@@ -4751,35 +5128,186 @@ def admin_approve_job(job_id):
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
     
-    # 1. Kiểm tra dependency quan trọng: Hợp đồng
-    from models import Contract
-    contracts = Contract.query.filter_by(job_id=job.id).all()
-    if contracts:
-        flash('Không thể xóa vĩnh viễn bài đăng đã có hợp đồng. Vui lòng sử dụng "Gắn cờ/Ẩn".', 'error')
+    # 1. BẢO TỒN DỮ LIỆU GIAO DỊCH (TASK 9 CASCADE PROTECTION)
+    from models import Contract, Proposal, PaymentTransaction
+    if Contract.query.filter_by(job_id=job.id).count() > 0:
+        flash('Không thể xóa vĩnh viễn job đã có Hợp đồng. Vui lòng chọn "Lưu trữ" hoặc "Tạm ẩn" để bảo toàn dữ liệu.', 'error')
         return redirect(url_for('admin_jobs'))
         
-    # 2. Xử lý dependencies phụ
-    from models import Notification, TranslatorSchedule, Proposal, Report, JobSchedule
-    
-    # SET NULL cho các lịch sử (không xóa lịch sử)
+    if Proposal.query.filter_by(job_id=job.id).count() > 0:
+        flash('Không thể xóa vĩnh viễn job đã nhận Báo giá (Proposal). Vui lòng chọn "Lưu trữ" để bảo toàn lịch sử ứng tuyển.', 'error')
+        return redirect(url_for('admin_jobs'))
+        
+    # Xử lý dependencies phụ
+    from models import Notification, TranslatorSchedule, Report, JobSchedule
     Notification.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
     Report.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
     TranslatorSchedule.query.filter_by(job_id=job.id).update({'job_id': None})
-    
-    # Xóa dọn dẹp các data ăn theo
-    Proposal.query.filter_by(job_id=job.id).delete()
     JobSchedule.query.filter_by(job_id=job.id).delete()
     
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
         target_type='job',
         target_id=job.id,
-        description=f'Xóa vĩnh viễn job "{job.title}" (ID={job.id}) của hirer {job.hirer.name}',
+        description=f'Xóa vĩnh viễn job "{job.title}" (ID={job.id}) của hirer {job.hirer.name if job.hirer else ""}',
     )
     db.session.delete(job)
     db.session.commit()
-    flash('Đã xoá vĩnh viễn bài đăng an toàn.', 'success')
+    flash('Đã xoá vĩnh viễn bài đăng thành công.', 'success')
     return redirect(url_for('admin_jobs'))
+
+# ─── ADMIN HIRER VERIFICATION ROUTES ──────────────────────────────────────────
+
+@app.route('/admin/hirers')
+@admin_login_required
+@require_permission('view_hirers')
+def admin_hirers():
+    """Danh sách người đăng tuyển và tiến độ xác minh X1–X8."""
+    status_filter = request.args.get('status', 'all')
+    from services.hirer_verification import evaluate_hirer_criteria
+    from models import HirerProfile
+    
+    users = User.query.filter_by(role='hirer', is_admin=False).order_by(User.created_at.desc()).all()
+    hirer_items = []
+    pending_count = 0
+    
+    for u in users:
+        p = u.hirer_profile
+        ev = evaluate_hirer_criteria(u, p)
+        is_pending = bool(p and (p.verification_status == 'pending' or (not p.is_verified and p.verification_status != 'rejected')))
+        if is_pending:
+            pending_count += 1
+            
+        include = True
+        if status_filter == 'pending':
+            include = is_pending
+        elif status_filter == 'verified':
+            include = bool(p and (p.verification_status == 'verified' or p.is_verified))
+        elif status_filter == 'needs_revision':
+            include = bool(p and p.verification_status == 'needs_revision')
+        elif status_filter == 'rejected':
+            include = bool(p and p.verification_status == 'rejected')
+            
+        if include:
+            hirer_items.append({'user': u, 'profile': p, 'eval': ev})
+            
+    return render_template(
+        'admin_hirers.html',
+        hirer_items=hirer_items,
+        status_filter=status_filter,
+        pending_count=pending_count
+    )
+
+@app.route('/admin/hirers/<int:hirer_id>/verify', methods=['GET'])
+@admin_login_required
+@require_permission('view_hirers')
+def admin_hirer_verify(hirer_id):
+    """Màn hình thẩm định người đăng tuyển theo chuẩn Hình 1."""
+    hirer = User.query.get_or_404(hirer_id)
+    if hirer.role != 'hirer':
+        abort(404)
+    from services.hirer_verification import evaluate_hirer_criteria
+    profile = hirer.hirer_profile
+    eval_result = evaluate_hirer_criteria(hirer, profile)
+    return render_template('admin_hirer_verify.html', hirer=hirer, profile=profile, eval_result=eval_result)
+
+@app.route('/admin/hirers/<int:hirer_id>/review', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_hirer')
+def admin_hirer_review_action(hirer_id):
+    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối)."""
+    hirer = User.query.get_or_404(hirer_id)
+    action = request.form.get('action', 'verify')
+    reason = request.form.get('reason', '').strip()
+    
+    profile = hirer.hirer_profile
+    if not profile:
+        profile = HirerProfile(user_id=hirer.id)
+        db.session.add(profile)
+        
+    chk_x3 = (request.form.get('chk_X3') == '1')
+    from services.hirer_verification import evaluate_hirer_criteria
+    import json
+    eval_res = evaluate_hirer_criteria(hirer, profile, manual_overrides={'X3': chk_x3})
+    profile.verification_checklist_data = json.dumps(eval_res)
+    
+    if action == 'verify':
+        profile.verification_status = 'verified'
+        profile.is_verified = True
+        profile.verified_at = datetime.utcnow()
+        hirer.verified_at = datetime.utcnow()
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['VERIFY_HIRER'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Admin xác minh người đăng tuyển: {hirer.name} ({hirer.email})',
+            extra_data={'checklist': eval_res}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Tài khoản đã được xác minh thành công',
+                message='Hồ sơ người đăng tuyển của bạn đã được xác minh. Bạn đã có thể đăng tin tuyển dụng!',
+                url=url_for('post_job')
+            )
+        except Exception:
+            pass
+        flash(f'Đã cấp xác minh thành công cho người đăng tuyển {hirer.name}.', 'success')
+        
+    elif action == 'needs_revision':
+        profile.verification_status = 'needs_revision'
+        profile.is_verified = False
+        profile.rejection_reason = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REQUEST_HIRER_REVISION'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Yêu cầu bổ sung hồ sơ người đăng: {hirer.name}',
+            extra_data={'reason': reason}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Yêu cầu bổ sung hồ sơ người đăng',
+                message=f'Hồ sơ của bạn cần bổ sung: {reason}',
+                url=url_for('account_profile', tab='hirer_profile')
+            )
+        except Exception:
+            pass
+        flash(f'Đã gửi yêu cầu bổ sung thông tin tới {hirer.name}.', 'warning')
+        
+    elif action == 'reject':
+        profile.verification_status = 'rejected'
+        profile.is_verified = False
+        profile.rejection_reason = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REJECT_HIRER'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Từ chối xác minh người đăng tuyển: {hirer.name}',
+            extra_data={'reason': reason}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Hồ sơ xác minh bị từ chối',
+                message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
+                url=url_for('account_profile', tab='hirer_profile')
+            )
+        except Exception:
+            pass
+        flash(f'Đã từ chối xác minh người đăng {hirer.name}.', 'error')
+
+    db.session.commit()
+    return redirect(url_for('admin_hirers'))
+
 
 @app.route('/admin/users')
 @admin_login_required

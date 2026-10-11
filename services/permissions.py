@@ -24,7 +24,8 @@ def can_view_profile(profile, current_user):
         return True
         
     from admin_auth import is_admin_session_valid
-    if is_admin_session_valid():
+    admin_ok, _ = is_admin_session_valid()
+    if admin_ok:
         return True
         
     return False
@@ -32,10 +33,11 @@ def can_view_profile(profile, current_user):
 def can_view_job(job, current_user):
     """
     Xác định người dùng hiện tại có được phép xem công việc này không.
-    - Job open & không bị cờ: Ai cũng được xem.
+    - Job open, approved & không bị cờ: Ai cũng được xem.
     - Job pending, flagged, rejected, etc.: Chỉ Chủ sở hữu và Admin hợp lệ mới được xem.
     """
-    if job.status == 'open' and not job.is_flagged:
+    is_moderated = getattr(job, 'moderation_status', 'approved') == 'approved'
+    if job.status == 'open' and not job.is_flagged and is_moderated:
         return True
         
     # Không thỏa mãn điều kiện công khai
@@ -43,7 +45,8 @@ def can_view_job(job, current_user):
         return True
         
     from admin_auth import is_admin_session_valid
-    if is_admin_session_valid():
+    admin_ok, _ = is_admin_session_valid()
+    if admin_ok:
         return True
         
     return False

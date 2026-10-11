@@ -50,12 +50,13 @@ class User(db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
     email_verified = db.Column(db.Boolean, default=False)
+    verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     hirer_profile = db.relationship('HirerProfile', backref='user', uselist=False, cascade='all, delete-orphan')
-    jobs_posted = db.relationship('Job', backref='hirer', lazy=True, cascade='all, delete-orphan')
+    jobs_posted = db.relationship('Job', foreign_keys='Job.hirer_id', backref='hirer', lazy=True, cascade='all, delete-orphan')
     proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -182,6 +183,13 @@ class HirerProfile(db.Model):
     # Đánh giá nhận được từ phiên dịch viên và nhu cầu thuê (phục vụ gợi ý phiên dịch viên)
     total_reviews = db.Column(db.Integer, default=0)
     is_verified = db.Column(db.Boolean, default=False)
+    verification_status = db.Column(db.String(20), default='unverified', index=True) # unverified, pending, needs_revision, verified, rejected, revoked, suspended
+    verified_at = db.Column(db.DateTime, nullable=True)
+    bank_name = db.Column(db.String(100), nullable=True)
+    bank_account_number = db.Column(db.String(50), nullable=True)
+    authorization_doc_url = db.Column(db.String(500), nullable=True)
+    verification_checklist_data = db.Column(db.Text, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
     work_mode = db.Column(db.String(20))            # onsite / online / both
     hiring_frequency = db.Column(db.String(20))     # one_time / occasional / regular
     typical_budget_min = db.Column(db.Integer)
@@ -189,6 +197,14 @@ class HirerProfile(db.Model):
     needs_nda = db.Column(db.Boolean, default=False)
     needs_certified = db.Column(db.Boolean, default=False)
     special_requirements = db.Column(db.Text)
+
+    def get_verification_checklist(self):
+        if self.verification_checklist_data:
+            try:
+                return json.loads(self.verification_checklist_data)
+            except Exception:
+                return {}
+        return {}
 
     @property
     def is_business(self):
@@ -230,11 +246,26 @@ class Job(db.Model):
     deadline = db.Column(db.Date)
     status = db.Column(db.String(20), default='open', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
+    moderation_status = db.Column(db.String(20), default='pending', index=True) # pending, approved, needs_revision, rejected, flagged, archived
+    moderation_checklist_data = db.Column(db.Text, nullable=True)
+    moderation_notes = db.Column(db.Text, nullable=True)
+    moderated_at = db.Column(db.DateTime, nullable=True)
+    moderated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    submission_version = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    moderator = db.relationship('User', foreign_keys=[moderated_by], backref='moderated_jobs', lazy=True)
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
     schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
+
+    def get_moderation_checklist(self):
+        if self.moderation_checklist_data:
+            try:
+                return json.loads(self.moderation_checklist_data)
+            except Exception:
+                return {}
+        return {}
 
     @property
     def display_category_group(self):
@@ -725,11 +756,18 @@ ADMIN_AUDIT_ACTIONS = {
     'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
     'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
     'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
+    'VERIFY_HIRER': 'VERIFY_HIRER',
+    'REJECT_HIRER': 'REJECT_HIRER',
+    'REQUEST_HIRER_REVISION': 'REQUEST_HIRER_REVISION',
+    'REVOKE_HIRER': 'REVOKE_HIRER',
     'APPROVE_JOB': 'APPROVE_JOB',
     'REJECT_JOB': 'REJECT_JOB',
+    'REQUEST_JOB_REVISION': 'REQUEST_JOB_REVISION',
     'FLAG_JOB': 'FLAG_JOB',
     'UNFLAG_JOB': 'UNFLAG_JOB',
+    'ARCHIVE_JOB': 'ARCHIVE_JOB',
     'DELETE_JOB': 'DELETE_JOB',
+    'UPDATE_JOB_TITLE': 'UPDATE_JOB_TITLE',
     'LOCK_USER': 'LOCK_USER',
     'UNLOCK_USER': 'UNLOCK_USER',
     'BAN_USER': 'BAN_USER',

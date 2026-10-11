@@ -43,7 +43,8 @@ ROLE_PERMISSIONS = {
     'super_admin': {'*'},  # Toàn quyền
     'moderator': {
         'view_dashboard', 'view_users', 'view_translators', 'verify_translator',
-        'reject_translator', 'view_jobs', 'approve_job', 'reject_job',
+        'reject_translator', 'view_hirers', 'verify_hirer', 'reject_hirer',
+        'view_jobs', 'approve_job', 'reject_job', 'moderate_job',
         'flag_job', 'unflag_job', 'view_reports', 'resolve_report',
         'reject_report', 'view_reviews', 'hide_review', 'restore_review',
         'view_proposals', 'view_contracts', 'view_schedules', 'view_audit_logs',
@@ -54,7 +55,7 @@ ROLE_PERMISSIONS = {
         'view_proposals', 'view_notifications',
     },
     'support': {
-        'view_dashboard', 'view_users', 'view_translators', 'view_jobs',
+        'view_dashboard', 'view_users', 'view_translators', 'view_hirers', 'view_jobs',
         'view_reports', 'view_reviews', 'view_contracts', 'view_notifications',
         'lock_user', 'unlock_user', 'view_proposals', 'view_schedules', 'resolve_report', 'reject_report', 'view_audit_logs',
     }
@@ -170,6 +171,10 @@ def is_admin_session_valid():
     3. Thời gian idle không quá ADMIN_IDLE_TIMEOUT_SECONDS.
     Trả về (is_valid: bool, reason: str).
     """
+    from flask import has_request_context
+    if not has_request_context():
+        return False, 'no_request_context'
+
     admin_id = session.get(ADMIN_SESSION_KEY)
     if not admin_id:
         return False, 'no_session'
