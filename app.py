@@ -788,21 +788,40 @@ def _apply_hirer_profile_form(user, profile, form, files):
 
 
 def _ensure_new_columns():
-    """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
+    """Tự động đồng bộ các cột còn thiếu trong DB (hỗ trợ cả PostgreSQL Supabase và SQLite)."""
     from sqlalchemy import inspect, text
-    for model in (HirerProfile, TranslatorPreference, Job, User):
-        table = model.__table__
-        try:
-            existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
-            for col in table.columns:
-                if col.name in existing:
+    try:
+        inspector = inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        is_postgres = (db.engine.dialect.name == 'postgresql')
+
+        with db.engine.connect() as conn:
+            for name, table in db.metadata.tables.items():
+                if name not in existing_tables:
                     continue
-                coltype = col.type.compile(dialect=db.engine.dialect)
-                db.session.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {coltype}'))
-            db.session.commit()
-        except Exception as e:
-            db.session.rollback()
-            print(f"[DB] Cannot sync {table.name} columns: {e}", file=sys.stderr)
+                try:
+                    existing_cols = {c['name'] for c in inspector.get_columns(name)}
+                except Exception:
+                    continue
+
+                for col in table.columns:
+                    if col.name in existing_cols or col.name == 'id':
+                        continue
+                    try:
+                        coltype = col.type.compile(dialect=db.engine.dialect)
+                        if is_postgres:
+                            conn.execute(text(f'ALTER TABLE "{name}" ADD COLUMN IF NOT EXISTS "{col.name}" {coltype}'))
+                        else:
+                            conn.execute(text(f'ALTER TABLE "{name}" ADD COLUMN "{col.name}" {coltype}'))
+                        conn.commit()
+                    except Exception as col_err:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                        print(f"[DB Sync] Could not add column {name}.{col.name}: {col_err}", file=sys.stderr)
+    except Exception as e:
+        print(f"[DB Sync Error] {e}", file=sys.stderr)
 
 
 def _init_db():
@@ -815,72 +834,27 @@ def _init_db():
     """
     try:
         db.create_all()
-        # Tự động thêm cột image_url nếu DB đã tồn tại từ trước chưa có cột này
         from sqlalchemy import text
+        is_postgres = (db.engine.dialect.name == 'postgresql')
         with db.engine.connect() as conn:
-            try:
-                conn.execute(text("ALTER TABLE message ADD COLUMN image_url TEXT"))
-                conn.commit()
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE direct_message ADD COLUMN image_url TEXT"))
-                conn.commit()
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE message ALTER COLUMN image_url TYPE TEXT"))
-                conn.commit()
-            except Exception:
-                pass
-            try:
-                conn.execute(text("ALTER TABLE direct_message ALTER COLUMN image_url TYPE TEXT"))
-                conn.commit()
-            except Exception:
-                pass
+            alter_statements = [
+                'ALTER TABLE "message" ADD COLUMN IF NOT EXISTS "image_url" TEXT' if is_postgres else 'ALTER TABLE message ADD COLUMN image_url TEXT',
+                'ALTER TABLE "direct_message" ADD COLUMN IF NOT EXISTS "image_url" TEXT' if is_postgres else 'ALTER TABLE direct_message ADD COLUMN image_url TEXT',
+            ]
+            for stmt in alter_statements:
+                try:
+                    conn.execute(text(stmt))
+                    conn.commit()
+                except Exception:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
 
     _ensure_new_columns()
-    # Tự động đồng bộ cột avatar nếu chưa tồn tại trong bảng user
-    try:
-        from sqlalchemy import inspect, text
-        inspector = inspect(db.engine)
-        if 'user' in inspector.get_table_names():
-            user_cols = [c['name'] for c in inspector.get_columns('user')]
-            if 'avatar' not in user_cols:
-                with db.engine.connect() as conn:
-                    try:
-                        conn.execute(text('ALTER TABLE "user" ADD COLUMN avatar VARCHAR(255)'))
-                        conn.commit()
-                    except Exception:
-                        conn.execute(text('ALTER TABLE user ADD COLUMN avatar VARCHAR(255)'))
-                        conn.commit()
-
-        if 'translator_verification' in inspector.get_table_names():
-            tv_cols = [c['name'] for c in inspector.get_columns('translator_verification')]
-            with db.engine.connect() as conn:
-                if 'submitted_at' not in tv_cols:
-                    try:
-                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_at TIMESTAMP'))
-                        conn.commit()
-                    except Exception:
-                        pass
-                if 'submission_version' not in tv_cols:
-                    try:
-                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submission_version INTEGER DEFAULT 0'))
-                        conn.commit()
-                    except Exception:
-                        pass
-                if 'submitted_snapshot' not in tv_cols:
-                    try:
-                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_snapshot TEXT'))
-                        conn.commit()
-                    except Exception:
-                        pass
-    except Exception:
-        pass
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -990,7 +964,8 @@ def inject_admin_badges():
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
-    except SQLAlchemyError:
+    except Exception:
+        db.session.rollback()
         badges = {
             'admin_badge_pending_translators': 0,
             'admin_badge_pending_verifications': 0,
@@ -1093,6 +1068,7 @@ def get_current_user():
             return None
         return user
     except SQLAlchemyError as e:
+        db.session.rollback()
         print(f"[get_current_user SQLError] {e}")
         return None
 
@@ -1114,9 +1090,11 @@ def inject_globals():
                 if not user:
                     session.pop('user_id', None)
             except SQLAlchemyError as e:
+                db.session.rollback()
                 print(f"[AUTH SQL GLOBALS ERROR] {e}")
                 # Do not pop session on transient DB locks to prevent random logout
             except Exception as e:
+                db.session.rollback()
                 print(f"[AUTH GLOBALS ERROR] {e}")
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
     if current_lang not in ('vi', 'en'):
@@ -1151,17 +1129,26 @@ def set_language(lang):
 
 @app.route('/')
 def index():
-    top_translators = TranslatorProfile.query.join(User).filter(
-        TranslatorProfile.is_verified == True,
-        User.is_active == True
-    ).order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    
-    latest_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
-        Job.status == 'open', 
-        db.or_(Job.is_flagged == False, Job.is_flagged == None),
-        User.is_active == True
-    ).order_by(Job.created_at.desc()).limit(4).all()
-    return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
+    try:
+        from sqlalchemy.orm import joinedload
+        top_translators = TranslatorProfile.query.options(joinedload(TranslatorProfile.user)).join(User).filter(
+            TranslatorProfile.is_verified == True,
+            User.is_active == True
+        ).order_by(TranslatorProfile.rating.desc()).limit(4).all()
+        
+        latest_jobs = Job.query.options(joinedload(Job.hirer)).join(User, Job.hirer_id == User.id).filter(
+            Job.status == 'open', 
+            db.or_(Job.is_flagged == False, Job.is_flagged == None),
+            User.is_active == True
+        ).order_by(Job.created_at.desc()).limit(4).all()
+        return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[INDEX ERROR] {e}", file=sys.stderr)
+        try:
+            return render_template('index.html', top_translators=[], latest_jobs=[])
+        except Exception:
+            return "Internal Server Error", 500
 
 
 @app.route('/interpreter/dashboard')

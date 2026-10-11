@@ -125,12 +125,18 @@ class TranslatorProfile(db.Model):
 
     @property
     def avatar_url(self):
-        return self.user.avatar_url if self.user else None
+        try:
+            return self.user.avatar_url if self.user else None
+        except Exception:
+            return None
 
     @property
     def latest_verification(self):
         """Trả về yêu cầu xác minh mới nhất của phiên dịch viên."""
-        return self.user.latest_verification if self.user else None
+        try:
+            return self.user.latest_verification if self.user else None
+        except Exception:
+            return None
 
 
 class TranslatorPreference(db.Model):
