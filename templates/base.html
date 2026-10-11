@@ -397,25 +397,9 @@
                             </div>
                         </div>
                     </div>
-                    <!-- 3. Lịch làm việc (Dropdown cha-con) -->
-                    <div class="relative group/schedule">
-                        <button class="nav-item hover:text-brand-600 py-1 flex items-center gap-1 {% if request.endpoint == 'my_schedule' %}active text-brand-600 font-bold{% endif %}">
-                            Lịch làm việc
-                            <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div class="absolute left-0 top-full pt-1.5 w-60 hidden group-hover/schedule:block z-50">
-                            <div class="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden py-1.5 text-xs text-slate-700">
-                                <a href="{{ url_for('my_schedule') }}" class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition {% if request.endpoint == 'my_schedule' and not request.args.get('tab') %}text-brand-600 font-semibold bg-brand-50/60{% endif %}">
-                                    <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                    Lịch tổng quan & Ca làm
-                                </a>
-                                <a href="{{ url_for('my_schedule', tab='busy') }}" class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition {% if request.endpoint == 'my_schedule' and request.args.get('tab') == 'busy' %}text-brand-600 font-semibold bg-brand-50/60{% endif %}">
-                                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                    Quản lý thời gian không khả dụng
-                                </a>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- 3. Lịch làm việc -->
+                    <a href="{{ url_for('my_schedule') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'my_schedule' %}active text-brand-600 font-bold{% endif %}">Lịch làm việc</a>
                     <!-- 4. Thu nhập -->
                     <a href="{{ url_for('account_history') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Thu nhập</a>
