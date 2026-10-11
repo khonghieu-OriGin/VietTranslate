@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobAttachment
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobAttachment, FavoriteTranslator
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -1251,63 +1251,149 @@ def debug_index():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e), 'traceback': traceback.format_exc()})
 
+def _translator_card(p, favorite_ids=frozenset()):
+    """Dữ liệu công khai của một hồ sơ phiên dịch viên (không có email/điện thoại)."""
+    prices = [s.basic_price for s in p.services if s.basic_price]
+    min_days = None
+    for s in p.services:
+        for field in (s.basic_delivery, s.standard_delivery, s.premium_delivery):
+            nums = re.findall(r'\d+', field or '')
+            if nums and (min_days is None or int(nums[0]) < min_days):
+                min_days = int(nums[0])
+    split = lambda v: [x.strip() for x in (v or '').split(',') if x.strip()]
+    specialties = sorted({s.category.strip() for s in p.services if s.category and s.category.strip()})
+    pairs = sorted({s.languages.strip() for s in p.services if s.languages and s.languages.strip()})
+    name = p.user.name or ''
+    return {
+        'id': p.id,
+        'user_id': p.user_id,
+        'name': name,
+        'avatar_url': p.avatar_url,
+        'initial': name[0].upper() if name else '?',
+        'title': p.title or '',
+        'languages': split(p.languages),
+        'language_pairs': pairs,
+        'specialties': specialties,
+        'badges': split(p.badges),
+        'rating': float(p.rating or 0),
+        'total_reviews': p.total_reviews or 0,
+        'total_jobs': p.total_jobs or 0,
+        'response_time': p.response_time or '',
+        'min_price': min(prices) if prices else None,
+        'max_price': max(prices) if prices else None,
+        'completion_days': min_days,
+        'is_verified': bool(p.is_verified),
+        'is_favorite': p.user_id in favorite_ids,
+        'profile_url': url_for('translator_profile', profile_id=p.id),
+        'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
+    }
+
+
+def _favorites_hirer():
+    user = get_current_user()
+    if not user or user.role != 'hirer' or isinstance(user.id, str):
+        return None
+    return user
+
+
+def _current_favorite_ids():
+    """Tập translator user_id mà khách đang đăng nhập đã lưu (rỗng nếu không phải hirer)."""
+    user = _favorites_hirer()
+    if not user:
+        return frozenset()
+    return frozenset(r[0] for r in db.session.query(FavoriteTranslator.translator_id).filter_by(hirer_id=user.id).all())
+
+
 @app.route('/api/translators')
 def api_translators():
-    """JSON API cho client-side filtering realtime."""
+    """JSON API cho tìm kiếm/lọc phía client. Chỉ trả dữ liệu hồ sơ công khai của tài khoản đang hoạt động."""
     try:
         from sqlalchemy.orm import joinedload
         profiles = TranslatorProfile.query.options(
-            joinedload(TranslatorProfile.user),
-            joinedload(TranslatorProfile.services)
+            joinedload(TranslatorProfile.user), joinedload(TranslatorProfile.services)
         ).order_by(TranslatorProfile.rating.desc()).all()
-        data = []
-        for p in profiles:
-            if not p.user:
-                continue
-            # Lấy giá thấp nhất từ services
-            min_price = None
-            if p.services:
-                prices = [s.basic_price for s in p.services if s.basic_price]
-                min_price = min(prices) if prices else None
-
-            # Lấy thời gian hoàn thành thấp nhất từ services (parse số ngày)
-            min_days = None
-            if p.services:
-                for s in p.services:
-                    for field in [s.basic_delivery, s.standard_delivery, s.premium_delivery]:
-                        if field:
-                            nums = re.findall(r'\d+', field)
-                            if nums:
-                                d = int(nums[0])
-                                if min_days is None or d < min_days:
-                                    min_days = d
-
-            # Tách languages và badges thành list
-            langs = [l.strip() for l in (p.languages or '').split(',') if l.strip()]
-            badges = [b.strip() for b in (p.badges or '').split(',') if b.strip()]
-
-            data.append({
-                'id': p.id,
-                'user_id': p.user_id,
-                'name': p.user.name,
-                'avatar_url': p.avatar_url,
-                'initial': p.user.name[0].upper() if p.user.name else '?',
-                'title': p.title or '',
-                'languages': langs,
-                'badges': badges,
-                'rating': float(p.rating or 0),
-                'total_reviews': p.total_reviews or 0,
-                'min_price': min_price,
-                'completion_days': min_days,
-                'is_verified': p.is_verified,
-                'profile_url': url_for('translator_profile', profile_id=p.id),
-                'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
-            })
-        return jsonify(data)
+        fav = _current_favorite_ids()
+        return jsonify([_translator_card(p, fav) for p in profiles if p.user and p.user.is_active])
     except Exception as e:
         import traceback
         print(f"Error in api_translators: {e}\n{traceback.format_exc()}", file=sys.stderr)
-        return jsonify([])
+        db.session.rollback()
+        return jsonify({'error': 'server_error'}), 500
+
+
+def _api_csrf_ok():
+    from admin_auth import validate_csrf_token
+    return validate_csrf_token(request.headers.get('X-CSRF-Token'))
+
+
+@app.route('/api/favorites', methods=['GET'])
+@login_required
+def api_favorites_list():
+    user = _favorites_hirer()
+    if not user:
+        return jsonify({'error': 'forbidden'}), 403
+    from sqlalchemy.orm import joinedload
+    rows = (FavoriteTranslator.query.filter_by(hirer_id=user.id)
+            .order_by(FavoriteTranslator.created_at.desc()).all())
+    ids = [r.translator_id for r in rows]
+    profiles = {}
+    if ids:
+        for p in TranslatorProfile.query.options(joinedload(TranslatorProfile.user), joinedload(TranslatorProfile.services)) \
+                .filter(TranslatorProfile.user_id.in_(ids)).all():
+            profiles[p.user_id] = p
+    fav = frozenset(ids)
+    items = [_translator_card(profiles[i], fav) for i in ids
+             if i in profiles and profiles[i].user and profiles[i].user.is_active]
+    return jsonify({'items': items})
+
+
+@app.route('/api/favorites/<int:profile_id>', methods=['POST', 'DELETE'])
+@login_required
+def api_favorite_toggle(profile_id):
+    user = _favorites_hirer()
+    if not user:
+        return jsonify({'error': 'forbidden'}), 403
+    if not _api_csrf_ok():
+        return jsonify({'error': 'csrf'}), 403
+    profile = db.session.get(TranslatorProfile, profile_id)
+    if not profile or not profile.user or not profile.user.is_active:
+        return jsonify({'error': 'not_found'}), 404
+    existing = FavoriteTranslator.query.filter_by(hirer_id=user.id, translator_id=profile.user_id).first()
+    try:
+        if request.method == 'POST' and not existing:
+            db.session.add(FavoriteTranslator(hirer_id=user.id, translator_id=profile.user_id))
+            db.session.commit()
+        elif request.method == 'DELETE' and existing:
+            db.session.delete(existing)
+            db.session.commit()
+    except SQLAlchemyError:
+        db.session.rollback()
+        # Race: bản ghi đã được thêm bởi request song song — coi như thành công
+        if request.method == 'POST' and FavoriteTranslator.query.filter_by(hirer_id=user.id, translator_id=profile.user_id).first():
+            return jsonify({'is_favorite': True})
+        return jsonify({'error': 'server_error'}), 500
+    return jsonify({'is_favorite': request.method == 'POST'})
+
+
+@app.route('/api/my-open-jobs')
+@login_required
+def api_my_open_jobs():
+    user = _favorites_hirer()
+    if not user:
+        return jsonify({'error': 'forbidden'}), 403
+    jobs = Job.query.filter_by(hirer_id=user.id, status='open').order_by(Job.created_at.desc()).limit(50).all()
+    return jsonify({'items': [{'id': j.id, 'title': j.title} for j in jobs]})
+
+
+@app.route('/saved-translators')
+@login_required
+def saved_translators():
+    user = _favorites_hirer()
+    if not user:
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    return render_template('saved_translators.html')
+
 
 @app.route('/translator/<int:profile_id>')
 def translator_profile(profile_id):

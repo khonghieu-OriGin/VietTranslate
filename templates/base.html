@@ -275,6 +275,8 @@
                     <a href="{{ url_for('translator_list') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.find_translators') }}</a>
+                    <a href="{{ url_for('saved_translators') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'saved_translators' %}active text-brand-600 font-bold{% endif %}">Đã lưu</a>
                     <a href="{{ url_for('my_jobs') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint in ('my_jobs', 'edit_job') %}active text-brand-600 font-bold{% endif %}">Yêu cầu của tôi</a>
                     <a href="{{ url_for('account_history') }}"
@@ -489,6 +491,8 @@
                 <a href="{{ url_for('translator_list') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'translator_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.find_translators') }}</a>
+                <a href="{{ url_for('saved_translators') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'saved_translators' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Phiên dịch viên đã lưu</a>
                 <a href="{{ url_for('my_jobs') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ('my_jobs', 'edit_job') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Yêu cầu của tôi</a>
                 <a href="{{ url_for('account_history') }}"

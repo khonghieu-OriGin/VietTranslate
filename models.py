@@ -233,6 +233,15 @@ class JobAttachment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+class FavoriteTranslator(db.Model):
+    """Phiên dịch viên được khách thuê lưu (theo tài khoản, lưu bền vững)."""
+    __table_args__ = (db.UniqueConstraint('hirer_id', 'translator_id', name='uq_favorite_hirer_translator'),)
+    id = db.Column(db.Integer, primary_key=True)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Proposal(db.Model):
     __table_args__ = (
         db.UniqueConstraint('job_id', 'translator_id', name='uq_proposal_job_translator'),
