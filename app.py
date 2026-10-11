@@ -849,6 +849,9 @@ def _ensure_job_columns():
                             'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'})
     _ensure_columns('proposal', {'scope': 'TEXT', 'delivery_terms': 'TEXT', 'revision_terms': 'TEXT',
                                  'valid_until': 'DATE', 'responded_at': 'TIMESTAMP', 'response_note': 'TEXT'})
+    _ensure_columns('translator_schedule', {'schedule_type': "VARCHAR(20) DEFAULT 'shift'",
+                                           'note': 'VARCHAR(255)',
+                                           'is_all_day': 'BOOLEAN DEFAULT 0'})
 
 
 def _init_db():
@@ -3880,6 +3883,367 @@ def account_history():
         filtered_income_total=filtered_income_total
     )
 
+def _format_event_payload(
+    event_id,
+    schedule_id,
+    contract,
+    job,
+    service,
+    sch_date,
+    start_time_obj,
+    end_time_obj,
+    buffer_before,
+    buffer_after,
+    raw_status,
+    today,
+    now_time,
+    source_type='schedule'
+):
+    from datetime import datetime as dt_datetime, timedelta
+    import re
+
+    # 1. Tiêu đề công việc
+    if job and job.title:
+        title = job.title
+    elif service and getattr(service, 'name', None):
+        title = service.name
+    elif contract:
+        title = f"Hợp đồng phiên dịch #{contract.id}"
+    else:
+        title = f"Ca làm việc #{schedule_id or ''}"
+
+    # 2. Ngôn ngữ & Chiều dịch
+    language_pair = None
+    source_lang = None
+    target_lang = None
+    if job:
+        source_lang = getattr(job, 'source_lang', None)
+        target_lang = getattr(job, 'target_lang', None)
+        if source_lang and target_lang:
+            language_pair = f"{source_lang} ➔ {target_lang}"
+        elif source_lang or target_lang:
+            language_pair = source_lang or target_lang
+    elif service:
+        source_lang = getattr(service, 'source_language', None)
+        target_lang = getattr(service, 'target_language', None)
+        if source_lang and target_lang:
+            language_pair = f"{source_lang} ➔ {target_lang}"
+
+    # 3. Chuyên ngành & Yêu cầu ca làm
+    specialty = None
+    requirements = None
+    attachments_count = 0
+    if job:
+        specialty = getattr(job, 'specialty', None) or getattr(job, 'category', None)
+        requirements = getattr(job, 'extra_requirements', None) or getattr(job, 'description', None)
+        if requirements:
+            requirements = requirements.strip()
+        attachments_count = len(job.attachments) if getattr(job, 'attachments', None) else 0
+
+    # 4. Hình thức & Địa điểm & Đường link họp online
+    raw_location = (contract.location if contract else '') or (job.event_location if job else '') or ''
+    raw_location = raw_location.strip()
+    is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+    work_type = "Trực tiếp" if is_onsite else "Trực tuyến"
+    location_display = raw_location if raw_location else ("Online / Từ xa" if not is_onsite else "Chưa cập nhật")
+
+    meeting_url = None
+    combined_text = f"{raw_location} {requirements or ''}"
+    urls = re.findall(r'(https?://[^\s]+)', combined_text)
+    if urls:
+        meeting_url = urls[0]
+
+    # 5. Thông tin Khách hàng
+    hirer_name = None
+    hirer_phone = None
+    if contract and contract.hirer:
+        hirer_name = contract.hirer.name
+        hirer_phone = contract.hirer.phone
+    elif job and job.hirer:
+        hirer_name = job.hirer.name
+        hirer_phone = job.hirer.phone
+
+    # 6. Đánh giá thời gian & Trạng thái chuẩn nghiệp vụ
+    is_today = (sch_date == today)
+    is_upcoming_soon = (sch_date == today or sch_date == today + timedelta(days=1))
+    is_past = (sch_date < today) or (is_today and end_time_obj < now_time)
+
+    if contract:
+        shift_info = contract.shift_status_info
+        status_code = shift_info['code']
+        status_label = shift_info['label']
+        status_desc = shift_info.get('desc', '')
+        badge_class = shift_info.get('badge_class', '')
+        dot_class = shift_info.get('dot_class', '')
+        can_checkin = is_today and shift_info.get('can_checkin', False)
+        can_report_issue = shift_info.get('can_report_issue', False)
+        can_deliver = shift_info.get('can_deliver', False)
+        can_review = shift_info.get('can_review', False)
+    else:
+        if is_today and (start_time_obj <= now_time <= end_time_obj) and raw_status == 'active':
+            status_code = 'in_progress'
+            status_label = 'Đang diễn ra'
+            status_desc = 'Ca làm đang trong khung giờ diễn ra hôm nay.'
+            badge_class = 'bg-emerald-50 text-emerald-800 border-emerald-300'
+            dot_class = 'bg-emerald-500 animate-pulse'
+            can_checkin = True
+            can_report_issue = True
+            can_deliver = True
+            can_review = False
+        elif raw_status == 'reserved':
+            status_code = 'escrow_pending'
+            status_label = 'Chờ xác nhận'
+            status_desc = 'Ca làm đang chờ bên tuyển dụng hoàn tất ký quỹ Escrow.'
+            badge_class = 'bg-amber-50 text-amber-700 border-amber-200'
+            dot_class = 'bg-amber-500'
+            can_checkin = False
+            can_report_issue = False
+            can_deliver = False
+            can_review = False
+        elif raw_status == 'completed' or is_past:
+            status_code = 'completed'
+            status_label = 'Hoàn thành'
+            status_desc = 'Ca làm đã hoàn tất.'
+            badge_class = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            dot_class = 'bg-emerald-500'
+            can_checkin = False
+            can_report_issue = False
+            can_deliver = False
+            can_review = True
+        else:
+            status_code = 'upcoming'
+            status_label = 'Đã xác nhận'
+            status_desc = 'Ca làm đã được chốt lịch và sẵn sàng thực hiện.'
+            badge_class = 'bg-sky-50 text-sky-700 border-sky-200'
+            dot_class = 'bg-sky-500'
+            can_checkin = False
+            can_report_issue = True
+            can_deliver = False
+            can_review = False
+
+    is_ongoing = (status_code == 'in_progress')
+
+    # 7. Tính thời lượng ca (Duration)
+    duration_str = None
+    try:
+        dur_mins = (end_time_obj.hour * 60 + end_time_obj.minute) - (start_time_obj.hour * 60 + start_time_obj.minute)
+        if dur_mins > 0:
+            dur_h = dur_mins // 60
+            dur_m = dur_mins % 60
+            if dur_h > 0 and dur_m > 0:
+                duration_str = f"{dur_h} giờ {dur_m} phút"
+            elif dur_h > 0:
+                duration_str = f"{dur_h} giờ"
+            else:
+                duration_str = f"{dur_m} phút"
+    except Exception:
+        pass
+
+    # 8. Thù lao & Thanh toán Escrow
+    agreed_price = contract.agreed_price if (contract and contract.agreed_price) else None
+    platform_fee = contract.platform_fee if (contract and contract.agreed_price) else None
+    net_amount = contract.translator_net_amount if (contract and contract.agreed_price) else None
+    payment_status = contract.payment_status_info.get('label') if contract else None
+
+    # 9. Lịch sử sự kiện quan trọng gần nhất
+    events_log = []
+    if contract and getattr(contract, 'events', None):
+        for ev_item in sorted(contract.events, key=lambda x: x.created_at or dt_datetime.min, reverse=True)[:3]:
+            events_log.append({
+                'event_type': ev_item.event_type,
+                'note': ev_item.note or '',
+                'time': ev_item.created_at.strftime('%H:%M %d/%m/%Y') if ev_item.created_at else ''
+            })
+
+    # 10. URLs điều hướng an toàn
+    transaction_url = url_for('transaction_detail', contract_id=contract.id) if contract else None
+    job_detail_url = url_for('job_detail', job_id=job.id) if job else (url_for('job_detail', job_id=contract.job_id) if (contract and contract.job_id) else None)
+    income_url = url_for('account_history') if (contract and status_code == 'completed') else None
+
+    WEEKDAYS_VN = {
+        0: 'Thứ Hai', 1: 'Thứ Ba', 2: 'Thứ Tư', 3: 'Thứ Năm',
+        4: 'Thứ Sáu', 5: 'Thứ Bảy', 6: 'Chủ Nhật'
+    }
+
+    return {
+        'id': event_id,
+        'schedule_id': schedule_id,
+        'contract_id': contract.id if contract else None,
+        'job_id': job.id if job else (contract.job_id if contract else None),
+        'title': title,
+        'date': sch_date.strftime('%Y-%m-%d'),
+        'date_display': sch_date.strftime('%d/%m/%Y'),
+        'day_of_week': WEEKDAYS_VN.get(sch_date.weekday(), ''),
+        'start_time': start_time_obj.strftime('%H:%M'),
+        'end_time': end_time_obj.strftime('%H:%M'),
+        'duration_str': duration_str,
+        'status': status_code,
+        'status_label': status_label,
+        'status_desc': status_desc,
+        'badge_class': badge_class,
+        'dot_class': dot_class,
+        'is_ongoing': is_ongoing,
+        'is_past': is_past,
+        'is_upcoming_soon': is_upcoming_soon,
+        'location': location_display,
+        'work_type': work_type,
+        'meeting_url': meeting_url,
+        'language_pair': language_pair,
+        'specialty': specialty,
+        'requirements': requirements,
+        'attachments_count': attachments_count,
+        'hirer_name': hirer_name or "Khách hàng VietTranslate",
+        'hirer_phone': hirer_phone,
+        'price': agreed_price,
+        'net_amount': net_amount,
+        'platform_fee': platform_fee,
+        'payment_status': payment_status,
+        'buffer_before': buffer_before or 0,
+        'buffer_after': buffer_after or 30,
+        'can_checkin': can_checkin,
+        'can_report_issue': can_report_issue,
+        'can_deliver': can_deliver,
+        'can_review': can_review,
+        'events_log': events_log,
+        'transaction_url': transaction_url,
+        'detail_url': job_detail_url,
+        'income_url': income_url,
+        'source': source_type
+    }
+
+def _get_translator_calendar_events(user_id):
+    """
+    Tập hợp và chuẩn hóa toàn bộ các sự kiện ca làm việc của phiên dịch viên.
+    Bao gồm ca từ TranslatorSchedule và các Contract có lịch hợp lệ.
+    """
+    from datetime import date as dt_date, datetime as dt_datetime
+    from services.schedule import _parse_date, _parse_time
+    
+    today = dt_date.today()
+    now_dt = dt_datetime.now()
+    now_time = now_dt.time()
+    
+    events = []
+    seen_contract_ids = set()
+    
+    # Nguồn 1: TranslatorSchedule (chính thức)
+    schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user_id,
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.asc(), TranslatorSchedule.start_time.asc()).all()
+    
+    for sch in schedules:
+        if not sch.scheduled_date or not sch.start_time or not sch.end_time:
+            continue
+            
+        if getattr(sch, 'schedule_type', 'shift') == 'busy' or (not sch.contract_id and not sch.job_id and not sch.service_id):
+            WEEKDAYS_VN = {
+                0: 'Thứ Hai', 1: 'Thứ Ba', 2: 'Thứ Tư', 3: 'Thứ Năm',
+                4: 'Thứ Sáu', 5: 'Thứ Bảy', 6: 'Chủ Nhật'
+            }
+            is_all_day = getattr(sch, 'is_all_day', False) or (sch.start_time.hour == 0 and sch.start_time.minute == 0 and sch.end_time.hour == 23 and sch.end_time.minute >= 50)
+            events.append({
+                'id': f"busy_{sch.id}",
+                'busy_id': sch.id,
+                'schedule_id': sch.id,
+                'contract_id': None,
+                'job_id': None,
+                'event_type': 'busy',
+                'title': sch.note or "Thời gian không khả dụng",
+                'note': sch.note or "",
+                'date': sch.scheduled_date.strftime('%Y-%m-%d'),
+                'date_display': sch.scheduled_date.strftime('%d/%m/%Y'),
+                'day_of_week': WEEKDAYS_VN.get(sch.scheduled_date.weekday(), ''),
+                'start_time': sch.start_time.strftime('%H:%M') if not is_all_day else '00:00',
+                'end_time': sch.end_time.strftime('%H:%M') if not is_all_day else '23:59',
+                'is_all_day': is_all_day,
+                'duration_str': 'Cả ngày' if is_all_day else f"{(sch.end_time.hour*60+sch.end_time.minute - sch.start_time.hour*60-sch.start_time.minute)//60} giờ",
+                'status': 'busy',
+                'status_label': 'Bận / Không khả dụng',
+                'status_desc': 'Khoảng thời gian này bạn đã đánh dấu bận. Hệ thống sẽ chặn các lịch hẹn trùng giờ.',
+                'badge_class': 'bg-slate-100 text-slate-700 border-slate-300',
+                'dot_class': 'bg-slate-500',
+                'work_type': 'Cá nhân',
+                'location': 'Không khả dụng',
+                'meeting_url': None,
+                'is_ongoing': (sch.scheduled_date == today and sch.start_time <= now_time <= sch.end_time),
+                'is_past': (sch.scheduled_date < today) or (sch.scheduled_date == today and sch.end_time < now_time),
+                'can_checkin': False,
+                'can_report_issue': False,
+                'can_deliver': False,
+                'can_review': False,
+                'events_log': [],
+                'source': 'busy'
+            })
+            continue
+
+        c = sch.contract
+        j = sch.job or (c.job if c else None)
+        s = sch.service or (c.service if c else None)
+        
+        if c:
+            seen_contract_ids.add(c.id)
+            
+        payload = _format_event_payload(
+            event_id=f"sch_{sch.id}",
+            schedule_id=sch.id,
+            contract=c,
+            job=j,
+            service=s,
+            sch_date=sch.scheduled_date,
+            start_time_obj=sch.start_time,
+            end_time_obj=sch.end_time,
+            buffer_before=sch.buffer_before_minutes,
+            buffer_after=sch.buffer_after_minutes,
+            raw_status=sch.status,
+            today=today,
+            now_time=now_time,
+            source_type='schedule'
+        )
+        events.append(payload)
+        
+    # Nguồn 2: Bổ sung các Contract có lịch làm việc mà chưa tạo TranslatorSchedule
+    contracts = Contract.query.filter(
+        Contract.translator_id == user_id,
+        Contract.status.in_(['in_progress', 'active', 'escrow_held', 'completed', 'escrow_pending'])
+    ).all()
+    
+    for c in contracts:
+        if c.id in seen_contract_ids:
+            continue
+        c_date = _parse_date(c.scheduled_date)
+        if not c_date:
+            continue
+        c_start = _parse_time(c.scheduled_time_start)
+        c_end = _parse_time(c.scheduled_time_end)
+        if not c_start or not c_end:
+            continue
+            
+        seen_contract_ids.add(c.id)
+        j = c.job
+        s = c.service
+        
+        payload = _format_event_payload(
+            event_id=f"ctr_{c.id}",
+            schedule_id=None,
+            contract=c,
+            job=j,
+            service=s,
+            sch_date=c_date,
+            start_time_obj=c_start,
+            end_time_obj=c_end,
+            buffer_before=0,
+            buffer_after=30,
+            raw_status=c.status,
+            today=today,
+            now_time=now_time,
+            source_type='contract'
+        )
+        events.append(payload)
+        
+    events.sort(key=lambda x: (x['date'], x['start_time']))
+    return events, schedules
+
 @app.route('/my-schedule')
 @login_required
 def my_schedule():
@@ -3888,13 +4252,316 @@ def my_schedule():
         flash('Bạn không có quyền truy cập trang này', 'error')
         return redirect(url_for('index'))
     
-    # Lấy các lịch sắp tới của phiên dịch viên
-    schedules = TranslatorSchedule.query.filter(
-        TranslatorSchedule.translator_id == user.id,
-        TranslatorSchedule.status != 'cancelled'
-    ).order_by(TranslatorSchedule.scheduled_date.asc(), TranslatorSchedule.start_time.asc()).all()
+    tab = request.args.get('tab', '').strip().lower()
+    events_data, schedules = _get_translator_calendar_events(user.id)
     
-    return render_template('translator_schedule.html', user=user, schedules=schedules)
+    busy_schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.schedule_type == 'busy',
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.asc()).all()
+    
+    return render_template(
+        'translator_schedule.html',
+        user=user,
+        schedules=schedules,
+        events_data=events_data,
+        current_tab=tab,
+        busy_schedules=busy_schedules
+    )
+
+@app.route('/api/my-schedule')
+@login_required
+def api_my_schedule():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập'}), 403
+        
+    events_data, _ = _get_translator_calendar_events(user.id)
+    busy_schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.schedule_type == 'busy',
+        TranslatorSchedule.status != 'cancelled'
+    ).order_by(TranslatorSchedule.scheduled_date.desc(), TranslatorSchedule.start_time.asc()).all()
+
+    busy_list = [{
+        'id': b.id,
+        'date': b.scheduled_date.strftime('%Y-%m-%d') if b.scheduled_date else '',
+        'date_display': b.scheduled_date.strftime('%d/%m/%Y') if b.scheduled_date else '',
+        'start_time': b.start_time.strftime('%H:%M') if b.start_time else '00:00',
+        'end_time': b.end_time.strftime('%H:%M') if b.end_time else '23:59',
+        'is_all_day': bool(getattr(b, 'is_all_day', False)),
+        'note': b.note or 'Bận việc riêng'
+    } for b in busy_schedules]
+
+    return jsonify({
+        'success': True,
+        'events': events_data,
+        'busy_schedules': busy_list,
+        'count': len(events_data)
+    })
+
+# ─── API QUẢN LÝ THỜI GIAN KHÔNG KHẢ DỤNG (3.3) ──────────────────────────────
+
+@app.route('/api/my-schedule/busy-time', methods=['POST'])
+@login_required
+def api_add_busy_time():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+
+    from services.schedule import _parse_date, _parse_time, datetime_intervals_overlap, build_effective_interval
+    from datetime import timedelta, date as dt_date, time as dt_time
+
+    data = request.get_json(silent=True) or request.form
+
+    start_date_str = (data.get('start_date') or '').strip()
+    end_date_str = (data.get('end_date') or '').strip() or start_date_str
+    is_all_day = bool(data.get('is_all_day') in [True, 'true', '1', 1, 'on'])
+    start_time_str = (data.get('start_time') or '').strip()
+    end_time_str = (data.get('end_time') or '').strip()
+    note = (data.get('note') or '').strip()
+
+    if not start_date_str:
+        return jsonify({'success': False, 'message': 'Vui lòng chọn ngày bắt đầu.'}), 400
+
+    start_date = _parse_date(start_date_str)
+    end_date = _parse_date(end_date_str)
+
+    if not start_date or not end_date:
+        return jsonify({'success': False, 'message': 'Định dạng ngày không hợp lệ.'}), 400
+
+    if end_date < start_date:
+        return jsonify({'success': False, 'message': 'Ngày kết thúc không được trước ngày bắt đầu.'}), 400
+
+    if (end_date - start_date).days > 60:
+        return jsonify({'success': False, 'message': 'Khoảng thời gian bận không được vượt quá 60 ngày liên tục.'}), 400
+
+    if is_all_day:
+        start_time_obj = dt_time(0, 0)
+        end_time_obj = dt_time(23, 59)
+    else:
+        if not start_time_str or not end_time_str:
+            return jsonify({'success': False, 'message': 'Vui lòng nhập giờ bắt đầu và giờ kết thúc.'}), 400
+        start_time_obj = _parse_time(start_time_str)
+        end_time_obj = _parse_time(end_time_str)
+        if not start_time_obj or not end_time_obj:
+            return jsonify({'success': False, 'message': 'Định dạng giờ không hợp lệ.'}), 400
+        if start_date == end_date and end_time_obj <= start_time_obj:
+            return jsonify({'success': False, 'message': 'Giờ kết thúc phải sau giờ bắt đầu.'}), 400
+
+    # Kiểm tra xung đột với ca làm việc đã xác nhận (Contract / Shift)
+    confirmed_schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.status.in_(['reserved', 'active']),
+        TranslatorSchedule.contract_id.isnot(None)
+    ).all()
+
+    active_contracts = Contract.query.filter(
+        Contract.translator_id == user.id,
+        Contract.status.in_(['in_progress', 'active', 'escrow_held', 'delivered', 'escrow_pending'])
+    ).all()
+
+    curr_d = start_date
+    while curr_d <= end_date:
+        busy_eff_start, busy_eff_end = build_effective_interval(curr_d, start_time_obj, end_time_obj, 0, 0)
+
+        for sch in confirmed_schedules:
+            if sch.scheduled_date == curr_d:
+                sch_start, sch_end = build_effective_interval(
+                    sch.scheduled_date, sch.start_time, sch.end_time,
+                    getattr(sch, 'buffer_before_minutes', 0),
+                    getattr(sch, 'buffer_after_minutes', 30)
+                )
+                if datetime_intervals_overlap(busy_eff_start, busy_eff_end, sch_start, sch_end):
+                    job_name = sch.contract.job.title if (sch.contract and sch.contract.job) else f"Hợp đồng #{sch.contract_id}"
+                    return jsonify({
+                        'success': False,
+                        'message': f'Không thể đặt thời gian bận do trùng với ca làm đã xác nhận: "{job_name}" ({sch.start_time.strftime("%H:%M")} - {sch.end_time.strftime("%H:%M")}) ngày {curr_d.strftime("%d/%m/%Y")}.'
+                    }), 400
+
+        for c in active_contracts:
+            c_d = _parse_date(c.scheduled_date)
+            if c_d == curr_d:
+                c_st = _parse_time(c.scheduled_time_start)
+                c_et = _parse_time(c.scheduled_time_end)
+                if c_st and c_et:
+                    c_start, c_end = build_effective_interval(c_d, c_st, c_et, 0, 30)
+                    if datetime_intervals_overlap(busy_eff_start, busy_eff_end, c_start, c_end):
+                        job_name = c.job.title if c.job else f"Hợp đồng #{c.id}"
+                        return jsonify({
+                            'success': False,
+                            'message': f'Không thể đặt thời gian bận do trùng với ca làm đã xác nhận: "{job_name}" ({c_st.strftime("%H:%M")} - {c_et.strftime("%H:%M")}) ngày {curr_d.strftime("%d/%m/%Y")}.'
+                        }), 400
+
+        curr_d += timedelta(days=1)
+
+    # Lưu bản ghi thời gian bận
+    curr_d = start_date
+    created_count = 0
+    while curr_d <= end_date:
+        existing_busy = TranslatorSchedule.query.filter_by(
+            translator_id=user.id,
+            scheduled_date=curr_d,
+            schedule_type='busy'
+        ).filter(TranslatorSchedule.status != 'cancelled').first()
+
+        if existing_busy:
+            existing_busy.start_time = start_time_obj
+            existing_busy.end_time = end_time_obj
+            existing_busy.is_all_day = is_all_day
+            existing_busy.note = note or 'Bận việc riêng'
+        else:
+            new_busy = TranslatorSchedule(
+                translator_id=user.id,
+                contract_id=None,
+                job_id=None,
+                service_id=None,
+                scheduled_date=curr_d,
+                start_time=start_time_obj,
+                end_time=end_time_obj,
+                buffer_before_minutes=0,
+                buffer_after_minutes=0,
+                status='active',
+                schedule_type='busy',
+                note=note or 'Bận việc riêng',
+                is_all_day=is_all_day
+            )
+            db.session.add(new_busy)
+        created_count += 1
+        curr_d += timedelta(days=1)
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': f'Đã thiết lập thời gian không khả dụng ({created_count} ngày) thành công.'
+    })
+
+
+@app.route('/api/my-schedule/busy-time/<int:busy_id>', methods=['PUT', 'POST'])
+@login_required
+def api_update_busy_time(busy_id):
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+
+    busy = TranslatorSchedule.query.get_or_404(busy_id)
+    if busy.translator_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền chỉnh sửa bản ghi này.'}), 403
+
+    if busy.contract_id is not None:
+        return jsonify({'success': False, 'message': 'Không thể sửa ca làm việc qua chức năng này.'}), 400
+
+    from services.schedule import _parse_date, _parse_time, datetime_intervals_overlap, build_effective_interval
+    from datetime import time as dt_time
+
+    data = request.get_json(silent=True) or request.form
+
+    date_str = (data.get('date') or data.get('start_date') or '').strip()
+    is_all_day = bool(data.get('is_all_day') in [True, 'true', '1', 1, 'on'])
+    start_time_str = (data.get('start_time') or '').strip()
+    end_time_str = (data.get('end_time') or '').strip()
+    note = (data.get('note') or '').strip()
+
+    if not date_str:
+        return jsonify({'success': False, 'message': 'Vui lòng chọn ngày.'}), 400
+
+    parsed_date = _parse_date(date_str)
+    if not parsed_date:
+        return jsonify({'success': False, 'message': 'Định dạng ngày không hợp lệ.'}), 400
+
+    if is_all_day:
+        start_time_obj = dt_time(0, 0)
+        end_time_obj = dt_time(23, 59)
+    else:
+        if not start_time_str or not end_time_str:
+            return jsonify({'success': False, 'message': 'Vui lòng nhập giờ bắt đầu và giờ kết thúc.'}), 400
+        start_time_obj = _parse_time(start_time_str)
+        end_time_obj = _parse_time(end_time_str)
+        if not start_time_obj or not end_time_obj:
+            return jsonify({'success': False, 'message': 'Định dạng giờ không hợp lệ.'}), 400
+        if end_time_obj <= start_time_obj:
+            return jsonify({'success': False, 'message': 'Giờ kết thúc phải sau giờ bắt đầu.'}), 400
+
+    # Kiểm tra xung đột với ca làm việc đã xác nhận (loại trừ chính busy_id)
+    busy_eff_start, busy_eff_end = build_effective_interval(parsed_date, start_time_obj, end_time_obj, 0, 0)
+
+    confirmed_schedules = TranslatorSchedule.query.filter(
+        TranslatorSchedule.translator_id == user.id,
+        TranslatorSchedule.status.in_(['reserved', 'active']),
+        TranslatorSchedule.contract_id.isnot(None),
+        TranslatorSchedule.id != busy_id
+    ).all()
+
+    for sch in confirmed_schedules:
+        if sch.scheduled_date == parsed_date:
+            sch_start, sch_end = build_effective_interval(
+                sch.scheduled_date, sch.start_time, sch.end_time,
+                getattr(sch, 'buffer_before_minutes', 0),
+                getattr(sch, 'buffer_after_minutes', 30)
+            )
+            if datetime_intervals_overlap(busy_eff_start, busy_eff_end, sch_start, sch_end):
+                job_name = sch.contract.job.title if (sch.contract and sch.contract.job) else f"Hợp đồng #{sch.contract_id}"
+                return jsonify({
+                    'success': False,
+                    'message': f'Thời gian mới bị trùng với ca làm đã xác nhận: "{job_name}" ({sch.start_time.strftime("%H:%M")} - {sch.end_time.strftime("%H:%M")}).'
+                }), 400
+
+    active_contracts = Contract.query.filter(
+        Contract.translator_id == user.id,
+        Contract.status.in_(['in_progress', 'active', 'escrow_held', 'delivered', 'escrow_pending'])
+    ).all()
+
+    for c in active_contracts:
+        c_d = _parse_date(c.scheduled_date)
+        if c_d == parsed_date:
+            c_st = _parse_time(c.scheduled_time_start)
+            c_et = _parse_time(c.scheduled_time_end)
+            if c_st and c_et:
+                c_start, c_end = build_effective_interval(c_d, c_st, c_et, 0, 30)
+                if datetime_intervals_overlap(busy_eff_start, busy_eff_end, c_start, c_end):
+                    job_name = c.job.title if c.job else f"Hợp đồng #{c.id}"
+                    return jsonify({
+                        'success': False,
+                        'message': f'Thời gian mới bị trùng với ca làm đã xác nhận: "{job_name}" ({c_st.strftime("%H:%M")} - {c_et.strftime("%H:%M")}).'
+                    }), 400
+
+    busy.scheduled_date = parsed_date
+    busy.start_time = start_time_obj
+    busy.end_time = end_time_obj
+    busy.is_all_day = is_all_day
+    busy.note = note or 'Bận việc riêng'
+    busy.schedule_type = 'busy'
+    busy.status = 'active'
+
+    db.session.commit()
+    return jsonify({
+        'success': True,
+        'message': 'Đã cập nhật thời gian bận thành công.'
+    })
+
+
+@app.route('/api/my-schedule/busy-time/<int:busy_id>', methods=['DELETE'])
+@login_required
+def api_delete_busy_time(busy_id):
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+
+    busy = TranslatorSchedule.query.get_or_404(busy_id)
+    if busy.translator_id != user.id:
+        return jsonify({'success': False, 'message': 'Bạn không có quyền xóa bản ghi này.'}), 403
+
+    if busy.contract_id is not None:
+        return jsonify({'success': False, 'message': 'Không thể xóa ca làm việc qua chức năng này.'}), 400
+
+    db.session.delete(busy)
+    db.session.commit()
+
+    return jsonify({
+        'success': True,
+        'message': 'Đã xóa thời gian bận thành công.'
+    })
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
