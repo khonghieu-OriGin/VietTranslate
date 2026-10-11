@@ -1172,10 +1172,28 @@ def account_history():
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
     if user.role == 'hirer':
-        contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
-    else:
-        contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
+        from services.transactions import list_hirer_transactions, STATUSES
+        q = request.args.get('q', '').strip()[:100]
+        status = request.args.get('status', '')
+        page = request.args.get('page', 1, type=int) or 1
+        rows, total, page, pages = list_hirer_transactions(user.id, q=q, status=status, page=page)
+        return render_template('account_history.html', user=user, contracts=[],
+                               tx_rows=rows, tx_total=total, tx_page=page, tx_pages=pages,
+                               tx_q=q, tx_status=status if status in STATUSES else '',
+                               tx_statuses=STATUSES)
+    contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
     return render_template('account_history.html', user=user, contracts=contracts)
+
+
+@app.route('/account/history/<int:contract_id>')
+@login_required
+def account_transaction_detail(contract_id):
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        abort(403)
+    from services.transactions import get_hirer_transaction
+    row, payments = get_hirer_transaction(user.id, contract_id)
+    return render_template('account_transaction.html', user=user, row=row, payments=payments)
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 

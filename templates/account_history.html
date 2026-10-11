@@ -35,6 +35,82 @@
         <!-- Main Content -->
         <div class="flex-grow space-y-8">
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                {% if tx_rows is defined %}
+                {% set vi = current_lang == 'vi' %}
+                {% set labels = {
+                    'awaiting_payment': ('Chờ thanh toán' if vi else 'Awaiting payment', 'bg-amber-50 text-amber-800 border-amber-200/70'),
+                    'processing': ('Đang xử lý' if vi else 'Processing', 'bg-sky-50 text-sky-800 border-sky-200/70'),
+                    'success': ('Thành công' if vi else 'Successful', 'bg-emerald-50 text-emerald-800 border-emerald-200/70'),
+                    'failed': ('Thất bại' if vi else 'Failed', 'bg-rose-50 text-rose-800 border-rose-200/70'),
+                    'refunded': ('Đã hoàn tiền' if vi else 'Refunded', 'bg-violet-50 text-violet-800 border-violet-200/70'),
+                    'cancelled': ('Đã hủy' if vi else 'Cancelled', 'bg-slate-100 text-slate-600 border-slate-200'),
+                    'unrecorded': ('Chưa ghi nhận thanh toán' if vi else 'No payment recorded', 'bg-slate-100 text-slate-600 border-slate-200')
+                } %}
+                <h1 class="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                    {{ 'Lịch sử giao dịch' if vi else 'Transaction history' }}
+                </h1>
+
+                <form method="get" action="{{ url_for('account_history') }}" class="flex flex-col sm:flex-row gap-3 mb-6">
+                    <input type="search" name="q" value="{{ tx_q }}" maxlength="100"
+                           placeholder="{{ 'Tìm theo mã giao dịch, mã đơn, dự án...' if vi else 'Search by transaction code, order, project...' }}"
+                           class="flex-1 px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm">
+                    <select name="status" class="px-3.5 py-2.5 border border-slate-200 rounded-xl text-xs sm:text-sm bg-white">
+                        <option value="">{{ 'Tất cả trạng thái' if vi else 'All statuses' }}</option>
+                        {% for s in tx_statuses %}
+                        <option value="{{ s }}" {{ 'selected' if s == tx_status }}>{{ labels[s][0] }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-5 py-2.5 rounded-xl text-xs sm:text-sm">{{ 'Lọc' if vi else 'Filter' }}</button>
+                </form>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-slate-100 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                                <th class="pb-3.5 font-bold">{{ 'Mã giao dịch' if vi else 'Transaction' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_project') }}</th>
+                                <th class="pb-3.5 font-bold">{{ 'Ngày' if vi else 'Date' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_amount') }}</th>
+                                <th class="pb-3.5 font-bold">{{ 'Phương thức' if vi else 'Method' }}</th>
+                                <th class="pb-3.5 font-bold">{{ t('account_history_page.th_status') }}</th>
+                                <th class="pb-3.5 font-bold text-right">{{ t('account_history_page.th_actions') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-xs sm:text-sm divide-y divide-slate-100">
+                            {% for r in tx_rows %}
+                            <tr class="hover:bg-slate-50/60 transition">
+                                <td class="py-4 font-mono text-xs text-slate-700">
+                                    {{ r.tx_code or '—' }}<br><span class="text-slate-400">{{ r.order_code }}</span>
+                                </td>
+                                <td class="py-4 font-bold text-slate-900 max-w-xs truncate">{{ r.title or r.order_code }}</td>
+                                <td class="py-4 text-slate-500 text-xs">{{ r.date.strftime('%d/%m/%Y %H:%M') }}</td>
+                                <td class="py-4 font-extrabold text-brand-700">{{ r.amount|vnd }} VND</td>
+                                <td class="py-4 text-slate-500">{{ r.method or '—' }}</td>
+                                <td class="py-4"><span class="px-2.5 py-1 text-[11px] font-bold rounded-full border {{ labels[r.status][1] }}">{{ labels[r.status][0] }}</span></td>
+                                <td class="py-4 text-right">
+                                    <a href="{{ url_for('account_transaction_detail', contract_id=r.contract.id) }}" class="text-xs font-bold text-brand-600 hover:underline">{{ t('account_history_page.view_detail') }}</a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="7" class="py-12 text-center text-slate-400 text-xs sm:text-sm">
+                                {{ 'Không có giao dịch phù hợp.' if vi else 'No matching transactions.' }}
+                            </td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if tx_pages > 1 %}
+                <nav class="flex items-center justify-between mt-5 text-xs sm:text-sm">
+                    <span class="text-slate-400">{{ tx_total }} {{ 'giao dịch' if vi else 'items' }} · {{ tx_page }}/{{ tx_pages }}</span>
+                    <div class="flex gap-2">
+                        {% if tx_page > 1 %}<a class="px-3 py-1.5 border border-slate-200 rounded-lg font-bold" href="{{ url_for('account_history', q=tx_q, status=tx_status, page=tx_page-1) }}">‹</a>{% endif %}
+                        {% if tx_page < tx_pages %}<a class="px-3 py-1.5 border border-slate-200 rounded-lg font-bold" href="{{ url_for('account_history', q=tx_q, status=tx_status, page=tx_page+1) }}">›</a>{% endif %}
+                    </div>
+                </nav>
+                {% endif %}
+                {% else %}
                 <h1 class="text-lg font-bold mb-6 text-slate-900 flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
                     {{ t('account_history_page.heading') }}
@@ -88,6 +164,8 @@
                     </table>
                 </div>
                 
+                {% endif %}
+
                 {% if current_user.role == 'hirer' %}
                 <h2 class="text-base font-bold mt-10 mb-5 text-slate-900 flex items-center gap-2 pt-6 border-t border-slate-100">
                     <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
