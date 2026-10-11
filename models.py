@@ -171,7 +171,14 @@ class Job(db.Model):
     status = db.Column(db.String(20), default='open', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quản lý yêu cầu (Task 02)
+    specialty = db.Column(db.String(100))          # lĩnh vực chuyên môn
+    word_count = db.Column(db.Integer)             # số từ / khối lượng
+    extra_requirements = db.Column(db.Text)        # yêu cầu bổ sung
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    closed_at = db.Column(db.DateTime)
 
+    attachments = db.relationship('JobAttachment', backref='job', lazy=True, cascade='all, delete-orphan')
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
 
@@ -214,6 +221,16 @@ class Job(db.Model):
     @property
     def applicant_count(self):
         return Proposal.query.filter_by(job_id=self.id).count()
+
+
+class JobAttachment(db.Model):
+    """Tệp tham khảo của yêu cầu. Lưu ngoài thư mục static, chỉ tải qua route có kiểm quyền."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False, index=True)
+    original_name = db.Column(db.String(255), nullable=False)
+    stored_name = db.Column(db.String(100), nullable=False)
+    size = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class Proposal(db.Model):

@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobAttachment
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -578,6 +578,22 @@ with app.app_context():
 
 import sys
 
+def _ensure_job_columns():
+    """Bổ sung các cột mới của bảng job (additive, nullable) nếu DB cũ chưa có. Xem migration_job_management.sql."""
+    try:
+        from sqlalchemy import inspect, text
+        existing = {c['name'] for c in inspect(db.engine).get_columns('job')}
+        cols = {'specialty': 'VARCHAR(100)', 'word_count': 'INTEGER', 'extra_requirements': 'TEXT',
+                'updated_at': 'TIMESTAMP', 'closed_at': 'TIMESTAMP'}
+        for name, ddl in cols.items():
+            if name not in existing:
+                db.session.execute(text(f'ALTER TABLE job ADD COLUMN {name} {ddl}'))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB] _ensure_job_columns error: {e}", file=sys.stderr)
+
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -591,6 +607,8 @@ def _init_db():
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
+
+    _ensure_job_columns()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -1589,6 +1607,267 @@ def book_service(service_id):
 
 # ─── FLOW 2: JOB BOARD ─────────────────────────────────────────────────────────
 
+# ─── CLIENT REQUEST MANAGEMENT (Task 02) ───────────────────────────────────────
+
+import uuid as _uuid
+from flask import send_from_directory
+
+JOB_FILES_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'job_files')
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    JOB_FILES_FOLDER = '/tmp/job_files'
+try:
+    os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
+except OSError:
+    JOB_FILES_FOLDER = '/tmp/job_files'
+    os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
+
+JOB_FILE_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'zip'}
+JOB_FILE_MAX_BYTES = 10 * 1024 * 1024
+JOB_FILE_MAX_COUNT = 5
+JOB_LANGS = ['Tiếng Việt', 'Tiếng Anh', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Trung', 'Tiếng Pháp', 'Tiếng Đức',
+             'Tiếng Nga', 'Tiếng Thái', 'Tiếng Bồ Đào Nha', 'Tiếng Tây Ban Nha']
+JOB_SERVICE_TYPES = {
+    'translation': {'document_translation': 'Dịch tài liệu', 'website_translation': 'Dịch website',
+                    'subtitle': 'Dịch phụ đề', 'proofreading': 'Hiệu đính', 'localization': 'Bản địa hóa',
+                    'other_translation': 'Dịch thuật khác'},
+    'interpretation_other': {'conference': 'Phiên dịch hội nghị / Cabin', 'meeting': 'Phiên dịch họp / Đàm phán',
+                             'business': 'Phiên dịch kinh doanh / Thương mại', 'travel': 'Phiên dịch du lịch',
+                             'escort': 'Phiên dịch tháp tùng', 'event': 'Phiên dịch sự kiện',
+                             'other_interpretation': 'Dịch vụ khác'},
+}
+JOB_SPECIALTIES = ['Pháp lý', 'Y tế', 'Kỹ thuật', 'Tài chính - Kế toán', 'Kinh doanh', 'Công nghệ thông tin',
+                   'Giáo dục', 'Du lịch', 'Marketing', 'Chung / Khác']
+JOB_LOCKED_FIELDS = ('source_lang', 'target_lang', 'category_group', 'service_type', 'budget_type', 'budget_min', 'budget_max')
+
+
+def _csrf_ok():
+    from admin_auth import validate_csrf_token
+    return validate_csrf_token(request.form.get('_csrf_token') or request.headers.get('X-CSRF-Token'))
+
+
+def _require_hirer():
+    user = get_current_user()
+    if not user or user.role != 'hirer' or isinstance(user.id, str):
+        return None
+    return user
+
+
+def _owned_job_or_404(user, job_id):
+    """Chỉ trả về job thuộc user; job của người khác trả 404 để không lộ sự tồn tại."""
+    job = Job.query.get_or_404(job_id)
+    if job.hirer_id != user.id:
+        abort(404)
+    return job
+
+
+def job_edit_policy(job, proposal_count=None):
+    """Quy tắc nghiệp vụ: ai được sửa/đóng/hủy và trường nào bị khóa."""
+    n = Proposal.query.filter_by(job_id=job.id).count() if proposal_count is None else proposal_count
+    is_open = job.status == 'open'
+    return {
+        'proposal_count': n,
+        'can_edit': is_open,
+        'can_close': is_open,
+        'can_cancel': job.status in ('open', 'closed'),
+        'locked': is_open and n > 0,   # đã có báo giá → khóa ngôn ngữ, loại dịch vụ, ngân sách
+    }
+
+
+def _int_or_none(v):
+    v = (str(v) if v is not None else '').strip().replace(',', '')
+    return int(v) if v.isdigit() else None
+
+
+def validate_job_form(form, existing=None, locked=False):
+    """Validate phía server. Trả về (data, errors)."""
+    errors, d = {}, {}
+    g = lambda k: (form.get(k) or '').strip()
+
+    d['title'] = g('title')
+    if not (5 <= len(d['title']) <= 200):
+        errors['title'] = 'Tên yêu cầu phải từ 5 đến 200 ký tự.'
+    d['description'] = g('description')
+    if not (20 <= len(d['description']) <= 5000):
+        errors['description'] = 'Mô tả phải từ 20 đến 5000 ký tự.'
+    d['specialty'] = g('specialty')
+    if d['specialty'] and d['specialty'] not in JOB_SPECIALTIES:
+        errors['specialty'] = 'Lĩnh vực không hợp lệ.'
+    d['extra_requirements'] = g('extra_requirements')
+    if len(d['extra_requirements']) > 2000:
+        errors['extra_requirements'] = 'Yêu cầu bổ sung tối đa 2000 ký tự.'
+
+    if locked:
+        for f in JOB_LOCKED_FIELDS:
+            d[f] = getattr(existing, f)
+        group = existing.display_category_group
+        d['category_group'] = group
+        d['service_type'] = existing.display_service_type
+        d.pop('category', None)
+    else:
+        group, stype = g('category_group'), g('service_type')
+        if group not in JOB_SERVICE_TYPES:
+            errors['category_group'] = 'Vui lòng chọn dịch tài liệu hoặc phiên dịch.'
+        elif stype not in JOB_SERVICE_TYPES[group]:
+            errors['service_type'] = 'Loại dịch vụ không hợp lệ.'
+        d['category_group'], d['service_type'] = group, stype
+        d['category'] = JOB_SERVICE_TYPES.get(group, {}).get(stype, '')
+        d['source_lang'], d['target_lang'] = g('source_lang'), g('target_lang')
+        if d['source_lang'] not in JOB_LANGS or d['target_lang'] not in JOB_LANGS:
+            errors['source_lang'] = 'Vui lòng chọn ngôn ngữ nguồn và đích.'
+        elif d['source_lang'] == d['target_lang']:
+            errors['target_lang'] = 'Ngôn ngữ đích phải khác ngôn ngữ nguồn.'
+        bt = g('budget_type') or 'negotiable'
+        d['budget_type'] = bt
+        bmin, bmax = _int_or_none(form.get('budget_min')), _int_or_none(form.get('budget_max'))
+        if bt == 'fixed':
+            if not bmin or bmin <= 0:
+                errors['budget_min'] = 'Nhập ngân sách lớn hơn 0.'
+            bmax = None
+        elif bt == 'range':
+            if not bmin or not bmax or bmin <= 0 or bmax < bmin:
+                errors['budget_max'] = 'Nhập khoảng ngân sách hợp lệ (tối đa ≥ tối thiểu > 0).'
+        elif bt == 'negotiable':
+            bmin, bmax = 0, None
+        else:
+            errors['budget_type'] = 'Loại ngân sách không hợp lệ.'
+        if (bmin and bmin > 10**10) or (bmax and bmax > 10**10):
+            errors['budget_min'] = 'Ngân sách quá lớn.'
+        d['budget_min'], d['budget_max'] = bmin or 0, bmax
+
+    is_translation = group == 'translation'
+    wc = g('word_count')
+    d['word_count'] = None
+    if wc:
+        n = _int_or_none(wc)
+        if not n or n <= 0 or n > 10_000_000:
+            errors['word_count'] = 'Khối lượng phải là số nguyên dương.'
+        d['word_count'] = n
+
+    dl = g('deadline')
+    d['deadline'] = None
+    if dl:
+        try:
+            parsed = datetime.strptime(dl, '%Y-%m-%d').date()
+            unchanged = existing is not None and existing.deadline == parsed
+            if parsed < date.today() and not unchanged:
+                errors['deadline'] = 'Deadline không được ở quá khứ.'
+            elif parsed > date.today() + timedelta(days=730):
+                errors['deadline'] = 'Deadline quá xa (tối đa 2 năm).'
+            d['deadline'] = parsed
+        except ValueError:
+            errors['deadline'] = 'Deadline không hợp lệ.'
+
+    d['event_date'], d['event_time_start'] = g('event_date'), g('event_time_start')
+    d['event_time_end'], d['event_location'] = g('event_time_end'), g('event_location')[:200]
+    if not is_translation:
+        try:
+            ed = datetime.strptime(d['event_date'], '%Y-%m-%d').date()
+            if ed < date.today() and not (existing is not None and existing.event_date == d['event_date']):
+                errors['event_date'] = 'Ngày diễn ra không được ở quá khứ.'
+        except ValueError:
+            errors['event_date'] = 'Vui lòng chọn ngày diễn ra.'
+        try:
+            ts = datetime.strptime(d['event_time_start'], '%H:%M')
+            te = datetime.strptime(d['event_time_end'], '%H:%M')
+            if te <= ts:
+                errors['event_time_end'] = 'Giờ kết thúc phải sau giờ bắt đầu.'
+        except ValueError:
+            errors['event_time_start'] = 'Vui lòng chọn giờ bắt đầu và kết thúc.'
+        if not d['event_location']:
+            errors['event_location'] = 'Vui lòng nhập địa điểm (hoặc "Trực tuyến").'
+    else:
+        d['event_date'] = d['event_time_start'] = d['event_time_end'] = d['event_location'] = ''
+    return d, errors
+
+
+def _detect_ok(ext, head):
+    ole = (b'\xd0\xcf\x11\xe0',)
+    sig = {'pdf': (b'%PDF',), 'png': (b'\x89PNG',), 'jpg': (b'\xff\xd8',), 'jpeg': (b'\xff\xd8',),
+           'zip': (b'PK',), 'docx': (b'PK',), 'xlsx': (b'PK',), 'pptx': (b'PK',),
+           'doc': ole, 'xls': ole, 'ppt': ole}
+    return ext not in sig or any(head.startswith(s) for s in sig[ext])
+
+
+def validate_job_files(files, existing_count=0):
+    """Kiểm tra tệp tải lên. Trả về (list[(file, ext, size)], error|None)."""
+    files = [f for f in files if f and f.filename]
+    if existing_count + len(files) > JOB_FILE_MAX_COUNT:
+        return [], f'Tối đa {JOB_FILE_MAX_COUNT} tệp tham khảo cho mỗi yêu cầu.'
+    out = []
+    for f in files:
+        name = secure_filename(f.filename) or ''
+        ext = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+        if ext not in JOB_FILE_EXTENSIONS:
+            return [], f'Tệp "{f.filename}" không được hỗ trợ. Cho phép: ' + ', '.join(sorted(JOB_FILE_EXTENSIONS)) + '.'
+        f.stream.seek(0, 2)
+        size = f.stream.tell()
+        f.stream.seek(0)
+        if size == 0:
+            return [], f'Tệp "{f.filename}" rỗng.'
+        if size > JOB_FILE_MAX_BYTES:
+            return [], f'Tệp "{f.filename}" vượt quá 10MB.'
+        head = f.stream.read(8)
+        f.stream.seek(0)
+        if not _detect_ok(ext, head):
+            return [], f'Nội dung tệp "{f.filename}" không khớp với định dạng .{ext}.'
+        out.append((f, ext, size))
+    return out, None
+
+
+def save_job_files(job, validated):
+    saved = []
+    try:
+        for f, ext, size in validated:
+            stored = f'{_uuid.uuid4().hex}.{ext}'
+            f.save(os.path.join(JOB_FILES_FOLDER, stored))
+            saved.append(stored)
+            db.session.add(JobAttachment(job_id=job.id, original_name=(secure_filename(f.filename) or stored)[:255],
+                                         stored_name=stored, size=size))
+    except Exception:
+        for s in saved:
+            try:
+                os.remove(os.path.join(JOB_FILES_FOLDER, s))
+            except OSError:
+                pass
+        raise
+
+
+def _job_form_values(job):
+    if not job:
+        return {}
+    return {
+        'title': job.title, 'description': job.description, 'category_group': job.display_category_group,
+        'service_type': job.display_service_type, 'source_lang': job.source_lang, 'target_lang': job.target_lang,
+        'specialty': job.specialty or '', 'word_count': job.word_count or '', 'budget_type': job.budget_type or 'negotiable',
+        'budget_min': job.budget_min or '', 'budget_max': job.budget_max or '', 'extra_requirements': job.extra_requirements or '',
+        'deadline': job.deadline.isoformat() if job.deadline else '', 'event_date': job.event_date or '',
+        'event_time_start': job.event_time_start or '', 'event_time_end': job.event_time_end or '',
+        'event_location': job.event_location or '',
+    }
+
+
+def _issue_form_token():
+    tokens = session.get('job_form_tokens', [])
+    t = _uuid.uuid4().hex
+    session['job_form_tokens'] = (tokens + [t])[-5:]
+    return t
+
+
+def _render_job_form(job=None, values=None, errors=None, policy=None, status=200):
+    html = render_template('post_job.html', job=job, values=values if values is not None else _job_form_values(job),
+                           errors=errors or {}, policy=policy, form_token=_issue_form_token(),
+                           service_types=JOB_SERVICE_TYPES, langs=JOB_LANGS, specialties=JOB_SPECIALTIES,
+                           attachments=job.attachments if job else [], max_files=JOB_FILE_MAX_COUNT,
+                           today=date.today().isoformat())
+    return html, status
+
+
+@app.errorhandler(413)
+def handle_too_large(e):
+    flash('Tổng dung lượng tải lên vượt quá 16MB. Vui lòng chọn tệp nhỏ hơn.', 'error')
+    return redirect(request.referrer or url_for('my_jobs'))
+
+
 @app.route('/post-job', methods=['GET', 'POST'])
 @login_required
 def post_job():
@@ -1596,39 +1875,192 @@ def post_job():
     if not user or user.role != 'hirer':
         flash(_t('flash.hirer_only_post'), 'error')
         return redirect(url_for('index'))
+    if isinstance(user.id, str):
+        flash('Tài khoản này chưa hỗ trợ đăng yêu cầu.', 'error')
+        return redirect(url_for('index'))
 
-    if request.method == 'POST':
-        deadline_str = request.form.get('deadline')
-        deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
+    if request.method == 'GET':
+        return _render_job_form()
 
-        job = Job(
-            hirer_id=session['user_id'],
-            title=request.form.get('title'),
-            description=request.form.get('description'),
-            category=request.form.get('category'),
-            category_group=request.form.get('category_group'),
-            service_type=request.form.get('service_type'),
-            source_lang=request.form.get('source_lang'),
-            target_lang=request.form.get('target_lang'),
-            budget_type=request.form.get('budget_type'),
-            budget_min=int(request.form.get('budget_min') or 0),
-            budget_max=int(request.form.get('budget_max') or 0) or None,
-            event_date=request.form.get('event_date', ''),
-            event_time_start=request.form.get('event_time_start', ''),
-            event_time_end=request.form.get('event_time_end', ''),
-            event_location=request.form.get('event_location', ''),
-            deadline=deadline
-        )
+    token = request.form.get('form_token', '')
+    tokens = session.get('job_form_tokens', [])
+    if token not in tokens:
+        flash('Yêu cầu này đã được gửi hoặc biểu mẫu đã hết hạn. Vui lòng kiểm tra danh sách yêu cầu.', 'warning')
+        return redirect(url_for('my_jobs'))
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        return redirect(url_for('post_job'))
+
+    data, errors = validate_job_form(request.form)
+    validated, file_err = validate_job_files(request.files.getlist('files'))
+    if file_err:
+        errors['files'] = file_err
+    if errors:
+        return _render_job_form(values=request.form.to_dict(), errors=errors, status=400)
+
+    # Token dùng một lần: ngăn gửi trùng
+    session['job_form_tokens'] = [t for t in tokens if t != token]
+    try:
+        job = Job(hirer_id=user.id, **data)
         db.session.add(job)
+        db.session.flush()
+        save_job_files(job, validated)
         db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[post_job error] {e}")
+        session['job_form_tokens'] = tokens
+        return _render_job_form(values=request.form.to_dict(),
+                                errors={'_form': 'Không thể lưu yêu cầu. Vui lòng thử lại.'}, status=500)
 
-        # Notify matching translators (safe, won't block job creation if fails)
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
+    from services.matching import notify_matching_translators_for_new_job
+    notify_matching_translators_for_new_job(job)
+    flash(_t('flash.job_posted'), 'success')
+    return redirect(url_for('job_detail', job_id=job.id))
 
-        flash(_t('flash.job_posted'), 'success')
+
+@app.route('/my-jobs')
+@login_required
+def my_jobs():
+    user = _require_hirer()
+    if not user:
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    q = (request.args.get('q') or '').strip()[:100]
+    status = request.args.get('status', '')
+    lang = request.args.get('lang', '')
+    service = request.args.get('service', '')
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+
+    query = Job.query.filter_by(hirer_id=user.id)
+    if q:
+        safe = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        query = query.filter(Job.title.ilike(f'%{safe}%', escape='\\'))
+    if status in JOB_STATUS_LABELS:
+        query = query.filter(Job.status == status)
+    if lang in JOB_LANGS:
+        query = query.filter(db.or_(Job.source_lang == lang, Job.target_lang == lang))
+    if service in JOB_SERVICE_TYPES:
+        query = query.filter(Job.category_group == service)
+    pagination = query.order_by(Job.created_at.desc(), Job.id.desc()).paginate(page=page, per_page=10, error_out=False)
+    ids = [j.id for j in pagination.items]
+    counts = dict(db.session.query(Proposal.job_id, db.func.count(Proposal.id))
+                  .filter(Proposal.job_id.in_(ids)).group_by(Proposal.job_id).all()) if ids else {}
+    rows = [{'job': j, 'proposals': counts.get(j.id, 0), 'policy': job_edit_policy(j, counts.get(j.id, 0))}
+            for j in pagination.items]
+    total_all = Job.query.filter_by(hirer_id=user.id).count()
+    return render_template('my_jobs.html', rows=rows, pagination=pagination, q=q, status=status, lang=lang,
+                           service=service, langs=JOB_LANGS, service_types=JOB_SERVICE_TYPES,
+                           status_labels=JOB_STATUS_LABELS, total_all=total_all)
+
+
+@app.route('/my-jobs/<int:job_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_job(job_id):
+    user = _require_hirer()
+    if not user:
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    job = _owned_job_or_404(user, job_id)
+    policy = job_edit_policy(job)
+    if not policy['can_edit']:
+        flash('Yêu cầu này không còn ở trạng thái cho phép chỉnh sửa.', 'error')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('post_job.html', LANGUAGES=LANGUAGES)
+
+    if request.method == 'GET':
+        return _render_job_form(job=job, policy=policy)
+
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        return redirect(url_for('edit_job', job_id=job.id))
+    data, errors = validate_job_form(request.form, existing=job, locked=policy['locked'])
+    remove_ids = {int(x) for x in request.form.getlist('remove_attachment') if x.isdigit()}
+    keep_count = len([a for a in job.attachments if a.id not in remove_ids])
+    validated, file_err = validate_job_files(request.files.getlist('files'), existing_count=keep_count)
+    if file_err:
+        errors['files'] = file_err
+    if errors:
+        return _render_job_form(job=job, values={**_job_form_values(job), **request.form.to_dict()}, errors=errors, policy=policy, status=400)
+
+    removed_files = []
+    try:
+        for k, v in data.items():
+            setattr(job, k, v)
+        for a in list(job.attachments):
+            if a.id in remove_ids:
+                removed_files.append(a.stored_name)
+                db.session.delete(a)
+        save_job_files(job, validated)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"[edit_job error] {e}")
+        return _render_job_form(job=job, values={**_job_form_values(job), **request.form.to_dict()},
+                                errors={'_form': 'Không thể lưu thay đổi. Vui lòng thử lại.'}, policy=policy, status=500)
+    for s in removed_files:
+        try:
+            os.remove(os.path.join(JOB_FILES_FOLDER, s))
+        except OSError:
+            pass
+    flash('Đã cập nhật yêu cầu.', 'success')
+    return redirect(url_for('job_detail', job_id=job.id))
+
+
+def _change_job_status(job_id, action):
+    user = _require_hirer()
+    if not user:
+        abort(403)
+    job = _owned_job_or_404(user, job_id)
+    if not _csrf_ok():
+        flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        return redirect(request.referrer or url_for('my_jobs'))
+    policy = job_edit_policy(job)
+    if not policy['can_' + action]:
+        flash('Không thể thực hiện thao tác này với trạng thái hiện tại của yêu cầu.', 'error')
+        return redirect(request.referrer or url_for('my_jobs'))
+    job.status = 'closed' if action == 'close' else 'cancelled'
+    job.closed_at = datetime.utcnow()
+    if action == 'cancel':
+        Proposal.query.filter_by(job_id=job.id, status='pending').update({'status': 'rejected'})
+    db.session.commit()
+    flash('Đã đóng nhận báo giá cho yêu cầu.' if action == 'close' else 'Đã hủy yêu cầu.', 'success')
+    return redirect(request.referrer or url_for('my_jobs'))
+
+
+@app.route('/my-jobs/<int:job_id>/close', methods=['POST'])
+@login_required
+def close_job(job_id):
+    return _change_job_status(job_id, 'close')
+
+
+@app.route('/my-jobs/<int:job_id>/cancel', methods=['POST'])
+@login_required
+def cancel_job(job_id):
+    return _change_job_status(job_id, 'cancel')
+
+
+def can_view_job_files(user, job):
+    if not user or isinstance(user.id, str):
+        return False
+    if user.id == job.hirer_id or user.is_admin:
+        return True
+    if user.role == 'translator':
+        return bool(Proposal.query.filter_by(job_id=job.id, translator_id=user.id).first()
+                    or Contract.query.filter_by(job_id=job.id, translator_id=user.id).first())
+    return False
+
+
+@app.route('/job-attachment/<int:attachment_id>')
+@login_required
+def job_attachment(attachment_id):
+    att = JobAttachment.query.get_or_404(attachment_id)
+    if not can_view_job_files(get_current_user(), att.job):
+        abort(404)
+    resp = send_from_directory(JOB_FILES_FOLDER, att.stored_name, as_attachment=True, download_name=att.original_name)
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['Cache-Control'] = 'private, no-store'
+    return resp
+
 
 @app.route('/jobs')
 def job_list():
@@ -1771,7 +2203,14 @@ def job_detail(job_id):
         db.session.commit()
         flash('Đề xuất của bạn đã được gửi!', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-    return render_template('job_detail.html', job=job)
+    viewer = get_current_user()
+    is_owner = bool(viewer and viewer.id == job.hirer_id)
+    if job.status in ('closed', 'cancelled') and not (is_owner or (viewer and (viewer.is_admin or can_view_job_files(viewer, job)))):
+        abort(404)
+    return render_template('job_detail.html', job=job, is_owner=is_owner,
+                           can_view_files=can_view_job_files(viewer, job),
+                           job_policy=job_edit_policy(job) if is_owner else None,
+                           status_label=JOB_STATUS_LABELS.get(job.status, job.status))
 
 
 @app.route('/api/jobs/<int:job_id>/schedule-check', methods=['GET'])
@@ -2797,8 +3236,8 @@ def api_unread_notifications_count():
     return jsonify({'count': count})
 # ─── CLIENT DASHBOARD ──────────────────────────────────────────────────────────
 
-JOB_STATUS_LABELS = {'open': 'Đang mở', 'in_progress': 'Đang thực hiện', 'completed': 'Hoàn tất',
-                     'closed': 'Đã đóng', 'cancelled': 'Đã huỷ'}
+JOB_STATUS_LABELS = {'open': 'Đang mở', 'closed': 'Đã đóng', 'cancelled': 'Đã hủy',
+                     'contracted': 'Đã chọn phiên dịch viên', 'in_progress': 'Đang thực hiện', 'completed': 'Hoàn tất'}
 CONTRACT_STATUS_LABELS = {'escrow_pending': 'Chờ thanh toán Escrow', 'in_progress': 'Đang thực hiện',
                           'completed': 'Hoàn tất', 'cancelled': 'Đã huỷ'}
 
@@ -2874,7 +3313,7 @@ def build_client_dashboard(user):
             .order_by(Notification.created_at.desc()).first()
         tasks.append({'title': f'Xem {new_proposals} báo giá mới',
                       'desc': 'Phiên dịch viên vừa ứng tuyển vào yêu cầu của bạn.',
-                      'url': (first.url if first and first.url else url_for('account_history')),
+                      'url': (first.url if first and first.url else url_for('my_jobs')),
                       'cta': 'Xem báo giá', 'level': 'info'})
     for c in awaiting_contracts:
         name = c.job.title if c.job else f'Hợp đồng #{c.id}'

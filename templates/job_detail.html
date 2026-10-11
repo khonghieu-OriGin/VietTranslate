@@ -81,6 +81,45 @@
                         {{ job.description }}
                     </div>
                 </div>
+
+                {% if job.specialty or job.word_count or job.deadline or job.extra_requirements %}
+                <dl class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    {% if job.specialty %}<div class="bg-slate-50 rounded-xl p-3 border border-slate-200/70"><dt class="text-slate-400 font-bold uppercase tracking-wider">Lĩnh vực</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ job.specialty }}</dd></div>{% endif %}
+                    {% if job.word_count %}<div class="bg-slate-50 rounded-xl p-3 border border-slate-200/70"><dt class="text-slate-400 font-bold uppercase tracking-wider">Khối lượng</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ '{:,.0f}'.format(job.word_count) }} từ</dd></div>{% endif %}
+                    {% if job.deadline %}<div class="bg-slate-50 rounded-xl p-3 border border-slate-200/70"><dt class="text-slate-400 font-bold uppercase tracking-wider">Deadline</dt><dd class="text-slate-800 font-semibold mt-0.5">{{ job.deadline.strftime('%d/%m/%Y') }}</dd></div>{% endif %}
+                    {% if job.extra_requirements %}<div class="bg-slate-50 rounded-xl p-3 border border-slate-200/70 sm:col-span-2"><dt class="text-slate-400 font-bold uppercase tracking-wider">Yêu cầu bổ sung</dt><dd class="text-slate-800 mt-0.5 whitespace-pre-line">{{ job.extra_requirements }}</dd></div>{% endif %}
+                </dl>
+                {% endif %}
+
+                {% if can_view_files and job.attachments %}
+                <div class="mt-6">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Tệp tham khảo</h3>
+                    <ul class="space-y-1.5">
+                        {% for a in job.attachments %}
+                        <li><a href="{{ url_for('job_attachment', attachment_id=a.id) }}" class="inline-flex items-center gap-2 text-xs font-semibold text-brand-700 hover:underline break-all">📎 {{ a.original_name }} <span class="text-slate-400 font-normal">({{ (a.size / 1024)|round|int }} KB)</span></a></li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                {% if is_owner %}
+                <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-bold text-slate-500 mr-1">Trạng thái: {{ status_label }}</span>
+                    {% if job_policy.can_edit %}<a href="{{ url_for('edit_job', job_id=job.id) }}" class="text-xs font-bold text-slate-700 hover:bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 transition">Chỉnh sửa</a>{% endif %}
+                    {% if job_policy.can_close %}
+                    <form method="post" action="{{ url_for('close_job', job_id=job.id) }}" onsubmit="return confirm('Đóng yêu cầu này? Phiên dịch viên sẽ không thể gửi thêm báo giá.')">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-xs font-bold text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 transition">Đóng yêu cầu</button>
+                    </form>
+                    {% endif %}
+                    {% if job_policy.can_cancel %}
+                    <form method="post" action="{{ url_for('cancel_job', job_id=job.id) }}" onsubmit="return confirm('Hủy yêu cầu này? Không thể hoàn tác.')">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 transition">Hủy yêu cầu</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
 
 
@@ -369,8 +408,7 @@
                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                 btn.classList.remove('hover:bg-brand-700');
 
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
+                fetch('/api/jobs/{{ job.id }}/invite/' + translatorId, { method: 'POST' })
                     .then(r => r.json())
                     .then(data => {
                         if (data.status === 'success') {
@@ -502,33 +540,22 @@
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500">Thời gian:</span>
                         <span class="font-medium text-slate-800">{{ job.event_date }}</span>
-                        <!-- Budget Card -->
-                        <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{
-                                t('job_detail_page.budget_heading') }}</span>
-                            {% if job.budget_type == 'fixed' and job.budget_min %}
-                            <div class="text-3xl font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</div>
-                            <div class="text-xs text-slate-400 mt-1 font-medium">{{ t('job_detail_page.fixed_price_sub')
-                                }}</div>
-                            {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
-                            <div class="text-2xl sm:text-3xl font-extrabold text-brand-700">
-                                {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
-                            </div>
-                            {% endif %}
+                    </div>
+                    {% endif %}
 
-                            {% if job.event_location %}
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Địa điểm:</span>
-                                <span class="font-medium text-slate-800 text-right max-w-[60%] line-clamp-2"
-                                    title="{{ job.event_location }}">{{ job.event_location }}</span>
-                            </div>
-                            {% endif %}
+                    {% if job.event_location %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Địa điểm:</span>
+                        <span class="font-medium text-slate-800 text-right max-w-[60%] line-clamp-2"
+                            title="{{ job.event_location }}">{{ job.event_location }}</span>
+                    </div>
+                    {% endif %}
 
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Ứng viên:</span>
-                                <span class="font-medium text-slate-800">{{ job.applicant_count }}</span>
-                            </div>
-                        </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Ứng viên:</span>
+                        <span class="font-medium text-slate-800">{{ job.applicant_count }}</span>
+                    </div>
+                </div>
 
                         <!-- Desktop CTA Button -->
                         {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
