@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment, FavoriteTranslator
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment, FavoriteTranslator, ContractEvent
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -4491,6 +4491,15 @@ except OSError:
     JOB_FILES_FOLDER = '/tmp/job_files'
     os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
 
+DELIVERABLE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'deliverables')
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    DELIVERABLE_FOLDER = '/tmp/deliverables'
+try:
+    os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
+except OSError:
+    DELIVERABLE_FOLDER = '/tmp/deliverables'
+    os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
+
 JOB_FILE_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv', 'png', 'jpg', 'jpeg', 'zip'}
 JOB_FILE_MAX_BYTES = 10 * 1024 * 1024
 JOB_FILE_MAX_COUNT = 5
@@ -5292,6 +5301,169 @@ def api_job_proposals(job_id):
     return jsonify({'items': build_proposal_views(job)})
 
 
+# ─── CLIENT PROJECT MANAGEMENT (Task 05) ───────────────────────────────────────
+
+def _project_status_clause(key):
+    """Điều kiện SQL cho bộ lọc theo trạng thái hiển thị."""
+    has_files = Contract.deliverables.any()
+    if key == 'pending_payment':
+        return Contract.status == 'escrow_pending'
+    if key == 'in_progress':
+        return db.and_(Contract.status.in_(('in_progress', 'active', 'escrow_held')), ~has_files)
+    if key == 'awaiting_acceptance':
+        return db.and_(Contract.status == 'in_progress', has_files)
+    if key in ('awaiting_translator', 'revision_requested', 'completed', 'cancelled'):
+        return Contract.status == key
+    return None
+
+
+@app.route('/my-projects')
+@login_required
+def my_projects():
+    from services.projects import DISPLAY_STATUS, display_status, project_title, language_pair, project_deadline
+    user = _require_hirer()
+    if not user:
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    q = (request.args.get('q') or '').strip()[:100]
+    status = request.args.get('status', '')
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+
+    query = (Contract.query.filter(Contract.hirer_id == user.id)
+             .outerjoin(Job, Contract.job_id == Job.id).outerjoin(Service, Contract.service_id == Service.id))
+    if q:
+        safe = q.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        query = query.filter(db.or_(Job.title.ilike(f'%{safe}%', escape='\\'), Service.name.ilike(f'%{safe}%', escape='\\')))
+    clause = _project_status_clause(status) if status in DISPLAY_STATUS else None
+    if clause is not None:
+        query = query.filter(clause)
+    pagination = query.order_by(Contract.created_at.desc(), Contract.id.desc()).paginate(page=page, per_page=10, error_out=False)
+    rows = []
+    for c in pagination.items:
+        key, label = display_status(c)
+        rows.append({'c': c, 'title': project_title(c), 'pair': language_pair(c), 'status': key, 'label': label,
+                     'translator': c.translator.name if c.translator else '—', 'deadline': project_deadline(c)})
+    total_all = Contract.query.filter_by(hirer_id=user.id).count()
+    return render_template('my_projects.html', rows=rows, pagination=pagination, q=q, status=status,
+                           status_labels=DISPLAY_STATUS, total_all=total_all)
+
+
+@app.route('/my-projects/<int:contract_id>')
+@login_required
+def project_detail(contract_id):
+    from services.projects import (display_status, stage_index, STAGES, project_title, language_pair,
+                                   project_deadline, build_timeline)
+    from models import get_job_schedule_entries
+    user = _require_hirer()
+    if not user:
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    c = db.session.get(Contract, contract_id)
+    if not c or c.hirer_id != user.id:
+        abort(404)
+    deliverables = sorted(c.deliverables, key=lambda d: d.created_at or datetime.min, reverse=True)
+    key, label = display_status(c, len(deliverables))
+    proposal = db.session.get(Proposal, c.proposal_id) if c.proposal_id else None
+    profile = c.translator.profile if c.translator else None
+    payments = PaymentTransaction.query.filter_by(contract_id=c.id).all()
+    if any(p.status == 'completed' for p in payments):
+        pay_label = 'Đã giải ngân cho phiên dịch viên'
+    elif any(p.status == 'escrow_pending' for p in payments):
+        pay_label = 'Đã thanh toán vào Escrow (đang được giữ)'
+    elif any(p.status == 'refunded' for p in payments):
+        pay_label = 'Đã hoàn tiền'
+    else:
+        pay_label = 'Chưa thanh toán'
+    last_revision = (ContractEvent.query.filter_by(contract_id=c.id, event_type='revision_requested')
+                     .order_by(ContractEvent.created_at.desc(), ContractEvent.id.desc()).first())
+    deadline = project_deadline(c)
+    days_left = (deadline - date.today()).days if deadline and c.status in ('in_progress', 'revision_requested', 'escrow_pending') else None
+    schedule = []
+    if c.job:
+        try:
+            schedule = get_job_schedule_entries(c.job)
+        except Exception:
+            schedule = []
+    my_review = Review.query.filter_by(contract_id=c.id, reviewer_id=user.id).first()
+    return render_template('project_detail.html', c=c, title=project_title(c), pair=language_pair(c),
+                           status_key=key, status_label=label, stage=stage_index(c, len(deliverables)), stages=STAGES,
+                           deliverables=deliverables, proposal=proposal, profile=profile, deadline=deadline,
+                           days_left=days_left, schedule=schedule, timeline=build_timeline(c), pay_label=pay_label,
+                           last_revision=last_revision, my_review=my_review,
+                           attachments=(c.job.attachments if c.job else []))
+
+
+@app.route('/deliverable/<int:deliverable_id>')
+@login_required
+def download_deliverable(deliverable_id):
+    """Tải tệp bàn giao — chỉ các bên của hợp đồng (hoặc admin). Không có URL công khai."""
+    d = Deliverable.query.get_or_404(deliverable_id)
+    from services.permissions import can_access_contract
+    if not can_access_contract(session['user_id'], d.contract):
+        abort(404)
+    name = os.path.basename(d.filepath or '')
+    folder = DELIVERABLE_FOLDER if os.path.exists(os.path.join(DELIVERABLE_FOLDER, name)) else app.config['UPLOAD_FOLDER']
+    if not name or not os.path.exists(os.path.join(folder, name)):
+        abort(404)
+    resp = send_from_directory(folder, name, as_attachment=True, download_name=d.filename)
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['Cache-Control'] = 'private, no-store'
+    return resp
+
+
+def _project_api_guard():
+    user = _require_hirer()
+    if not user:
+        return None, (jsonify({'ok': False, 'message': 'Chỉ khách thuê của dự án mới thực hiện được thao tác này.'}), 403)
+    if not _csrf_ok():
+        return None, (jsonify({'ok': False, 'message': 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.'}), 403)
+    return user, None
+
+
+@app.route('/api/projects/<int:contract_id>/accept-delivery', methods=['POST'])
+@login_required
+def api_project_accept_delivery(contract_id):
+    from services.projects import accept_delivery, ProjectError
+    user, err = _project_api_guard()
+    if err:
+        return err
+    try:
+        accept_delivery(contract_id, user.id)
+    except ProjectError as e:
+        return jsonify({'ok': False, 'message': e.message}), e.status
+    return jsonify({'ok': True, 'message': 'Đã xác nhận hoàn thành dự án.'})
+
+
+@app.route('/api/projects/<int:contract_id>/request-revision', methods=['POST'])
+@login_required
+def api_project_request_revision(contract_id):
+    from services.projects import request_revision, ProjectError
+    user, err = _project_api_guard()
+    if err:
+        return err
+    try:
+        request_revision(contract_id, user.id, request.form.get('note', ''))
+    except ProjectError as e:
+        return jsonify({'ok': False, 'message': e.message}), e.status
+    return jsonify({'ok': True, 'message': 'Đã gửi yêu cầu chỉnh sửa cho phiên dịch viên.'})
+
+
+@app.route('/api/projects/<int:contract_id>')
+@login_required
+def api_project_summary(contract_id):
+    from services.projects import display_status, project_title, language_pair, project_deadline
+    user = _require_hirer()
+    c = db.session.get(Contract, contract_id)
+    if not user or not c or c.hirer_id != user.id:
+        return jsonify({'error': 'not_found'}), 404
+    key, label = display_status(c)
+    dl = project_deadline(c)
+    return jsonify({'id': c.id, 'title': project_title(c), 'status': key, 'status_label': label,
+                    'translator': c.translator.name if c.translator else None, 'language_pair': language_pair(c),
+                    'agreed_price': c.agreed_price, 'deadline': dl.isoformat() if dl else None,
+                    'deliverables': len(c.deliverables)})
+
+
 @app.route('/payment-mockup/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
 def payment_mockup(contract_id):
@@ -5319,6 +5491,7 @@ def payment_mockup(contract_id):
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            db.session.add(ContractEvent(contract_id=contract.id, actor_id=contract.hirer_id, event_type='paid'))
             db.session.add(PaymentTransaction(
                 contract_id=contract.id, user_id=contract.hirer_id,
                 amount=contract.agreed_price, status='escrow_pending',
@@ -5354,7 +5527,7 @@ def transaction_detail(contract_id):
     require_contract_access(session['user_id'], contract)
 
     if request.method == 'POST' and 'file' in request.files:
-        if contract.status != 'in_progress':
+        if contract.status not in ('in_progress', 'revision_requested'):
             flash('Hợp đồng chưa ở trạng thái thực hiện.', 'error')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
 
@@ -5375,7 +5548,20 @@ def transaction_detail(contract_id):
             flash('Tên file không hợp lệ.', 'error')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
 
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        file.stream.seek(0, 2)
+        size = file.stream.tell()
+        file.stream.seek(0)
+        if size == 0 or size > JOB_FILE_MAX_BYTES:
+            flash('Tệp rỗng hoặc vượt quá 10MB.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+        head = file.stream.read(8)
+        file.stream.seek(0)
+        if not _detect_ok(ext, head):
+            flash('Nội dung tệp không khớp với định dạng khai báo.', 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
+        stored_name = f'{_uuid.uuid4().hex}.{ext}'
+        filepath = os.path.join(DELIVERABLE_FOLDER, stored_name)
 
         try:
             file.save(filepath)
@@ -5387,7 +5573,7 @@ def transaction_detail(contract_id):
             deliverable = Deliverable(
                 contract_id=contract.id,
                 filename=filename,
-                filepath=filename
+                filepath=stored_name
             )
             message = Message(
                 contract_id=contract.id,
@@ -5397,6 +5583,8 @@ def transaction_detail(contract_id):
 
             db.session.add(deliverable)
             db.session.add(message)
+            from services.projects import record_delivery
+            record_delivery(contract, session['user_id'])
             db.session.flush()
 
             from services.notifications import should_notify
@@ -5450,20 +5638,20 @@ def contract_action(contract_id, action):
 @app.route('/approve-contract/<int:contract_id>', methods=['POST'])
 @login_required
 def approve_contract(contract_id):
+    """Nghiệm thu (form POST cũ). Logic dùng chung với API: services.projects."""
+    from services.projects import accept_delivery, ProjectError
     contract = Contract.query.get_or_404(contract_id)
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
-    if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
-        contract.status = 'completed'
-        for pay in PaymentTransaction.query.filter_by(contract_id=contract.id, status='escrow_pending').all():
-            pay.status = 'completed'
-        if contract.job:
-            contract.job.status = 'completed'
-        prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
-        if prof:
-            prof.total_jobs += 1
-        db.session.commit()
-        flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
+    if session['user_id'] == contract.hirer_id:
+        if not _csrf_ok():
+            flash('Phiên làm việc không hợp lệ. Vui lòng thử lại.', 'error')
+        else:
+            try:
+                accept_delivery(contract.id, session['user_id'])
+                flash('Nghiệm thu thành công! Tiền Escrow đã được giải ngân.', 'success')
+            except ProjectError as e:
+                flash(e.message, 'error')
     return redirect(url_for('transaction_detail', contract_id=contract.id))
 
 @app.route('/submit-review/<int:contract_id>', methods=['POST'])
@@ -7147,7 +7335,8 @@ def api_unread_notifications_count():
 
 JOB_STATUS_LABELS = {'open': 'Đang mở', 'pending': 'Chờ duyệt', 'archived': 'Đã lưu trữ', 'closed': 'Đã đóng', 'cancelled': 'Đã hủy',
                      'contracted': 'Đã chọn phiên dịch viên', 'in_progress': 'Đang thực hiện', 'completed': 'Hoàn tất'}
-CONTRACT_STATUS_LABELS = {'escrow_pending': 'Chờ thanh toán Escrow', 'in_progress': 'Đang thực hiện',
+CONTRACT_STATUS_LABELS = {'escrow_pending': 'Chờ thanh toán Escrow', 'awaiting_translator': 'Chờ phiên dịch viên xác nhận',
+                          'revision_requested': 'Yêu cầu chỉnh sửa', 'in_progress': 'Đang thực hiện',
                           'completed': 'Hoàn tất', 'cancelled': 'Đã huỷ'}
 
 
@@ -7204,7 +7393,7 @@ def build_client_dashboard(user):
             'deadline': deadline,
             'status': c.status,
             'status_label': CONTRACT_STATUS_LABELS.get(c.status, c.status or ''),
-            'url': url_for('transaction_detail', contract_id=c.id),
+            'url': url_for('project_detail', contract_id=c.id),
         })
 
     # Hoạt động gần đây: chỉ các thông báo hệ thống thực sự lưu
@@ -7227,7 +7416,7 @@ def build_client_dashboard(user):
     for c in awaiting_contracts:
         name = c.job.title if c.job else f'Hợp đồng #{c.id}'
         tasks.append({'title': f'Nghiệm thu: {name}', 'desc': 'Phiên dịch viên đã bàn giao tài liệu, đang chờ bạn xác nhận.',
-                      'url': url_for('transaction_detail', contract_id=c.id), 'cta': 'Nghiệm thu', 'level': 'warn'})
+                      'url': url_for('project_detail', contract_id=c.id), 'cta': 'Nghiệm thu', 'level': 'warn'})
     for c in escrow_pending:
         name = c.job.title if c.job else f'Hợp đồng #{c.id}'
         tasks.append({'title': f'Thanh toán Escrow: {name}', 'desc': 'Hoàn tất thanh toán để dự án được bắt đầu.',
