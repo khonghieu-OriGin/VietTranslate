@@ -781,9 +781,12 @@ def _apply_hirer_profile_form(user, profile, form, files):
         auth_file.save(os.path.join(doc_dir, sec_name))
         profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
 
-    # Chuyển hồ sơ vào trạng thái chờ thẩm định nếu chưa được xác minh
-    if not profile.is_verified:
-        profile.verification_status = 'pending'
+    # Điền đủ thông tin bắt buộc (đã qua validate ở trên) => tự động xác minh, không cần email/Admin
+    if profile.verification_status not in ('rejected', 'revoked', 'suspended'):
+        profile.is_verified = True
+        profile.verification_status = 'verified'
+        if not profile.verified_at:
+            profile.verified_at = datetime.utcnow()
     return []
 
 
@@ -2721,10 +2724,7 @@ def account_profile():
             else:
                 db.session.commit()
                 flash(_t('flash.hirer_profile_updated'), 'success')
-                if profile.is_verified:
-                    flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
-                else:
-                    flash('Hồ sơ đã được lưu và gửi yêu cầu xác minh tới Admin. Chức năng đăng job sẽ được kích hoạt sau khi Admin xét duyệt.', 'info')
+                flash('Hồ sơ đã đầy đủ, tài khoản đã được xác minh ✓ Bạn có thể đăng job ngay.', 'success')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
