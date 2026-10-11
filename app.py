@@ -3846,13 +3846,16 @@ def account_history():
     period_label = f"Tháng {today.month:02d}/{today.year}"
 
     if user.role == 'hirer':
-        query = Contract.query.filter_by(hirer_id=user.id)
-        if status_filter:
-            query = query.filter_by(status=status_filter)
-        if period_filter == 'current_month':
-            query = query.filter(Contract.created_at >= first_of_month)
-        contracts = query.order_by(Contract.created_at.desc()).all()
-        proposals = []
+        from services.transactions import list_hirer_transactions, STATUSES
+        q = request.args.get('q', '').strip()[:100]
+        status = status_filter if status_filter in STATUSES else ''
+        page = request.args.get('page', 1, type=int) or 1
+        rows, total, page, pages = list_hirer_transactions(user.id, q=q, status=status, page=page)
+        return render_template('account_history.html', user=user, contracts=[], proposals=[],
+                               status_filter=status, prop_filter=prop_filter,
+                               period_filter=period_filter, period_label=period_label,
+                               tx_rows=rows, tx_total=total, tx_page=page, tx_pages=pages,
+                               tx_q=q, tx_status=status, tx_statuses=STATUSES)
     else:
         query = Contract.query.filter_by(translator_id=user.id)
         if status_filter:
@@ -3890,6 +3893,17 @@ def account_history():
         period_label=period_label,
         filtered_income_total=filtered_income_total
     )
+
+@app.route('/account/history/<int:contract_id>')
+@login_required
+def account_transaction_detail(contract_id):
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        abort(403)
+    from services.transactions import get_hirer_transaction
+    row, payments = get_hirer_transaction(user.id, contract_id)
+    return render_template('account_transaction.html', user=user, row=row, payments=payments)
+
 
 def _format_event_payload(
     event_id,
