@@ -198,13 +198,6 @@ class HirerProfile(db.Model):
     needs_certified = db.Column(db.Boolean, default=False)
     special_requirements = db.Column(db.Text)
 
-    def get_verification_checklist(self):
-        if self.verification_checklist_data:
-            try:
-                return json.loads(self.verification_checklist_data)
-            except Exception:
-                return {}
-        return {}
 
     @property
     def is_business(self):
@@ -259,13 +252,6 @@ class Job(db.Model):
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
     schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
 
-    def get_moderation_checklist(self):
-        if self.moderation_checklist_data:
-            try:
-                return json.loads(self.moderation_checklist_data)
-            except Exception:
-                return {}
-        return {}
 
     @property
     def display_category_group(self):

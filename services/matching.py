@@ -41,20 +41,6 @@ def normalize_text(value):
         return ''
     return unicodedata.normalize('NFKD', str(value)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
 
-CITY_ALIASES = {
-    'hn': ('ha noi', 'hanoi'),
-    'hcm': ('ho chi minh', 'hcm', 'sai gon', 'saigon'),
-    'dn': ('da nang',),
-    'hp': ('hai phong',),
-    'ct': ('can tho',),
-}
-
-def canonical_city(value):
-    text = normalize_text(value)
-    for key, aliases in CITY_ALIASES.items():
-        if any(a in text for a in aliases):
-            return key
-    return text
 
 def calculate_client_fit(pref, hirer_profile, job, lang='vi'):
     """Điểm tối đa 12: ngành (5) + hình thức làm việc (3) + chứng nhận (4)."""

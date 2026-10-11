@@ -413,21 +413,6 @@ def save_private_document(file_storage, user, doc_type, verification=None):
     return True, new_doc, None
 
 
-def save_verification_file(file_storage, user_id, doc_type='doc'):
-    """
-    Hàm wrapper tương thích ngược: chuyển hướng toàn bộ quá trình lưu
-    sang hệ thống Private Storage an toàn.
-    """
-    user = User.query.get(user_id)
-    if not user:
-        return False, None, None, 'Không tìm thấy người dùng.'
-    # Chuẩn hóa loại doc_type
-    dt = 'cv' if doc_type == 'cv' else ('certificate' if doc_type in ('cert', 'certificate') else ('id_card' if doc_type in ('idcard', 'id_card') else 'cv'))
-    ok, doc, err = save_private_document(file_storage, user, doc_type=dt)
-    if not ok:
-        return False, None, None, err
-    download_url = f"/account/verification/documents/{doc.id}/download"
-    return True, doc.original_filename, download_url, None
 
 
 def delete_private_document(doc_id, user):

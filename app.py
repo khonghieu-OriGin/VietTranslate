@@ -1043,16 +1043,6 @@ def email_verified_required(f):
         return f(*args, **kwargs)
     return decorated
 
-def admin_required(f):
-    """
-    Decorator cũ — giữ lại để không break các route admin hiện có.
-    Chuyển tiếp sang admin_login_required từ admin_auth.
-    TASK 2: Tất cả route /admin/* phải dùng decorator này.
-    """
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        return admin_login_required(f)(*args, **kwargs)
-    return decorated
 
 
 @app.template_filter('format_date_vn')
@@ -3228,8 +3218,6 @@ def remove_avatar_endpoint():
     flash(msg, 'success')
     return redirect(url_for('account_profile'))
 
-def get_translator_preferences(user_id):
-    return TranslatorPreference.query.filter_by(translator_id=user_id).first()
 
 def translator_accepts_job(translator, job):
     if translator.role != 'translator' or not translator.is_active:
@@ -3275,8 +3263,6 @@ def translator_accepts_job(translator, job):
     return True
 
 
-def get_job_applicant_count(job_id):
-    return Proposal.query.filter_by(job_id=job_id).count()
 
 
 @app.route('/account/history')
@@ -3406,19 +3392,6 @@ def api_health():
         'services': service_count,
     })
 
-@app.route('/api/debug-index')
-def debug_index():
-    import traceback
-    try:
-        top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
-            TranslatorProfile.rating.desc()).limit(4).all()
-        if not top_translators:
-            top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
-        html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
-        return jsonify({'status': 'ok', 'html_length': len(html)})
-    except Exception as e:
-        return jsonify({'status': 'error', 'error': str(e), 'traceback': traceback.format_exc()})
 
 @app.route('/api/translators')
 def api_translators():
@@ -3687,12 +3660,6 @@ def serve_chat_image(filename):
     abort(404)
 
 
-@app.route('/tmp/<path:filename>')
-def serve_tmp_file(filename):
-    """Phục vụ file từ thư mục /tmp nếu có."""
-    if os.path.exists(os.path.join('/tmp', filename)):
-        return send_from_directory('/tmp', filename)
-    abort(404)
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -4976,6 +4943,12 @@ def admin_moderate_job(job_id):
                 )
             except Exception:
                 pass
+        # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
+        try:
+            from services.matching import notify_matching_translators_for_new_job
+            notify_matching_translators_for_new_job(job)
+        except Exception:
+            pass
         flash('Đã phê duyệt công việc thành công. Job đã hiển thị công khai.', 'success')
         
     elif decision == 'needs_revision':
@@ -5118,6 +5091,12 @@ def admin_approve_job(job_id):
         description=f'Phê duyệt job "{job.title}" (ID={job.id})',
     )
     db.session.commit()
+    # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
+    try:
+        from services.matching import notify_matching_translators_for_new_job
+        notify_matching_translators_for_new_job(job)
+    except Exception:
+        pass
     flash('Đã phê duyệt bài đăng thành công.', 'success')
     return redirect(url_for('admin_jobs'))
 

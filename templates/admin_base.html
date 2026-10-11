@@ -939,13 +939,15 @@
             </a>
             {% endif %}
 
-            <a href="{{ url_for('admin_analytics') if 'admin_analytics' in get_admin_routes() else '#' }}"
+            {% if 'admin_analytics' in get_admin_routes() %}
+            <a href="{{ url_for('admin_analytics') }}"
                class="nav-item {% if request.endpoint == 'admin_analytics' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                 </svg>
                 Analytics
             </a>
+            {% endif %}
 
             {% if has_permission('view_audit_logs') %}
             <a href="{{ url_for('admin_audit_logs') if 'admin_audit_logs' in get_admin_routes() else '#' }}"
@@ -968,8 +970,8 @@
             </a>
             {% endif %}
 
-            {% if has_permission('manage_settings') or admin_role == 'super_admin' %}
-            <a href="{{ url_for('admin_settings') if 'admin_settings' in get_admin_routes() else '#' }}"
+            {% if (has_permission('manage_settings') or admin_role == 'super_admin') and 'admin_settings' in get_admin_routes() %}
+            <a href="{{ url_for('admin_settings') }}"
                class="nav-item {% if request.endpoint == 'admin_settings' %}active{% endif %}">
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="3"/>
