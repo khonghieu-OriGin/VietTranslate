@@ -57,6 +57,7 @@ class User(db.Model):
     date_of_birth = db.Column(db.String(20), nullable=True)
     city = db.Column(db.String(100), nullable=True)
     is_public_profile = db.Column(db.Boolean, default=True)
+    phone_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -124,6 +125,20 @@ class User(db.Model):
                 pass
             return None
         return None
+
+    @property
+    def is_verified(self):
+        """Kiểm tra tài khoản đã xác minh định danh chưa."""
+        if self.role == 'translator':
+            return bool(self.profile and self.profile.is_verified)
+        elif self.role == 'hirer':
+            return bool(self.hirer_profile and self.hirer_profile.is_verified)
+        return False
+
+    @property
+    def is_phone_verified(self):
+        """Kiểm tra số điện thoại đã xác thực chưa."""
+        return bool(getattr(self, 'phone_verified', False) or (self.is_verified and self.phone))
 
 
 class TranslatorProfile(db.Model):
