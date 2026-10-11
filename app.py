@@ -955,10 +955,19 @@ def inject_admin_badges():
     Inject badge counts vào tất cả Admin templates.
     Chỉ query DB khi đang ở admin session để tránh overhead cho user thường.
     """
+    default_badges = {
+        'admin_badge_pending_translators': 0,
+        'admin_badge_pending_verifications': 0,
+        'admin_badge_pending_hirers': 0,
+        'admin_badge_pending_jobs': 0,
+        'admin_badge_flagged_jobs': 0,
+        'admin_badge_reports': 0,
+        'admin_badge_notifications': 0,
+    }
     if not session.get(ADMIN_SESSION_KEY):
-        return {}
+        return {**default_badges, 'badge_counts': default_badges}
 
-    badges = {}
+    badges = dict(default_badges)
     try:
         from models import TranslatorVerification, HirerProfile
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
@@ -970,15 +979,7 @@ def inject_admin_badges():
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
     except Exception:
         db.session.rollback()
-        badges = {
-            'admin_badge_pending_translators': 0,
-            'admin_badge_pending_verifications': 0,
-            'admin_badge_pending_hirers': 0,
-            'admin_badge_pending_jobs': 0,
-            'admin_badge_flagged_jobs': 0,
-            'admin_badge_reports': 0,
-            'admin_badge_notifications': 0,
-        }
+    badges['badge_counts'] = badges.copy()
     return badges
 
 
