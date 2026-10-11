@@ -703,6 +703,37 @@ def _init_db():
                         conn.commit()
                     except Exception:
                         pass
+
+        if 'translator_profile' in inspector.get_table_names():
+            tp_cols = [c['name'] for c in inspector.get_columns('translator_profile')]
+            cols_to_add = [
+                ('is_public', 'BOOLEAN DEFAULT 1'),
+                ('is_cv_public', 'BOOLEAN DEFAULT 0'),
+                ('source_language', 'VARCHAR(100)'),
+                ('target_language', 'VARCHAR(100)'),
+                ('interpreting_direction', 'VARCHAR(50)'),
+                ('language_proficiency', 'VARCHAR(50)'),
+                ('specializations', 'TEXT'),
+                ('interpreting_types', 'TEXT'),
+                ('work_modes', 'VARCHAR(255)'),
+                ('education_level', 'VARCHAR(100)'),
+                ('university', 'VARCHAR(255)'),
+                ('major', 'VARCHAR(255)'),
+                ('cert_name', 'VARCHAR(255)'),
+                ('cert_year', 'INTEGER'),
+                ('experience_years', 'INTEGER DEFAULT 0'),
+                ('current_position', 'VARCHAR(255)'),
+                ('notable_clients', 'TEXT'),
+                ('featured_projects', 'TEXT')
+            ]
+            with db.engine.connect() as conn:
+                for col_name, col_type in cols_to_add:
+                    if col_name not in tp_cols:
+                        try:
+                            conn.execute(text(f'ALTER TABLE translator_profile ADD COLUMN {col_name} {col_type}'))
+                            conn.commit()
+                        except Exception:
+                            pass
     except Exception:
         pass
 
@@ -1276,6 +1307,88 @@ def account_profile():
             profile.languages = request.form.get('languages', '').strip()
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
+
+            # Quyền riêng tư & Công khai
+            if 'is_public' in request.form:
+                profile.is_public = (request.form.get('is_public') in ('1', 'on', 'true', 'True'))
+            if 'is_cv_public' in request.form:
+                profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'on', 'true', 'True'))
+
+            # Cặp ngôn ngữ & Chiều phiên dịch
+            if 'source_language' in request.form:
+                profile.source_language = request.form.get('source_language', '').strip()
+            if 'target_language' in request.form:
+                profile.target_language = request.form.get('target_language', '').strip()
+            if 'interpreting_direction' in request.form:
+                profile.interpreting_direction = request.form.get('interpreting_direction', '').strip()
+            if 'language_proficiency' in request.form:
+                profile.language_proficiency = request.form.get('language_proficiency', '').strip()
+
+            # Lĩnh vực chuyên môn & Hình thức làm việc
+            if 'specializations' in request.form:
+                profile.specializations = request.form.get('specializations', '').strip()
+            if 'interpreting_types' in request.form:
+                profile.interpreting_types = request.form.get('interpreting_types', '').strip()
+            if 'work_modes' in request.form:
+                profile.work_modes = request.form.get('work_modes', '').strip()
+
+            # Học vấn & Chứng chỉ công khai
+            if 'education_level' in request.form:
+                profile.education_level = request.form.get('education_level', '').strip()
+            if 'university' in request.form:
+                profile.university = request.form.get('university', '').strip()
+            if 'major' in request.form:
+                profile.major = request.form.get('major', '').strip()
+            if 'cert_name' in request.form:
+                profile.cert_name = request.form.get('cert_name', '').strip()
+            if 'cert_year' in request.form:
+                cert_year_val = request.form.get('cert_year', '').strip()
+                profile.cert_year = int(cert_year_val) if cert_year_val.isdigit() else None
+
+            # Kinh nghiệm nghề nghiệp
+            if 'experience_years' in request.form:
+                exp_years_val = request.form.get('experience_years', '').strip()
+                profile.experience_years = int(exp_years_val) if exp_years_val.isdigit() else 0
+            if 'current_position' in request.form:
+                profile.current_position = request.form.get('current_position', '').strip()
+            if 'notable_clients' in request.form:
+                profile.notable_clients = request.form.get('notable_clients', '').strip()
+            if 'featured_projects' in request.form:
+                profile.featured_projects = request.form.get('featured_projects', '').strip()
+
+            # Đồng bộ từ hồ sơ xác minh nếu người dùng yêu cầu
+            if request.form.get('sync_verification') == '1' and profile.latest_verification:
+                verif = profile.latest_verification
+                if verif.source_language and not profile.source_language:
+                    profile.source_language = verif.source_language
+                if verif.target_language and not profile.target_language:
+                    profile.target_language = verif.target_language
+                if verif.interpreting_direction and not profile.interpreting_direction:
+                    profile.interpreting_direction = verif.interpreting_direction
+                if verif.language_proficiency and not profile.language_proficiency:
+                    profile.language_proficiency = verif.language_proficiency
+                if verif.specializations and not profile.specializations:
+                    profile.specializations = verif.specializations
+                if verif.interpreting_types and not profile.interpreting_types:
+                    profile.interpreting_types = verif.interpreting_types
+                if verif.education_level and not profile.education_level:
+                    profile.education_level = verif.education_level
+                if verif.university and not profile.university:
+                    profile.university = verif.university
+                if verif.major and not profile.major:
+                    profile.major = verif.major
+                if verif.certificate_name and not profile.cert_name:
+                    profile.cert_name = verif.certificate_name
+                if verif.cert_year and not profile.cert_year:
+                    profile.cert_year = verif.cert_year
+                if verif.experience_years and not profile.experience_years:
+                    profile.experience_years = verif.experience_years
+                if verif.current_position and not profile.current_position:
+                    profile.current_position = verif.current_position
+                if verif.notable_clients and not profile.notable_clients:
+                    profile.notable_clients = verif.notable_clients
+                if verif.featured_projects and not profile.featured_projects:
+                    profile.featured_projects = verif.featured_projects
 
             # Upload chứng chỉ (nếu có)
             cert_files = request.files.getlist('certificate_files')
@@ -2353,7 +2466,10 @@ def translator_list():
     page = request.args.get('page', 1, type=int)
     per_page = 9
 
-    query = TranslatorProfile.query
+    query = TranslatorProfile.query.join(User).filter(
+        User.is_active == True,
+        db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
+    )
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(TranslatorProfile.languages.ilike(f'%{safe_lang}%'))
@@ -2410,7 +2526,7 @@ def api_translators():
         ).order_by(TranslatorProfile.rating.desc()).all()
         data = []
         for p in profiles:
-            if not p.user:
+            if not p.user or not getattr(p.user, 'is_active', True) or getattr(p, 'is_public', True) is False:
                 continue
             # Lấy giá thấp nhất từ services
             min_price = None
@@ -2459,10 +2575,117 @@ def api_translators():
 
 @app.route('/translator/<int:profile_id>')
 def translator_profile(profile_id):
+    """
+    Trang hồ sơ nghề nghiệp chuyên sâu của phiên dịch viên.
+    Kiểm tra quyền xem nghiêm ngặt:
+    - Hồ sơ công khai & tài khoản hoạt động: khách vãng lai và mọi người xem được.
+    - Hồ sơ riêng tư / chưa đủ điều kiện công khai:
+      + Chính chủ hoặc Admin: Xem ở chế độ Xem trước (Preview Mode) kèm hướng dẫn hoàn thiện.
+      + Khách ngoài: Không công khai ngoài ý muốn, hiển thị trang thông báo riêng tư.
+    - Hồ sơ bị hạn chế / khóa: Từ chối truy cập (403) kèm thông báo an toàn.
+    """
     profile = TranslatorProfile.query.get_or_404(profile_id)
+    
+    viewer_id = session.get('user_id')
+    viewer = User.query.get(viewer_id) if viewer_id else None
+    admin_id = session.get('admin_id')
+    is_owner = bool(viewer and viewer.id == profile.user_id)
+    is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or admin_id)
+
+    can_view, is_preview_mode, access_reason = profile.can_view_public(viewer=viewer, is_admin_session=bool(admin_id))
+
+    if not can_view:
+        is_restricted = bool(profile.user and not getattr(profile.user, 'is_active', True))
+        status_code = 403 if is_restricted else 200
+        return render_template(
+            'translator_profile_restricted.html',
+            profile=profile,
+            is_restricted=is_restricted,
+            is_private=(getattr(profile, 'is_public', True) is False),
+            access_reason=access_reason
+        ), status_code
+
     # Reviews received by this translator
     reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
-    return render_template('translator_profile.html', profile=profile, reviews=reviews)
+    verification = profile.latest_verification
+    is_verified = bool(profile.is_verified)
+
+    return render_template(
+        'translator_profile.html',
+        profile=profile,
+        reviews=reviews,
+        is_owner=is_owner,
+        is_admin=is_admin,
+        is_preview_mode=is_preview_mode,
+        access_reason=access_reason,
+        is_verified=is_verified,
+        verification=verification
+    )
+
+@app.route('/translator/<int:profile_id>/cv')
+def view_public_cv(profile_id):
+    """
+    Endpoint xem / tải CV chuyên môn công khai của phiên dịch viên.
+    Chỉ cho phép khi:
+    - Hồ sơ có bật cờ is_cv_public = True, HOẶC
+    - Người xem là chính chủ hồ sơ hoặc Quản trị viên (Admin).
+    Bảo mật nghiêm ngặt:
+    - Chỉ phục vụ tài liệu loại 'cv'.
+    - TUYỆT ĐỐI KHÔNG BAO GIỜ phục vụ 'id_card', hộ chiếu hoặc tài liệu định danh riêng tư.
+    """
+    profile = TranslatorProfile.query.get_or_404(profile_id)
+    viewer_id = session.get('user_id')
+    viewer = User.query.get(viewer_id) if viewer_id else None
+    admin_id = session.get('admin_id')
+    is_owner = bool(viewer and viewer.id == profile.user_id)
+    is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or admin_id)
+
+    if profile.user and not getattr(profile.user, 'is_active', True) and not is_admin:
+        abort(403)
+
+    if not profile.is_cv_public and not (is_owner or is_admin):
+        flash('Phiên dịch viên chưa thiết lập công khai tài liệu CV.', 'warning')
+        return redirect(url_for('translator_profile', profile_id=profile.id))
+
+    cv_doc = profile.public_cv_document
+    if not cv_doc and (is_owner or is_admin) and profile.latest_verification:
+        for doc in profile.latest_verification.documents:
+            if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                cv_doc = doc
+                break
+
+    if not cv_doc:
+        flash('Chưa có tệp CV nào được tải lên cho hồ sơ này.', 'info')
+        return redirect(url_for('translator_profile', profile_id=profile.id))
+
+    if cv_doc.document_type != 'cv':
+        abort(403)
+
+    from services.verification import get_private_verification_folder
+    file_path = cv_doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    mode = request.args.get('mode', 'view')
+    as_attachment = (mode == 'download')
+
+    response = send_file(
+        file_path,
+        as_attachment=as_attachment,
+        download_name=cv_doc.original_filename,
+        mimetype=cv_doc.mime_type or 'application/pdf'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = "default-src 'none'"
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
 
 @app.route('/hirer/<int:hirer_id>')
 def hirer_profile(hirer_id):
