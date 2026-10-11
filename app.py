@@ -1872,7 +1872,25 @@ def interpreter_dashboard():
 
         # Phân loại và icon/badge meta
         ntype = n.type or ''
-        if 'INVITATION' in ntype:
+        if 'VERIFICATION' in ntype:
+            cat_label = 'Xác minh hồ sơ'
+            icon_kind = 'verification'
+            if 'APPROVED' in ntype:
+                cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                icon_bg = 'bg-emerald-100 text-emerald-600'
+            elif 'NEEDS_REVISION' in ntype or 'REVISE' in ntype:
+                cat_badge = 'bg-orange-50 text-orange-700 border-orange-200'
+                icon_bg = 'bg-orange-100 text-orange-600'
+            elif 'REJECTED' in ntype:
+                cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+                icon_bg = 'bg-rose-100 text-rose-600'
+            elif 'POLICY' in ntype:
+                cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+                icon_bg = 'bg-purple-100 text-purple-600'
+            else:
+                cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
+                icon_bg = 'bg-blue-100 text-blue-600'
+        elif 'INVITATION' in ntype:
             cat_label = 'Lời mời việc'
             icon_kind = 'invitation'
             cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
@@ -3516,6 +3534,116 @@ def api_verification_revision_resubmit():
     API JSON gửi lại hồ sơ sau khi bổ sung.
     """
     return verification_revision_resubmit()
+
+
+# ─── TRANSLATOR VERIFICATION NOTIFICATION CENTER ROUTES ───────────────────────
+
+@app.route('/account/verification/notifications', methods=['GET'])
+@app.route('/verification/notifications', methods=['GET'])
+@login_required
+def verification_notifications_page():
+    """
+    Trung tâm thông báo xác minh hồ sơ dành riêng cho phiên dịch viên (VietTranslate).
+    Hiển thị thông báo gắn với các sự kiện thực tế:
+    - Hồ sơ đã được gửi và tiếp nhận.
+    - Admin yêu cầu bổ sung.
+    - Hồ sơ được xác minh.
+    - Hồ sơ bị từ chối.
+    - Hồ sơ cần cập nhật hoặc xác minh lại khi chính sách yêu cầu.
+    Hỗ trợ:
+    - Đầy đủ tiêu đề, nội dung làm sạch (không chứa dữ liệu nhạy cảm), thời gian, trạng thái đọc.
+    - Bộ lọc theo sự kiện và trạng thái đọc.
+    - Trạng thái đang tải, lỗi kết nối và chưa có thông báo.
+    - Đánh dấu đã đọc đơn lẻ và tất cả.
+    - Điều hướng trực tiếp tới trang xử lý tương ứng.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Trung tâm thông báo xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_translator_verification_notifications
+    initial_data = get_translator_verification_notifications(user, status_filter='all', page=1)
+
+    return render_template(
+        'verification_notifications.html',
+        user=user,
+        initial_data=initial_data
+    )
+
+
+@app.route('/api/account/verification/notifications', methods=['GET'])
+@login_required
+def api_get_verification_notifications():
+    """API JSON trả về danh sách thông báo xác minh hồ sơ của phiên dịch viên."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    status_filter = request.args.get('status', 'all')
+    category_filter = request.args.get('category', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    from services.verification import get_translator_verification_notifications
+    data = get_translator_verification_notifications(
+        user, status_filter=status_filter, category_filter=category_filter, page=page, per_page=per_page
+    )
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/api/account/verification/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def api_read_verification_notification(notification_id):
+    """API đánh dấu một thông báo xác minh cụ thể là đã đọc."""
+    uid = session.get('user_id')
+    from services.verification import mark_verification_notification_read
+    ok, msg = mark_verification_notification_read(notification_id, uid)
+    if not ok:
+        return jsonify({'success': False, 'message': msg}), 400
+
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    unread = Notification.query.filter(
+        Notification.user_id == uid,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+    return jsonify({'success': True, 'unread_count': unread})
+
+
+@app.route('/api/account/verification/notifications/read-all', methods=['POST'])
+@login_required
+def api_read_all_verification_notifications():
+    """API đánh dấu tất cả thông báo xác minh của phiên dịch viên là đã đọc."""
+    uid = session.get('user_id')
+    from services.verification import mark_all_verification_notifications_read
+    ok, count = mark_all_verification_notifications_read(uid)
+    return jsonify({'success': ok, 'updated_count': count, 'unread_count': 0})
+
+
+@app.route('/api/account/verification/notifications/unread-count', methods=['GET'])
+@login_required
+def api_get_verification_notifications_unread_count():
+    """API lấy số lượng thông báo xác minh chưa đọc của phiên dịch viên."""
+    uid = session.get('user_id')
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    unread = Notification.query.filter(
+        Notification.user_id == uid,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+    return jsonify({'success': True, 'unread_count': unread})
 
 
 @app.route('/account/avatar/upload', methods=['POST'])
@@ -5901,6 +6029,24 @@ def admin_review_verification(verification_id, action):
     admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
     reason = request.form.get('reason', '')
     
+    if action == 'policy_update':
+        from services.verification import request_policy_reverification
+        verification = TranslatorVerification.query.get_or_404(verification_id)
+        policy_name = request.form.get('policy_name', 'Chính sách xác minh năng lực định kỳ')
+        ok, msg, notif = request_policy_reverification(
+            translator_user=verification.user,
+            reason=reason,
+            policy_name=policy_name,
+            admin_user=admin,
+            ip_address=get_client_ip(),
+            user_agent=request.headers.get('User-Agent', '')[:512]
+        )
+        if ok:
+            flash(msg, 'success')
+        else:
+            flash(msg, 'error')
+        return redirect(url_for('admin_translators', show='pending'))
+
     checklist_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2']
     checklist_data = {key: (request.form.get(f'chk_{key}') == 'on') for key in checklist_keys}
 
@@ -5918,6 +6064,34 @@ def admin_review_verification(verification_id, action):
     else:
         flash(msg, 'error')
     return redirect(url_for('admin_translators', show='pending' if action == 'reject' else 'verified'))
+
+@app.route('/admin/verifications/<int:verification_id>/request-policy-update', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
+def admin_request_policy_update(verification_id):
+    """Admin gửi yêu cầu phiên dịch viên cập nhật hoặc xác minh lại theo chính sách."""
+    from services.verification import request_policy_reverification
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    reason = request.form.get('reason', 'Chính sách nền tảng định kỳ yêu cầu cập nhật hoặc xác minh lại hồ sơ.')
+    policy_name = request.form.get('policy_name', 'Chính sách xác minh năng lực định kỳ')
+    verification = TranslatorVerification.query.get_or_404(verification_id)
+
+    ok, msg, notif = request_policy_reverification(
+        translator_user=verification.user,
+        reason=reason,
+        policy_name=policy_name,
+        admin_user=admin,
+        ip_address=get_client_ip(),
+        user_agent=request.headers.get('User-Agent', '')[:512]
+    )
+    if ok:
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+    return redirect(url_for('admin_translators', show='pending'))
 
 @app.route('/admin/reports')
 @admin_login_required
