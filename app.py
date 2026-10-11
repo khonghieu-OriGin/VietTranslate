@@ -2760,10 +2760,12 @@ def account_profile():
         return redirect(url_for('account_profile'))
 
     current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-    default_tab = 'overview' if getattr(user, 'role', '') == 'translator' else 'basic'
+    default_tab = 'profile' if getattr(user, 'role', '') == 'translator' else 'basic'
     if request.path == '/account/overview':
-        default_tab = 'overview'
+        default_tab = 'profile'
     active_tab = request.args.get('tab', default_tab)
+    if getattr(user, 'role', '') == 'translator' and active_tab in ('overview', 'basic'):
+        active_tab = 'profile'
 
     profile_completion = None
     unread_notifs_count = 0
