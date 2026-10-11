@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -552,7 +552,7 @@ def save_user_avatar(file, user_id, current_avatar=None):
     clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
-    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
 
@@ -609,7 +609,7 @@ def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
     if not current_avatar:
         return
-    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join('static', 'uploads', 'avatars'))
+    folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
     if not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
         old_base = os.path.basename(current_avatar)
         old_path = os.path.join(folder, old_base)
@@ -629,6 +629,181 @@ with app.app_context():
             dbapi_connection.prepare_threshold = None
 
 import sys
+
+HIRER_COMPANY_SIZES = ('<10', '10-50', '50-200', '200+')
+FREE_EMAIL_DOMAINS = {
+    'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'hotmail.com', 'outlook.com',
+    'live.com', 'icloud.com', 'me.com', 'msn.com', 'aol.com', 'proton.me', 'protonmail.com',
+}
+HIRING_FIELDS = ('Du lịch', 'Y tế', 'Đàm phán / Thương mại', 'Hội nghị / Sự kiện', 'Pháp lý / Công chứng',
+                 'Giáo dục / Du học', 'Sản xuất / Kỹ thuật', 'Tài chính / Ngân hàng', 'Công nghệ / IT',
+                 'Xuất nhập khẩu / Logistics', 'Khác')
+HIRING_LANGUAGES = ('Tiếng Anh', 'Tiếng Trung', 'Tiếng Nhật', 'Tiếng Hàn', 'Tiếng Pháp', 'Tiếng Đức',
+                    'Tiếng Nga', 'Tiếng Thái', 'Ngôn ngữ khác')
+HIRING_SERVICES = ('Phiên dịch trực tiếp', 'Phiên dịch online', 'Phiên dịch tháp tùng', 'Dịch tài liệu / Biên dịch')
+BUSINESS_INDUSTRIES = ('Sản xuất / Công nghiệp', 'Thương mại / Xuất nhập khẩu', 'Du lịch / Khách sạn / Nhà hàng',
+                       'Y tế / Dược', 'Giáo dục / Đào tạo', 'Công nghệ / IT', 'Tài chính / Ngân hàng / Bảo hiểm',
+                       'Xây dựng / Bất động sản', 'Pháp lý / Tư vấn', 'Truyền thông / Sự kiện',
+                       'Logistics / Vận tải', 'Nông nghiệp / Thực phẩm', 'Tổ chức phi lợi nhuận / NGO', 'Khác')
+app.jinja_env.globals.update(HIRING_FIELDS=HIRING_FIELDS, HIRING_LANGUAGES=HIRING_LANGUAGES,
+                             HIRING_SERVICES=HIRING_SERVICES, BUSINESS_INDUSTRIES=BUSINESS_INDUSTRIES)
+LOGO_MAX_BYTES = 300 * 1024
+LOGO_MIME = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'webp': 'image/webp'}
+
+
+def _read_logo_upload(file_storage):
+    """Trả về (data_uri, error). File trống -> (None, None)."""
+    if not file_storage or not file_storage.filename:
+        return None, None
+    ext = file_storage.filename.rsplit('.', 1)[-1].lower() if '.' in file_storage.filename else ''
+    if ext not in LOGO_MIME:
+        return None, 'Logo / ảnh đại diện chỉ chấp nhận PNG, JPG hoặc WEBP.'
+    data = file_storage.read(LOGO_MAX_BYTES + 1)
+    if len(data) > LOGO_MAX_BYTES:
+        return None, 'Logo / ảnh đại diện tối đa 300KB.'
+    import base64
+    return f'data:{LOGO_MIME[ext]};base64,{base64.b64encode(data).decode()}', None
+
+
+def _apply_hirer_profile_form(user, profile, form, files):
+    """Validate và gán dữ liệu form hồ sơ khách thuê. Trả về list lỗi (rỗng = hợp lệ)."""
+    import re
+    errors = []
+    get = lambda k: (form.get(k) or '').strip()
+    phone_re = re.compile(r'^(\+84|0)\d{9,10}$')
+
+    def clean_phone(v):
+        return re.sub(r'[\s.\-]', '', v)
+
+    def pick(name, options):
+        """Chỉ nhận giá trị nằm trong danh sách có sẵn, giữ đúng thứ tự danh sách."""
+        chosen = set(form.getlist(name))
+        return [o for o in options if o in chosen]
+
+    account_type = get('account_type')
+    if account_type not in ('business', 'individual'):
+        return ['Vui lòng chọn loại khách hàng: Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+    # Mỗi tài khoản chỉ thuộc một loại: đã lưu hồ sơ (có SĐT) thì không được đổi loại
+    if profile.contact_phone and profile.account_type and profile.account_type != account_type:
+        return ['Loại khách hàng đã được xác lập và không thể thay đổi. Mỗi tài khoản chỉ được là Doanh nghiệp / Tổ chức hoặc Cá nhân.']
+
+    phone = clean_phone(get('contact_phone'))
+    if not phone_re.match(phone):
+        errors.append('Số điện thoại không hợp lệ (VD: 0912345678).')
+
+
+    website = get('website')
+    for label, url in (('Website / LinkedIn / Fanpage', website),):
+        if url and not re.match(r'^https?://\S+$', url):
+            errors.append(f'{label} phải bắt đầu bằng http:// hoặc https://')
+
+    logo, logo_err = _read_logo_upload(files.get('logo'))
+    if logo_err:
+        errors.append(logo_err)
+
+    if account_type == 'business':
+        company = get('company')
+        tax_code = re.sub(r'[\s\-]', '', get('tax_code'))
+        industries = pick('industry', BUSINESS_INDUSTRIES)
+        industry = ', '.join(industries)
+        size = get('company_size')
+        address = get('address')
+        email = get('company_email').lower()
+        rep_name = get('rep_name')
+        rep_title = get('title')
+        hotline = clean_phone(get('hotline'))
+
+        if not company: errors.append('Vui lòng nhập tên công ty / tổ chức.')
+        if not re.fullmatch(r'\d{10}|\d{13}', tax_code):
+            errors.append('Mã số thuế phải gồm 10 hoặc 13 chữ số.')
+        if not industry: errors.append('Vui lòng chọn ít nhất một lĩnh vực hoạt động.')
+        if size not in HIRER_COMPANY_SIZES: errors.append('Vui lòng chọn quy mô công ty.')
+        if not address: errors.append('Vui lòng nhập địa chỉ trụ sở / chi nhánh.')
+        if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            errors.append('Email doanh nghiệp không hợp lệ.')
+        elif email.rsplit('@', 1)[1] in FREE_EMAIL_DOMAINS:
+            errors.append('Vui lòng dùng email doanh nghiệp (dạng @tencongty.com), không dùng email miễn phí.')
+        if not rep_name or not rep_title: errors.append('Vui lòng nhập họ tên và chức vụ người đại diện.')
+        if hotline and not re.fullmatch(r'\+?\d{8,12}', hotline):
+            errors.append('Hotline bàn không hợp lệ.')
+        if errors:
+            return errors
+
+        profile.account_type = 'business'
+        profile.company, profile.tax_code, profile.industry = company, tax_code, industry
+        profile.company_size, profile.address, profile.company_email = size, address, email
+        profile.website, profile.hotline = website, hotline
+        profile.rep_name, profile.title = rep_name, rep_title
+        profile.about = get('about')[:1000]
+        profile.location = address[:100]
+    else:
+        full_name = get('full_name')
+        province = get('location')
+        fields = pick('hiring_field', HIRING_FIELDS)
+        languages = pick('hiring_languages', HIRING_LANGUAGES)
+        services = pick('hiring_services', HIRING_SERVICES)
+        if not full_name: errors.append('Vui lòng nhập họ và tên.')
+        if not province: errors.append('Vui lòng nhập tỉnh / thành phố.')
+        if not fields: errors.append('Vui lòng chọn ít nhất một lĩnh vực thường thuê phiên dịch.')
+        if errors:
+            return errors
+
+        profile.account_type = 'individual'
+        user.name = full_name
+        profile.location = province
+        profile.hiring_field = ', '.join(fields)
+        profile.hiring_languages = ', '.join(languages)
+        profile.hiring_services = ', '.join(services)
+        profile.about = get('about')[:500]
+
+    from services.hirer import apply_hirer_hiring_needs
+    apply_hirer_hiring_needs(profile, form)
+    profile.contact_phone = phone
+    user.phone = phone
+    if logo:
+        profile.logo = logo
+
+    # Lưu thông tin tài khoản ngân hàng nếu có
+    bank_name = get('bank_name')
+    bank_acc = get('bank_account_number')
+    if bank_name:
+        profile.bank_name = bank_name
+    if bank_acc:
+        profile.bank_account_number = bank_acc
+
+    # Lưu file giấy ủy quyền / GPKD nếu có upload
+    auth_file = files.get('authorization_doc')
+    if auth_file and auth_file.filename:
+        from werkzeug.utils import secure_filename
+        sec_name = secure_filename(f"auth_{user.id}_{int(datetime.utcnow().timestamp())}_{auth_file.filename}")
+        doc_dir = os.path.join(app.root_path, 'static', 'uploads', 'hirer_docs')
+        os.makedirs(doc_dir, exist_ok=True)
+        auth_file.save(os.path.join(doc_dir, sec_name))
+        profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
+
+    # Chuyển hồ sơ vào trạng thái chờ thẩm định nếu chưa được xác minh
+    if not profile.is_verified:
+        profile.verification_status = 'pending'
+    return []
+
+
+def _ensure_new_columns():
+    """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
+    from sqlalchemy import inspect, text
+    for model in (HirerProfile, TranslatorPreference, Job, User, TranslatorVerification, TranslatorProfile):
+        table = model.__table__
+        try:
+            existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing:
+                    continue
+                coltype = col.type.compile(dialect=db.engine.dialect)
+                db.session.execute(text(f'ALTER TABLE {table.name} ADD COLUMN {col.name} {coltype}'))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[DB] Cannot sync {table.name} columns: {e}", file=sys.stderr)
+
 
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
@@ -667,6 +842,7 @@ def _init_db():
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
         return
 
+    _ensure_new_columns()
     # Tự động đồng bộ cột avatar nếu chưa tồn tại trong bảng user
     try:
         from sqlalchemy import inspect, text
@@ -744,6 +920,7 @@ def _init_db():
         dummy_schedule = db.session.query(TranslatorSchedule).first()
         user_count = db.session.execute(db.select(db.func.count()).select_from(User)).scalar()
     except Exception as e:
+        db.session.rollback()
         error_msg = str(e)
         if "UndefinedColumn" in error_msg or "no such column" in error_msg.lower():
             print(f"\\n{'='*50}\\n[CRITICAL DB ERROR] DATABASE SCHEMA DRIFT DETECTED!\\nLỗi thiếu column trong database: {error_msg}\\n=> HÃY CHẠY MIGRATION SCRIPT (migration_sync_current_schema.sql)\\n{'='*50}\\n", file=sys.stderr)
@@ -787,6 +964,7 @@ def _ensure_db():
         try:
             _init_db()
         except Exception as e:
+            db.session.rollback()
             print(f"[DB before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
 
@@ -835,9 +1013,11 @@ def inject_admin_badges():
 
     badges = {}
     try:
-        from models import TranslatorVerification
+        from models import TranslatorVerification, HirerProfile
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
         badges['admin_badge_pending_verifications'] = TranslatorVerification.query.filter_by(status='pending').count()
+        badges['admin_badge_pending_hirers'] = HirerProfile.query.filter_by(verification_status='pending').count()
+        badges['admin_badge_pending_jobs'] = Job.query.filter_by(moderation_status='pending').count()
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
@@ -845,6 +1025,8 @@ def inject_admin_badges():
         badges = {
             'admin_badge_pending_translators': 0,
             'admin_badge_pending_verifications': 0,
+            'admin_badge_pending_hirers': 0,
+            'admin_badge_pending_jobs': 0,
             'admin_badge_flagged_jobs': 0,
             'admin_badge_reports': 0,
             'admin_badge_notifications': 0,
@@ -864,19 +1046,34 @@ def login_required(f):
         if 'user_id' not in session:
             flash(_t('flash.login_required'), 'warning')
             return redirect(url_for('login'))
+        
+        user = get_current_user()
+        if not user:
+            flash("Tài khoản của bạn đã bị vô hiệu hóa hoặc phiên đăng nhập không hợp lệ.", "error")
+            return redirect(url_for('login'))
+            
         return f(*args, **kwargs)
     return decorated
 
-def admin_required(f):
-    """
-    Decorator cũ — giữ lại để không break các route admin hiện có.
-    Chuyển tiếp sang admin_login_required từ admin_auth.
-    TASK 2: Tất cả route /admin/* phải dùng decorator này.
-    """
+def email_verified_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        return admin_login_required(f)(*args, **kwargs)
+        if 'user_id' not in session:
+            flash(_t('flash.login_required'), 'warning')
+            return redirect(url_for('login'))
+        
+        user = get_current_user()
+        if not user or not user.is_active:
+            flash("Tài khoản của bạn đã bị vô hiệu hóa.", "error")
+            return redirect(url_for('login'))
+            
+        if not app.config.get('TESTING') and not user.email_verified:
+            flash("Bạn cần xác minh địa chỉ email để thực hiện chức năng này.", "warning")
+            return redirect(url_for('account_profile'))
+            
+        return f(*args, **kwargs)
     return decorated
+
 
 
 @app.template_filter('format_date_vn')
@@ -921,7 +1118,11 @@ def get_current_user():
         session.clear()
         return None
     try:
-        return User.query.get(uid)
+        user = User.query.get(uid)
+        if user and not user.is_active:
+            session.clear()
+            return None
+        return user
     except SQLAlchemyError as e:
         print(f"[get_current_user SQLError] {e}")
         return None
@@ -981,12 +1182,724 @@ def set_language(lang):
 
 @app.route('/')
 def index():
-    top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
-        TranslatorProfile.rating.desc()).limit(4).all()
-    if not top_translators:
-        top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-    latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
+    top_translators = TranslatorProfile.query.join(User).filter(
+        TranslatorProfile.is_verified == True,
+        User.is_active == True
+    ).order_by(TranslatorProfile.rating.desc()).limit(4).all()
+    
+    latest_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
+        Job.status == 'open', 
+        db.or_(Job.is_flagged == False, Job.is_flagged == None),
+        User.is_active == True
+    ).order_by(Job.created_at.desc()).limit(4).all()
     return render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
+
+
+@app.route('/interpreter/dashboard')
+@login_required
+def interpreter_dashboard():
+    """Trang Tổng quan dành riêng cho phiên dịch viên."""
+    from datetime import date as date_cls, timedelta
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        return redirect(url_for('index'))
+
+    uid = user.id
+
+    # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
+    profile = user.profile
+    preference = getattr(user, 'preference', None)
+
+    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế:
+    # 1. Họ và tên: 15% (user.name)
+    # 2. Số điện thoại: 10% (user.phone)
+    # 3. Tiêu đề chuyên môn: 15% (profile.title)
+    # 4. Ngôn ngữ thông thạo: 20% (profile.languages)
+    # 5. Bằng cấp / Chứng chỉ: 15% (profile.badges)
+    # 6. Giới thiệu bản thân: 15% (profile.bio)
+    # 7. Cài đặt nhận việc / Dịch vụ: 10% (preference.service_types hoặc profile.services)
+    profile_completeness = 0
+    profile_missing = []
+
+    # 1. Họ và tên
+    if user.name and user.name.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Họ và tên')
+
+    # 2. Số điện thoại
+    if user.phone and user.phone.strip():
+        profile_completeness += 10
+    else:
+        profile_missing.append('Số điện thoại')
+
+    # 3. Tiêu đề chuyên môn
+    if profile and profile.title and profile.title.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Tiêu đề chuyên môn')
+
+    # 4. Ngôn ngữ thông thạo
+    if profile and profile.languages and profile.languages.strip():
+        profile_completeness += 20
+    else:
+        profile_missing.append('Ngôn ngữ thông thạo')
+
+    # 5. Bằng cấp / Chứng chỉ (căn cứ kiểm duyệt xác minh)
+    if profile and profile.badges and profile.badges.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Bằng cấp / Chứng chỉ')
+
+    # 6. Giới thiệu bản thân
+    if profile and profile.bio and profile.bio.strip():
+        profile_completeness += 15
+    else:
+        profile_missing.append('Giới thiệu bản thân')
+
+    # 7. Cài đặt nhận việc / Dịch vụ
+    has_services = False
+    if profile and getattr(profile, 'services', None) and len(profile.services) > 0:
+        has_services = True
+    elif preference and getattr(preference, 'service_types', None) and preference.service_types.strip():
+        has_services = True
+
+    if has_services:
+        profile_completeness += 10
+    else:
+        profile_missing.append('Dịch vụ / Cài đặt nhận việc')
+
+    # Xác định trạng thái xác minh thực tế:
+    if not profile:
+        verification_status = {
+            'code': 'no_profile',
+            'label': 'Chưa tạo hồ sơ',
+            'color': 'slate',
+            'badge_bg': 'bg-slate-100',
+            'badge_text': 'text-slate-600',
+            'badge_border': 'border-slate-200',
+            'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
+            'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
+        }
+    elif profile.is_verified:
+        verification_status = {
+            'code': 'verified',
+            'label': 'Đã xác minh',
+            'color': 'emerald',
+            'badge_bg': 'bg-emerald-50',
+            'badge_text': 'text-emerald-700',
+            'badge_border': 'border-emerald-200',
+            'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
+            'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
+        }
+    elif profile.badges and profile.badges.strip():
+        verification_status = {
+            'code': 'pending',
+            'label': 'Đang chờ duyệt',
+            'color': 'blue',
+            'badge_bg': 'bg-blue-50',
+            'badge_text': 'text-blue-700',
+            'badge_border': 'border-blue-200',
+            'tooltip': 'Bạn đã cung cấp chứng chỉ. Hồ sơ đang trong danh sách chờ Ban quản trị xét duyệt.',
+            'action_hint': 'Đang chờ Ban quản trị duyệt chứng chỉ.',
+        }
+    else:
+        verification_status = {
+            'code': 'unverified',
+            'label': 'Chưa xác minh',
+            'color': 'amber',
+            'badge_bg': 'bg-amber-50',
+            'badge_text': 'text-amber-700',
+            'badge_border': 'border-amber-200',
+            'tooltip': 'Chưa nộp chứng chỉ. Nhấn để bổ sung chứng chỉ (IELTS, JLPT, HSK...) và gửi duyệt.',
+            'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
+        }
+
+    # ── 2. Thống kê công việc (3 chỉ số cốt lõi và dữ liệu hợp đồng) ─────────
+    today = date_cls.today()
+
+    # Chỉ số 1: Số đơn ứng tuyển đang chờ (chỉ tính status == 'pending' của Interpreter)
+    proposals_all = Proposal.query.filter_by(translator_id=uid).all()
+    proposals_pending = [p for p in proposals_all if p.status == 'pending']
+    proposals_accepted = [p for p in proposals_all if p.status == 'accepted']
+    pending_proposals_count = len(proposals_pending)
+
+    # Chỉ số 2: Số ca làm sắp tới (ca có lịch hợp lệ: scheduled_date >= today, status in ('reserved', 'active'))
+    # Đảm bảo không tính ca đã hủy hoặc đã hoàn thành
+    all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
+    upcoming_schedules_all = [
+        s for s in all_schedules
+        if s.scheduled_date and s.scheduled_date >= today and s.status in ('reserved', 'active')
+    ]
+    scheduled_contract_ids = {s.contract_id for s in upcoming_schedules_all if s.contract_id}
+
+    # Hợp đồng của interpreter
+    contracts_all = Contract.query.filter_by(translator_id=uid).all()
+    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
+    contracts_done = [c for c in contracts_all if c.status == 'completed']
+    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
+
+    # Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa gắn TranslatorSchedule (tránh đếm trùng)
+    extra_active_contracts = [c for c in contracts_active if c.id not in scheduled_contract_ids]
+    upcoming_shifts_count = len(upcoming_schedules_all) + len(extra_active_contracts)
+
+    # Chỉ số 3: Số ca làm đã hoàn thành (chỉ tính ca/hợp đồng đã có trạng thái hoàn thành hợp lệ)
+    # Tránh đếm trùng cùng một ca khi có cả contract_id và schedule hoàn thành
+    completed_contract_ids = {c.id for c in contracts_done}
+    standalone_completed_schedules = [
+        s for s in all_schedules
+        if s.status == 'completed' and (not s.contract_id or s.contract_id not in completed_contract_ids)
+    ]
+    completed_shifts_count = len(contracts_done) + len(standalone_completed_schedules)
+
+    job_stats = {
+        'pending_proposals':  pending_proposals_count,
+        'upcoming_shifts':    upcoming_shifts_count,
+        'completed_shifts':   completed_shifts_count,
+        'total_contracts':    len(contracts_all),
+        'active_contracts':   len(contracts_active),
+        'completed':          len(contracts_done),
+        'accepted_proposals': len(proposals_accepted),
+        'rating':             profile.rating if profile else 0.0,
+        'total_reviews':      profile.total_reviews if profile else 0,
+    }
+
+    # ── 3. Thống kê thu nhập (từ contracts completed có agreed_price) ─────────
+    import calendar
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+    period_range = f"01/{today.month:02d} - {last_day:02d}/{today.month:02d}/{today.year}"
+
+    # 1. Thu nhập trong kỳ hiện tại: Hợp đồng hoàn tất (nghiệm thu giải ngân) trong tháng hiện tại
+    monthly_contracts = [
+        c for c in contracts_done
+        if c.updated_at and c.updated_at.date() >= first_of_month and c.updated_at.date() <= end_of_month
+    ]
+    monthly_earned = sum(c.agreed_price for c in monthly_contracts if c.agreed_price)
+
+    # 2. Thu nhập đã thanh toán: Tổng các khoản thực sự đã thanh toán (nghiệm thu/giải ngân tích lũy)
+    total_earned = sum(c.agreed_price for c in contracts_done if c.agreed_price)
+
+    # 3. Khoản thu nhập đang chờ xử lý:
+    # - Tiền đang giữ an toàn trong Escrow cho các hợp đồng đang thực hiện (in_progress, active, escrow_held)
+    pending_payout = sum(c.agreed_price for c in contracts_active if c.agreed_price)
+    # - Khoản chờ khách nạp tiền ký quỹ Escrow (escrow_pending)
+    escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
+
+    income_stats = {
+        'total_earned':              total_earned,
+        'monthly_earned':            monthly_earned,
+        'pending_payout':            pending_payout,
+        'escrow_pending_amount':     escrow_pending_amount,
+        'period_label':              period_label,
+        'period_range':              period_range,
+        'period_start':              f"01/{today.month:02d}/{today.year}",
+        'period_end':                f"{last_day:02d}/{today.month:02d}/{today.year}",
+        'monthly_contracts_count':   len(monthly_contracts),
+        'completed_contracts_count': len(contracts_done),
+        'active_contracts_count':    len(contracts_active),
+        'escrow_pending_count':      len(contracts_pending_payment),
+    }
+
+    # ── 4. Ca làm sắp tới (Sắp xếp tăng dần theo thời điểm bắt đầu) ────────
+    from datetime import datetime as dt_cls, time as time_cls
+    from services.schedule import _parse_date, _parse_time
+    now = dt_cls.now()
+    now_time = now.time()
+
+    WEEKDAYS_VN = {
+        0: 'Thứ Hai',
+        1: 'Thứ Ba',
+        2: 'Thứ Tư',
+        3: 'Thứ Năm',
+        4: 'Thứ Sáu',
+        5: 'Thứ Bảy',
+        6: 'Chủ Nhật'
+    }
+
+    upcoming_shifts_list = []
+    seen_contract_ids = set()
+
+    # Nguồn 1: Các lịch đặt trong TranslatorSchedule (status reserved hoặc active)
+    for sch in upcoming_schedules_all:
+        if not sch.scheduled_date:
+            continue
+        # Bỏ qua ca đã qua trong ngày hôm nay nếu end_time đã kết thúc và không còn active
+        if sch.scheduled_date == today and sch.end_time and sch.end_time < now_time and sch.status != 'active':
+            continue
+
+        c = sch.contract
+        j = sch.job or (c.job if c else None)
+        s = sch.service or (c.service if c else None)
+
+        if c:
+            seen_contract_ids.add(c.id)
+
+        # Tiêu đề ca làm việc
+        title = None
+        if j and j.title:
+            title = j.title
+        elif s and s.name:
+            title = s.name
+        elif c:
+            title = f"Hợp đồng phiên dịch #{c.id}"
+        else:
+            title = f"Ca phiên dịch #{sch.id}"
+
+        # Hình thức làm việc & Địa điểm
+        raw_location = (c.location if c and c.location else (j.event_location if j and j.event_location else '')).strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        # Trạng thái ca làm việc
+        is_active_now = (sch.status == 'active' or (sch.scheduled_date == today and sch.start_time and sch.start_time <= now_time and sch.end_time and sch.end_time >= now_time))
+        if is_active_now:
+            status_meta = {
+                'code': 'active',
+                'label': 'Đang diễn ra',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500 animate-pulse'
+            }
+        elif sch.status == 'active':
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đã xác nhận',
+                'badge_bg': 'bg-blue-50',
+                'badge_text': 'text-blue-700',
+                'badge_border': 'border-blue-200',
+                'dot_color': 'bg-blue-500'
+            }
+        else:
+            status_meta = {
+                'code': 'reserved',
+                'label': 'Chờ bắt đầu',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        # Nhãn thời gian tương đối
+        delta_days = (sch.scheduled_date - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = sch.start_time.strftime('%H:%M') if sch.start_time else ''
+        end_str = sch.end_time.strftime('%H:%M') if sch.end_time else ''
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        if c:
+            detail_url = url_for('transaction_detail', contract_id=c.id)
+        elif j:
+            detail_url = url_for('job_detail', job_id=j.id)
+        else:
+            detail_url = url_for('account_history')
+
+        client_name = c.hirer.name if (c and c.hirer) else (j.hirer.name if (j and j.hirer) else None)
+        category_name = j.display_category_text() if j else (s.name if s else 'Phiên dịch')
+
+        upcoming_shifts_list.append({
+            'id': sch.id,
+            'contract_id': c.id if c else None,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': sch.scheduled_date,
+            'date_display': sch.scheduled_date.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(sch.scheduled_date.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': sch.start_time or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': detail_url,
+            'client_name': client_name,
+            'category_name': category_name,
+            'price': c.agreed_price if c else None
+        })
+
+    # Nguồn 2: Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa tạo TranslatorSchedule
+    for c in contracts_active + contracts_pending_payment:
+        if c.id in seen_contract_ids:
+            continue
+        raw_d = _parse_date(c.scheduled_date)
+        if not raw_d or raw_d < today:
+            continue
+
+        start_t = _parse_time(c.scheduled_time_start)
+        end_t = _parse_time(c.scheduled_time_end)
+
+        if raw_d == today and end_t and end_t < now_time:
+            continue
+
+        seen_contract_ids.add(c.id)
+        j = c.job
+        s = c.service
+        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hợp đồng phiên dịch #{c.id}")
+
+        raw_location = (c.location or (j.event_location if j else '') or '').strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+            'location': raw_location if is_onsite else 'Online / Từ xa'
+        }
+
+        if c.status in ('in_progress', 'active', 'escrow_held'):
+            status_meta = {
+                'code': 'confirmed',
+                'label': 'Đang thực hiện (Escrow)',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500'
+            }
+        else:
+            status_meta = {
+                'code': 'pending_escrow',
+                'label': 'Chờ ký quỹ Escrow',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        delta_days = (raw_d - today).days
+        if delta_days == 0:
+            relative_badge = 'Hôm nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ngày mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ngày'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ngày')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = start_t.strftime('%H:%M') if start_t else (c.scheduled_time_start or '')
+        end_str = end_t.strftime('%H:%M') if end_t else (c.scheduled_time_end or '')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+
+        upcoming_shifts_list.append({
+            'id': c.id,
+            'contract_id': c.id,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': raw_d,
+            'date_display': raw_d.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(raw_d.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': start_t or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': url_for('transaction_detail', contract_id=c.id),
+            'client_name': c.hirer.name if c.hirer else None,
+            'category_name': j.display_category_text() if j else 'Phiên dịch',
+            'price': c.agreed_price
+        })
+
+    # Sắp xếp tăng dần theo thời gian bắt đầu
+    upcoming_shifts_list.sort(key=lambda x: (x['scheduled_date'], x['start_time'] or time_cls(0, 0)))
+    total_upcoming_shifts = len(upcoming_shifts_list)
+    upcoming_shifts = upcoming_shifts_list[:6]
+    upcoming_schedules = upcoming_shifts
+
+    # ── 5. Việc làm đề xuất (dùng matching service hiện có) ──────────────────
+    has_profile_languages = bool(
+        (profile and profile.languages and profile.languages.strip()) or
+        (preference and preference.languages and preference.languages.strip()) or
+        (preference and getattr(preference, 'language_pairs', None) and preference.language_pairs.strip())
+    )
+
+    recommended_jobs = []
+    try:
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        recommended_raw = get_recommended_jobs_for_translator(uid, 6, current_lang)
+        if recommended_raw:
+            job_ids = [r['job_id'] for r in recommended_raw]
+            jobs_map = {j.id: j for j in Job.query.filter(Job.id.in_(job_ids)).all()}
+            for r in recommended_raw:
+                j = jobs_map.get(r['job_id'])
+                if j and j.status == 'open' and not j.is_flagged:
+                    loc = (j.event_location or '').strip()
+                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+
+                    recommended_jobs.append({
+                        'job': j,
+                        'match_score': r.get('match_score', 0),
+                        'reasons': r.get('reasons', []),
+                        'is_matched': True,
+                        'work_mode_label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+                        'work_mode_type': 'onsite' if is_onsite else 'online',
+                        'location_display': loc if is_onsite else 'Online / Từ xa',
+                        'applicant_count': j.applicant_count,
+                        'category_text': j.display_category_text(current_lang),
+                    })
+    except Exception as e:
+        print(f"[interpreter_dashboard] recommended jobs error: {e}")
+        recommended_jobs = []
+
+    # ── 6. Việc cần xử lý (Tasks & Action Items) ─────────────────────────────
+    action_items = []
+
+    # 1. Phản hồi lời mời làm việc từ khách hàng (Ưu tiên cao nhất)
+    try:
+        invitation_notifs = Notification.query.filter_by(
+            user_id=uid,
+            type='JOB_INVITATION'
+        ).order_by(Notification.created_at.desc()).all()
+
+        for notif in invitation_notifs:
+            if notif.related_job_id:
+                inv_job = Job.query.get(notif.related_job_id)
+                if inv_job and inv_job.status == 'open' and not inv_job.is_flagged:
+                    has_applied = Proposal.query.filter_by(job_id=inv_job.id, translator_id=uid).first()
+                    if not has_applied:
+                        action_items.append({
+                            'id': f"invitation_{inv_job.id}",
+                            'type': 'job_invitation',
+                            'title': f"Phản hồi lời mời: {inv_job.title}",
+                            'description': f"Khách hàng {inv_job.hirer.name if inv_job.hirer else ''} đã gửi lời mời bạn tham gia phiên dịch ({inv_job.source_lang} → {inv_job.target_lang}). Hãy xem mô tả và gửi báo giá.",
+                            'status_label': 'Chờ phản hồi',
+                            'priority_label': 'Khẩn cấp',
+                            'priority_badge': 'bg-rose-50 text-rose-700 border-rose-200',
+                            'icon_type': 'invitation',
+                            'url': url_for('job_detail', job_id=inv_job.id),
+                            'action_text': 'Phản hồi lời mời →',
+                        })
+    except Exception as e:
+        print(f"[interpreter_dashboard] invitation action error: {e}")
+
+    # 2. Hoàn thiện hồ sơ cá nhân (Nếu profile_completeness < 100%)
+    if profile_completeness < 100:
+        missing_str = ', '.join(profile_missing) if profile_missing else 'thông tin cần thiết'
+        action_items.append({
+            'id': 'profile_incomplete',
+            'type': 'profile_completion',
+            'title': 'Hoàn thiện hồ sơ cá nhân',
+            'description': f"Hồ sơ hiện đạt {profile_completeness}%. Bạn cần bổ sung: {missing_str} để tăng uy tín và cơ hội nhận việc.",
+            'status_label': f"Còn thiếu ({profile_completeness}%)",
+            'priority_label': 'Quan trọng',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'profile',
+            'url': url_for('account_profile'),
+            'action_text': 'Hoàn thiện hồ sơ →',
+        })
+
+    # 3. Bổ sung chứng chỉ xác minh hồ sơ (Nếu chưa nộp chứng chỉ)
+    if verification_status and verification_status.get('code') in ('unverified', 'no_profile'):
+        action_items.append({
+            'id': 'profile_verification',
+            'type': 'verification',
+            'title': 'Bổ sung chứng chỉ để xác minh hồ sơ',
+            'description': 'Bạn chưa nộp chứng chỉ ngoại ngữ. Hãy bổ sung bằng cấp/chứng chỉ (IELTS, JLPT, HSK...) để được Ban quản trị duyệt cấp huy hiệu uy tín.',
+            'status_label': 'Chưa xác minh',
+            'priority_label': 'Khuyên dùng',
+            'priority_badge': 'bg-blue-50 text-blue-700 border-blue-200',
+            'icon_type': 'verification',
+            'url': url_for('account_verification'),
+            'action_text': 'Nộp chứng chỉ →',
+        })
+
+    # 4. Hợp đồng đang thực hiện cần bàn giao / tiến độ
+    for c in contracts_active:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        price_str = f"{c.agreed_price:,} VND".replace(',', '.') if c.agreed_price else ""
+        action_items.append({
+            'id': f"contract_{c.id}",
+            'type': 'contract_in_progress',
+            'title': f"Bàn giao & Thực hiện: {job_title}",
+            'description': f"Hợp đồng trị giá {price_str} đang được Escrow bảo chứng. Vui lòng theo dõi tiến độ, trao đổi với khách và hoàn tất ca dịch.",
+            'status_label': 'Đang thực hiện',
+            'priority_label': 'Cần bàn giao',
+            'priority_badge': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+            'icon_type': 'contract',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Vào phòng làm việc →',
+        })
+
+    # 5. Hợp đồng chờ khách nạp Escrow
+    for c in contracts_pending_payment:
+        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
+        action_items.append({
+            'id': f"escrow_{c.id}",
+            'type': 'escrow_pending',
+            'title': f"Theo dõi nạp ký quỹ: {job_title}",
+            'description': "Đề xuất đã được khách chấp thuận nhưng chưa hoàn tất nạp tiền vào Escrow. Lưu ý chỉ bắt đầu phiên dịch khi tiền đã vào Escrow an toàn.",
+            'status_label': 'Chờ khách nạp tiền',
+            'priority_label': 'Lưu ý',
+            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
+            'icon_type': 'escrow',
+            'url': url_for('transaction_detail', contract_id=c.id),
+            'action_text': 'Chi tiết hợp đồng →',
+        })
+
+    # ── 7. Thông báo gần đây (5 thông báo mới nhất) ──────────────────────────
+    recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
+        Notification.created_at.desc()
+    ).limit(5).all()
+
+    unread_notifications_count = Notification.query.filter_by(
+        user_id=uid, is_read=False
+    ).count()
+
+    from datetime import datetime as dt_cls
+    now_dt = dt_cls.utcnow()
+
+    recent_notifications = []
+    for n in recent_notifications_raw:
+        # Xác định target_url an toàn và chuẩn xác
+        target_url = None
+        if n.url and n.url.strip() and n.url != '#':
+            target_url = n.url.strip()
+        elif n.related_contract_id:
+            target_url = url_for('transaction_detail', contract_id=n.related_contract_id)
+        elif n.related_job_id:
+            target_url = url_for('job_detail', job_id=n.related_job_id)
+        elif n.type in ('CONTRACT_CREATED', 'CONTRACT_COMPLETED', 'PAYMENT'):
+            target_url = url_for('account_history')
+        elif n.type == 'NEW_MESSAGE':
+            target_url = url_for('messages_page')
+        elif n.type in ('JOB_MATCH', 'JOB_INVITATION', 'JOB_APPLICATION'):
+            target_url = url_for('job_list')
+        else:
+            target_url = url_for('notifications_page')
+
+        # Thời gian tương đối
+        time_ago_str = ""
+        if n.created_at:
+            delta_seconds = int((now_dt - n.created_at).total_seconds())
+            if delta_seconds < 60:
+                time_ago_str = "Vừa xong"
+            elif delta_seconds < 3600:
+                time_ago_str = f"{max(1, delta_seconds // 60)} phút trước"
+            elif delta_seconds < 86400:
+                time_ago_str = f"{delta_seconds // 3600} giờ trước"
+            elif delta_seconds < 172800:
+                time_ago_str = "Hôm qua"
+            else:
+                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
+
+        # Phân loại và icon/badge meta
+        ntype = n.type or ''
+        if 'INVITATION' in ntype:
+            cat_label = 'Lời mời việc'
+            icon_kind = 'invitation'
+            cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+            icon_bg = 'bg-rose-100 text-rose-600'
+        elif 'MATCH' in ntype:
+            cat_label = 'Việc phù hợp'
+            icon_kind = 'match'
+            cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
+            icon_bg = 'bg-blue-100 text-blue-600'
+        elif 'PROPOSAL_ACCEPTED' in ntype:
+            cat_label = 'Đã chấp thuận'
+            icon_kind = 'accepted'
+            cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            icon_bg = 'bg-emerald-100 text-emerald-600'
+        elif 'PROPOSAL_REJECTED' in ntype:
+            cat_label = 'Từ chối'
+            icon_kind = 'rejected'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+        elif 'CONTRACT' in ntype:
+            cat_label = 'Hợp đồng'
+            icon_kind = 'contract'
+            cat_badge = 'bg-indigo-50 text-indigo-700 border-indigo-200'
+            icon_bg = 'bg-indigo-100 text-indigo-600'
+        elif 'PAYMENT' in ntype:
+            cat_label = 'Ký quỹ / Tiền'
+            icon_kind = 'payment'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        elif 'MESSAGE' in ntype:
+            cat_label = 'Tin nhắn'
+            icon_kind = 'message'
+            cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+            icon_bg = 'bg-purple-100 text-purple-600'
+        elif 'REVIEW' in ntype:
+            cat_label = 'Đánh giá'
+            icon_kind = 'review'
+            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
+            icon_bg = 'bg-amber-100 text-amber-600'
+        else:
+            cat_label = 'Hệ thống'
+            icon_kind = 'bell'
+            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
+            icon_bg = 'bg-slate-100 text-slate-600'
+
+        recent_notifications.append({
+            'id': n.id,
+            'type': n.type,
+            'title': n.title,
+            'message': n.message,
+            'is_read': n.is_read,
+            'created_at': n.created_at,
+            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+            'time_ago': time_ago_str,
+            'target_url': target_url,
+            'cat_label': cat_label,
+            'icon_kind': icon_kind,
+            'cat_badge': cat_badge,
+            'icon_bg': icon_bg,
+        })
+
+    return render_template(
+        'interpreter_dashboard.html',
+        user=user,
+        profile=profile,
+        profile_completeness=profile_completeness,
+        profile_missing=profile_missing,
+        verification_status=verification_status,
+        job_stats=job_stats,
+        income_stats=income_stats,
+        upcoming_schedules=upcoming_schedules,
+        upcoming_shifts=upcoming_shifts,
+        total_upcoming_shifts=total_upcoming_shifts,
+        recommended_jobs=recommended_jobs,
+        has_profile_languages=has_profile_languages,
+        action_items=action_items,
+        recent_notifications=recent_notifications,
+        unread_notifications_count=unread_notifications_count,
+        today=today,
+    )
+
+@app.route('/account/verification')
+@login_required
+def account_verification():
+    """Điều hướng đến khu vực quản lý hồ sơ và chứng chỉ xác minh của phiên dịch viên."""
+    user = get_current_user()
+    if not user:
+        return redirect(url_for('login'))
+    if user.role != 'translator':
+        flash('Chức năng xác minh hồ sơ chỉ dành cho phiên dịch viên.', 'info')
+        return redirect(url_for('account_profile'))
+    return redirect(url_for('account_profile', tab='translator'))
 
 @app.route('/about')
 def about():
@@ -1011,6 +1924,9 @@ def login():
                 if not user.is_active:
                     flash(_t('flash.account_locked'), 'error')
                     return render_template('login.html', email=email)
+                if getattr(user, 'role', '') == 'admin' and not getattr(user, 'is_admin', False):
+                    flash('Tài khoản của bạn đã bị thu hồi quyền truy cập.', 'error')
+                    return render_template('login.html', email=email)
                 if check_password_hash(user.password_hash, password):
                     session.clear()
                     session.permanent = True
@@ -1018,7 +1934,11 @@ def login():
                     flash(_t('flash.login_success'), 'success')
                     # TASK 4A: Role redirect
                     if user.is_admin:
-                        return redirect(url_for('admin_dashboard'))
+                        session.clear()
+                        flash("Tài khoản Quản trị vui lòng sử dụng cổng đăng nhập riêng.", "warning")
+                        return redirect(url_for('admin_login'))
+                    if user.role == 'translator':
+                        return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
@@ -1036,6 +1956,132 @@ def login():
             return render_template('login.html', email=email)
 
     return render_template('login.html')
+
+
+import secrets
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip().lower()
+        
+        # Luôn thông báo chung chung để tránh lộ email
+        msg = "Nếu email hợp lệ, hướng dẫn khôi phục mật khẩu sẽ được gửi đến bạn."
+        
+        user = User.query.filter_by(email=email).first()
+        if user and user.is_active:
+            # Vô hiệu hóa token cũ
+            old_tokens = PasswordResetToken.query.filter_by(user_id=user.id, is_used=False).all()
+            for t in old_tokens:
+                t.is_used = True
+            
+            # Tạo token mới
+            token_str = secrets.token_urlsafe(32)
+            token_hash = generate_password_hash(token_str)
+            expires_at = datetime.utcnow() + timedelta(minutes=30)
+            
+            reset_token = PasswordResetToken(
+                user_id=user.id,
+                token_hash=token_hash,
+                expires_at=expires_at
+            )
+            db.session.add(reset_token)
+            
+            # Log nếu là admin
+            if user.is_admin:
+                from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+                AdminAuditLog.log(
+                    action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
+                    admin_id=user.id,
+                    description=f'Admin yêu cầu khôi phục mật khẩu. Email: {user.email}',
+                    ip_address=get_client_ip(),
+                    user_agent=request.headers.get('User-Agent', '')[:512],
+                )
+                
+            db.session.commit()
+            
+            # Gửi email
+            from services.email import send_reset_password_email
+            reset_url = url_for('reset_password', token=token_str, email=email, _external=True)
+            success, err_msg = send_reset_password_email(user.email, reset_url)
+            
+            if not success:
+                # Rollback nếu gửi fail
+                db.session.delete(reset_token)
+                db.session.commit()
+                flash("Hệ thống email đang gặp sự cố. Vui lòng thử lại sau.", "error")
+                return render_template('forgot_password.html')
+                
+        flash(msg, 'success')
+        return redirect(url_for('login'))
+        
+    return render_template('forgot_password.html')
+
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    email = request.args.get('email', '')
+    if not email:
+        flash("Liên kết không hợp lệ.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        flash("Liên kết không hợp lệ.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    # Tìm token chưa sử dụng, chưa hết hạn
+    valid_tokens = PasswordResetToken.query.filter_by(user_id=user.id, is_used=False).all()
+    matched_token = None
+    
+    for t in valid_tokens:
+        if t.is_valid() and check_password_hash(t.token_hash, token):
+            matched_token = t
+            break
+            
+    if not matched_token:
+        flash("Liên kết đã hết hạn hoặc không hợp lệ. Vui lòng yêu cầu lại.", "error")
+        return redirect(url_for('forgot_password'))
+        
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if len(new_password) < 6:
+            flash("Mật khẩu phải có ít nhất 6 ký tự.", "error")
+            return render_template('reset_password.html', token=token, email=email)
+            
+        if new_password != confirm_password:
+            flash("Mật khẩu xác nhận không khớp.", "error")
+            return render_template('reset_password.html', token=token, email=email)
+            
+        # Cập nhật mật khẩu
+        user.password_hash = generate_password_hash(new_password)
+        
+        # Vô hiệu hóa token
+        matched_token.is_used = True
+        
+        # Vô hiệu hóa tất cả token khôi phục khác của user này
+        for t in valid_tokens:
+            t.is_used = True
+            
+        # Log nếu là admin
+        if user.is_admin:
+            from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+            AdminAuditLog.log(
+                action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
+                admin_id=user.id,
+                description=f'Admin đã đổi mật khẩu thành công thông qua chức năng khôi phục. Email: {user.email}',
+                ip_address=get_client_ip(),
+                user_agent=request.headers.get('User-Agent', '')[:512],
+            )
+            
+        db.session.commit()
+        
+        flash("Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.", "success")
+        return redirect(url_for('login'))
+        
+    return render_template('reset_password.html', token=token, email=email)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -1086,8 +2132,27 @@ def register():
                 hirer_profile = HirerProfile(user_id=new_user.id)
                 db.session.add(hirer_profile)
 
+            # Generate Email Verification Token
+            import secrets
+            token_str = secrets.token_urlsafe(32)
+            token_hash = generate_password_hash(token_str)
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+            
+            verif_token = EmailVerificationToken(
+                user_id=new_user.id,
+                token_hash=token_hash,
+                expires_at=expires_at
+            )
+            db.session.add(verif_token)
+
             db.session.commit()
-            flash(_t('flash.register_success'), 'success')
+            
+            # Gửi email xác minh
+            from services.email import send_verification_email
+            verify_url = url_for('verify_email', token=token_str, email=email, _external=True)
+            send_verification_email(new_user.email, verify_url)
+            
+            flash("Đăng ký thành công! Vui lòng kiểm tra hộp thư email của bạn để xác minh tài khoản trước khi tiếp tục.", 'success')
             return redirect(url_for('login'))
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -1100,6 +2165,77 @@ def register():
             flash(_t('flash.db_error'), 'error')
             return redirect(url_for('register'))
     return render_template('register.html')
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    email = request.args.get('email', '').strip().lower()
+    user = User.query.filter_by(email=email).first()
+    
+    if not user:
+        flash("Email không tồn tại.", "error")
+        return redirect(url_for('login'))
+        
+    if user.email_verified:
+        flash("Email này đã được xác minh từ trước.", "info")
+        return redirect(url_for('login'))
+        
+    tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+    valid_token = None
+    for t in tokens:
+        if check_password_hash(t.token_hash, token) and t.expires_at > datetime.utcnow():
+            valid_token = t
+            break
+            
+    if not valid_token:
+        flash("Liên kết xác minh không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu liên kết mới.", "error")
+        return redirect(url_for('login'))
+        
+    # Đánh dấu token đã dùng và email đã xác minh
+    valid_token.is_used = True
+    user.email_verified = True
+    db.session.commit()
+    
+    flash("Xác minh email thành công! Bạn có thể bắt đầu sử dụng đầy đủ các tính năng.", "success")
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification-email', methods=['POST'])
+def resend_verification_email():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Bạn cần đăng nhập để thực hiện.'}), 401
+        
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Tài khoản không hợp lệ.'}), 400
+        
+    if user.email_verified:
+        return jsonify({'success': False, 'message': 'Email đã được xác minh.'}), 400
+        
+    # Vô hiệu hóa token cũ
+    old_tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+    for t in old_tokens:
+        t.is_used = True
+        
+    import secrets
+    token_str = secrets.token_urlsafe(32)
+    token_hash = generate_password_hash(token_str)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    
+    new_token = EmailVerificationToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires_at
+    )
+    db.session.add(new_token)
+    db.session.commit()
+    
+    from services.email import send_verification_email
+    verify_url = url_for('verify_email', token=token_str, email=user.email, _external=True)
+    success, err_msg = send_verification_email(user.email, verify_url)
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Email xác minh mới đã được gửi.'})
+    else:
+        return jsonify({'success': False, 'message': 'Gửi email thất bại. Vui lòng thử lại sau.'}), 500
 
 @app.route('/logout')
 def logout():
@@ -1441,6 +2577,10 @@ def account_profile():
             
             pref.languages = ",".join(request.form.getlist('languages'))
             pref.service_types = ",".join(request.form.getlist('service_types'))
+            pref.specialties = ",".join(f for f in HIRING_FIELDS if f in request.form.getlist('specialties'))
+            pref.city = request.form.get('city', '').strip()[:100] or None
+            pref.work_mode = request.form.get('work_mode') if request.form.get('work_mode') in ('onsite', 'online', 'both') else None
+            pref.offers_certified = 'offers_certified' in request.form
             pref.notify_new_jobs = 'notify_new_jobs' in request.form
             pref.notify_messages = 'notify_messages' in request.form
             pref.notify_contracts = 'notify_contracts' in request.form
@@ -1453,11 +2593,18 @@ def account_profile():
             if not profile:
                 profile = HirerProfile(user_id=user.id)
                 db.session.add(profile)
-            profile.title = request.form.get('title', '').strip()
-            profile.company = request.form.get('company', '').strip()
-            profile.location = request.form.get('location', '').strip()
-            db.session.commit()
-            flash(_t('flash.hirer_profile_updated'), 'success')
+            errors = _apply_hirer_profile_form(user, profile, request.form, request.files)
+            if errors:
+                db.session.rollback()
+                for msg in errors:
+                    flash(msg, 'error')
+            else:
+                db.session.commit()
+                flash(_t('flash.hirer_profile_updated'), 'success')
+                if profile.is_verified:
+                    flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
+                else:
+                    flash('Hồ sơ đã được lưu và gửi yêu cầu xác minh tới Admin. Chức năng đăng job sẽ được kích hoạt sau khi Admin xét duyệt.', 'info')
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -1509,7 +2656,7 @@ def account_profile():
 
 
 @app.route('/account/verification/submit', methods=['POST'])
-@login_required
+@email_verified_required
 def submit_verification():
     """Nhận và xử lý gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị."""
     uid = session.get('user_id')
@@ -1589,7 +2736,7 @@ def submit_verification():
 # ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
 
 @app.route('/account/verification/documents/upload', methods=['POST'])
-@login_required
+@email_verified_required
 def upload_verification_document():
     """
     Endpoint tải lên tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
@@ -1730,7 +2877,7 @@ def view_verification_document(doc_id):
 
 
 @app.route('/account/verification/documents/<int:doc_id>/delete', methods=['POST'])
-@login_required
+@email_verified_required
 def delete_verification_document_endpoint(doc_id):
     """
     Endpoint xóa/hủy tài liệu minh chứng nháp.
@@ -1802,7 +2949,7 @@ def get_verification_documents_api():
 
 @app.route('/account/verification/form', methods=['GET', 'POST'])
 @app.route('/verification/apply', methods=['GET', 'POST'])
-@login_required
+@email_verified_required
 def verification_form():
     """
     Biểu mẫu nhiều bước khai báo thông tin xác minh phiên dịch viên (VietTranslate).
@@ -2376,8 +3523,6 @@ def remove_avatar_endpoint():
     flash(msg, 'success')
     return redirect(url_for('account_profile'))
 
-def get_translator_preferences(user_id):
-    return TranslatorPreference.query.filter_by(translator_id=user_id).first()
 
 def translator_accepts_job(translator, job):
     if translator.role != 'translator' or not translator.is_active:
@@ -2423,22 +3568,73 @@ def translator_accepts_job(translator, job):
     return True
 
 
-def get_job_applicant_count(job_id):
-    return Proposal.query.filter_by(job_id=job_id).count()
 
 
 @app.route('/account/history')
 @login_required
 def account_history():
+    from datetime import date as date_cls
+    import calendar
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
+
+    status_filter = request.args.get('status')
+    prop_filter = request.args.get('prop_status')
+    period_filter = request.args.get('period')
+
+    today = date_cls.today()
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Tháng {today.month:02d}/{today.year}"
+
     if user.role == 'hirer':
-        contracts = Contract.query.filter_by(hirer_id=user.id).order_by(Contract.created_at.desc()).all()
+        query = Contract.query.filter_by(hirer_id=user.id)
+        if status_filter:
+            query = query.filter_by(status=status_filter)
+        if period_filter == 'current_month':
+            query = query.filter(Contract.created_at >= first_of_month)
+        contracts = query.order_by(Contract.created_at.desc()).all()
+        proposals = []
     else:
-        contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    return render_template('account_history.html', user=user, contracts=contracts)
+        query = Contract.query.filter_by(translator_id=user.id)
+        if status_filter:
+            if status_filter in ('in_progress', 'active', 'escrow_held'):
+                query = query.filter(Contract.status.in_(['in_progress', 'active', 'escrow_held']))
+            else:
+                query = query.filter_by(status=status_filter)
+
+        if period_filter == 'current_month':
+            # Với hợp đồng đã hoàn tất, kỳ thống kê căn cứ vào ngày hoàn tất (updated_at)
+            if status_filter == 'completed':
+                query = query.filter(Contract.updated_at >= first_of_month)
+            else:
+                query = query.filter(
+                    db.or_(Contract.updated_at >= first_of_month, Contract.created_at >= first_of_month)
+                )
+
+        contracts = query.order_by(Contract.created_at.desc()).all()
+
+        prop_query = Proposal.query.filter_by(translator_id=user.id)
+        if prop_filter:
+            prop_query = prop_query.filter_by(status=prop_filter)
+        proposals = prop_query.order_by(Proposal.created_at.desc()).all()
+
+    filtered_income_total = sum(c.agreed_price for c in contracts if c.agreed_price)
+
+    return render_template(
+        'account_history.html',
+        user=user,
+        contracts=contracts,
+        proposals=proposals,
+        status_filter=status_filter,
+        prop_filter=prop_filter,
+        period_filter=period_filter,
+        period_label=period_label,
+        filtered_income_total=filtered_income_total
+    )
 
 @app.route('/my-schedule')
 @login_required
@@ -2467,6 +3663,7 @@ def translator_list():
     per_page = 9
 
     query = TranslatorProfile.query.join(User).filter(
+        TranslatorProfile.is_verified == True,
         User.is_active == True,
         db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
     )
@@ -2501,19 +3698,6 @@ def api_health():
         'services': service_count,
     })
 
-@app.route('/api/debug-index')
-def debug_index():
-    import traceback
-    try:
-        top_translators = TranslatorProfile.query.filter_by(is_verified=True).order_by(
-            TranslatorProfile.rating.desc()).limit(4).all()
-        if not top_translators:
-            top_translators = TranslatorProfile.query.order_by(TranslatorProfile.rating.desc()).limit(4).all()
-        latest_jobs = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None)).order_by(Job.created_at.desc()).limit(4).all()
-        html = render_template('index.html', top_translators=top_translators, latest_jobs=latest_jobs)
-        return jsonify({'status': 'ok', 'html_length': len(html)})
-    except Exception as e:
-        return jsonify({'status': 'error', 'error': str(e), 'traceback': traceback.format_exc()})
 
 @app.route('/api/translators')
 def api_translators():
@@ -2523,6 +3707,9 @@ def api_translators():
         profiles = TranslatorProfile.query.options(
             joinedload(TranslatorProfile.user),
             joinedload(TranslatorProfile.services)
+        ).join(User).filter(
+            TranslatorProfile.is_verified == True,
+            User.is_active == True
         ).order_by(TranslatorProfile.rating.desc()).all()
         data = []
         for p in profiles:
@@ -2604,7 +3791,6 @@ def translator_profile(profile_id):
             is_private=(getattr(profile, 'is_public', True) is False),
             access_reason=access_reason
         ), status_code
-
     # Reviews received by this translator
     reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
     verification = profile.latest_verification
@@ -2695,11 +3881,20 @@ def hirer_profile(hirer_id):
         
     profile = user.hirer_profile
     
-    # Calculate stats
-    total_jobs = Job.query.filter_by(hirer_id=hirer_id).count()
-    completed_contracts = Contract.query.join(Job).filter(Job.hirer_id == hirer_id, Contract.status == 'completed').count()
+    from services.permissions import can_view_profile
+    if profile and not can_view_profile(profile, get_current_user()):
+        abort(404)
     
-    return render_template('hirer_profile.html', user=user, profile=profile, total_jobs=total_jobs, completed_contracts=completed_contracts)
+    from services.hirer import get_hirer_stats
+    stats = get_hirer_stats(hirer_id)
+    reviews = Review.query.filter_by(reviewee_id=hirer_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
+
+    is_verified = bool(profile and profile.is_verified)
+    viewer = get_current_user()
+    is_owner = bool(viewer and getattr(viewer, 'id', None) == user.id)
+    return render_template('hirer_profile.html', user=user, profile=profile, reviews=reviews, stats=stats,
+                           total_jobs=stats['total_jobs'], completed_contracts=stats['completed_contracts'],
+                           is_verified=is_verified, is_owner=is_owner)
 
 @app.route('/translator/<string:lang_slug>')
 def translator_language(lang_slug):
@@ -2872,12 +4067,6 @@ def serve_chat_image(filename):
     abort(404)
 
 
-@app.route('/tmp/<path:filename>')
-def serve_tmp_file(filename):
-    """Phục vụ file từ thư mục /tmp nếu có."""
-    if os.path.exists(os.path.join('/tmp', filename)):
-        return send_from_directory('/tmp', filename)
-    abort(404)
 
 
 # ─── MESSAGES PAGE ─────────────────────────────────────────────────────────────
@@ -3026,6 +4215,8 @@ def book_service(service_id):
                 service_id=service.id
             )
             flash(_t('flash.service_booked'), 'success')
+            if contract.status == 'awaiting_translator':
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
             return redirect(url_for('payment_mockup', contract_id=contract.id))
             
         except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
@@ -3062,7 +4253,15 @@ def post_job():
         flash(_t('flash.hirer_only_post'), 'error')
         return redirect(url_for('index'))
 
+    # TASK 3: BACKEND GATE - KIỂM TRA ĐIỀU KIỆN NGƯỜI ĐĂNG TUYỂN
+    from services.hirer_verification import can_hirer_post_job
+    can_post, cannot_post_reason, is_within_7_days = can_hirer_post_job(user)
+
     if request.method == 'POST':
+        if not can_post:
+            flash(cannot_post_reason, 'error')
+            return redirect(url_for('account_profile', tab='hirer_profile'))
+
         deadline_str = request.form.get('deadline')
         deadline = datetime.strptime(deadline_str, '%Y-%m-%d').date() if deadline_str else None
 
@@ -3086,12 +4285,21 @@ def post_job():
         if not is_valid:
             for err in errors:
                 flash(err['message'], 'error')
-            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form)
+            return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=request.form, hirer_verified=can_post)
 
         # Fallback for legacy fields (lấy ngày đầu tiên)
         legacy_date = entries[0]['scheduled_date'] if entries else ''
         legacy_start = entries[0]['start_time'] if entries else ''
         legacy_end = entries[0]['end_time'] if entries else ''
+
+        # Chống gửi trùng: cùng khách, cùng tiêu đề và mô tả đang chờ duyệt
+        duplicate = Job.query.filter_by(
+            hirer_id=session['user_id'], title=(request.form.get('title') or ''),
+            description=(request.form.get('description') or ''), status='pending'
+        ).first()
+        if duplicate:
+            flash('Job này đã được gửi và đang chờ admin duyệt, vui lòng không gửi lại.', 'warning')
+            return redirect(url_for('job_detail', job_id=duplicate.id))
 
         job = Job(
             hirer_id=session['user_id'],
@@ -3110,10 +4318,17 @@ def post_job():
             event_time_end=legacy_end,
             event_location=request.form.get('event_location', ''),
             deadline=deadline,
-            status='pending'
+            status='pending',
+            moderation_status='pending',
+            submission_version=1
         )
         db.session.add(job)
         db.session.flush() # Để lấy job.id
+
+        # Đánh giá 39 tiêu chí tự động và lưu snapshot
+        from services.job_moderation import evaluate_job_39_criteria
+        eval_result = evaluate_job_39_criteria(job)
+        job.moderation_checklist_data = json.dumps(eval_result)
 
         # Lưu chi tiết vào JobSchedule
         from models import JobSchedule
@@ -3126,21 +4341,69 @@ def post_job():
                 js = JobSchedule(
                     job_id=job.id,
                     scheduled_date=parsed_date,
-                    start_time=parsed_start,
-                    end_time=parsed_end
+                    start_time=parsed_start.strftime('%H:%M'),
+                    end_time=parsed_end.strftime('%H:%M')
                 )
                 db.session.add(js)
 
+        # Tạo thông báo quản trị Admin
+        try:
+            from models import AdminNotification
+            db.session.add(AdminNotification(
+                type='NEW_JOB',
+                title=f'Job mới chờ duyệt: #{job.id}',
+                message=f'{user.name} vừa nộp job "{job.title}". Kết quả: {eval_result["summary_label"]}',
+                related_id=job.id,
+                url=url_for('admin_job_review', job_id=job.id)
+            ))
+        except Exception:
+            pass
+
         db.session.commit()
 
-        # Notify matching translators (safe, won't block job creation if fails)
-        from services.matching import notify_matching_translators_for_new_job
-        notify_matching_translators_for_new_job(job)
-
-        flash(_t('flash.job_posted'), 'success')
+        # Job chỉ hiện trên trang chính và báo cho phiên dịch viên sau khi admin duyệt
+        flash('Job đã gửi, đang chờ admin duyệt theo tiêu chuẩn an toàn.' if get_locale() == 'vi'
+              else 'Job submitted — awaiting admin approval.', 'success')
         return redirect(url_for('job_detail', job_id=job.id))
-        
-    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={})
+
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data={},
+                           hirer_verified=can_post)
+
+@app.route('/job/<int:job_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_job(job_id):
+    """Người đăng chỉnh sửa nội dung job. Job sau khi sửa sẽ quay về 'Chờ duyệt' (Task 8.4)."""
+    job = Job.query.get_or_404(job_id)
+    user = get_current_user()
+    if not user or user.id != job.hirer_id:
+        abort(403)
+
+    from services.hirer_verification import can_hirer_post_job
+    can_post, _, _ = can_hirer_post_job(user)
+
+    if request.method == 'POST':
+        job.title = request.form.get('title', job.title)
+        job.description = request.form.get('description', job.description)
+        if request.form.get('budget_min'):
+            job.budget_min = int(request.form.get('budget_min') or 0)
+        if request.form.get('budget_max'):
+            job.budget_max = int(request.form.get('budget_max') or 0)
+        job.event_location = request.form.get('event_location', job.event_location)
+
+        # Sửa job đã duyệt: chuyển về pending để duyệt lại phiên bản mới (Task 8.4)
+        job.moderation_status = 'pending'
+        job.status = 'pending'
+        job.submission_version = (job.submission_version or 1) + 1
+
+        from services.job_moderation import evaluate_job_39_criteria
+        eval_result = evaluate_job_39_criteria(job)
+        job.moderation_checklist_data = json.dumps(eval_result)
+
+        db.session.commit()
+        flash('Nội dung công việc đã được cập nhật và chuyển vào hàng chờ duyệt lại.', 'success')
+        return redirect(url_for('job_detail', job_id=job.id))
+
+    return render_template('post_job.html', LANGUAGES=LANGUAGES, form_data=job, edit_mode=True, job=job, hirer_verified=can_post)
 
 @app.route('/jobs')
 def job_list():
@@ -3148,9 +4411,26 @@ def job_list():
     budget = request.args.get('budget', '')
     sort = request.args.get('sort', 'newest')
     page = request.args.get('page', 1, type=int)
+    recommended = request.args.get('recommended')
     per_page = 10
 
-    query = Job.query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
+    query = Job.query.join(User, Job.hirer_id == User.id).filter(
+        Job.status == 'open', 
+        Job.moderation_status == 'approved',
+        db.or_(Job.is_flagged == False, Job.is_flagged == None),
+        User.is_active == True
+    )
+
+    user = get_current_user()
+    if recommended and user and user.role == 'translator':
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        rec_list = get_recommended_jobs_for_translator(user.id, 50, current_lang)
+        rec_ids = [r['job_id'] for r in rec_list]
+        if rec_ids:
+            query = query.filter(Job.id.in_(rec_ids))
+        else:
+            query = query.filter(Job.id == -1)
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
@@ -3162,7 +4442,7 @@ def job_list():
 
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     return render_template('job_list.html', jobs=pagination.items, pagination=pagination,
-                           lang_filter=lang, LANGUAGES=LANGUAGES)
+                           lang_filter=lang, LANGUAGES=LANGUAGES, is_recommended=bool(recommended))
 
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
@@ -3170,13 +4450,10 @@ def job_detail(job_id):
 
     # ── 0. Access Control ─────────────────────────────────────────────────
     user = get_current_user()
-    is_owner = user and (user.id == job.hirer_id)
-    is_admin_user = session.get(ADMIN_SESSION_KEY) is not None
-
-    if job.is_flagged or job.status == 'pending':
-        if not (is_owner or is_admin_user):
-            flash('Bài đăng này đang chờ duyệt hoặc đã bị khoá.', 'warning')
-            return redirect(url_for('index'))
+    from services.permissions import can_view_job
+    if not can_view_job(job, user):
+        flash('Bài đăng này đang chờ duyệt, bị ẩn hoặc tài khoản người đăng không hoạt động.', 'warning')
+        return redirect(url_for('index'))
 
     if request.method == 'POST':
         # ── 1. Login & Role guard ─────────────────────────────────────────────
@@ -3380,6 +4657,15 @@ def payment_mockup(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
 
+    if session['user_id'] != contract.hirer_id:
+        abort(403)
+    if contract.status != 'escrow_pending':
+        if contract.status == 'awaiting_translator':
+            flash('Phiên dịch viên chưa xác nhận lịch, bạn chưa thể thanh toán.', 'warning')
+        else:
+            flash('Hợp đồng này không ở trạng thái chờ thanh toán.', 'error')
+        return redirect(url_for('transaction_detail', contract_id=contract.id))
+
     platform_fee = int(contract.agreed_price * 0.10)
     translator_receives = contract.agreed_price - platform_fee
     if request.method == 'POST':
@@ -3391,6 +4677,10 @@ def payment_mockup(contract_id):
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            db.session.add(PaymentTransaction(
+                contract_id=contract.id, user_id=contract.hirer_id,
+                amount=contract.agreed_price, status='escrow_pending',
+                payment_method='mockup'))
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -3489,6 +4779,32 @@ def transaction_detail(contract_id):
 
     return render_template('transaction_detail.html', contract=contract)
 
+@app.route('/contract/<int:contract_id>/<action>', methods=['POST'])
+@login_required
+def contract_action(contract_id, action):
+    """PDV xác nhận/từ chối lịch; hirer hoặc PDV hủy hợp đồng."""
+    if action not in ('accept', 'decline', 'cancel'):
+        abort(404)
+    contract = Contract.query.with_for_update().get_or_404(contract_id)
+    from services.permissions import require_contract_access
+    from services.contract_flow import (ContractFlowError, accept_booking,
+                                        decline_booking, cancel_contract)
+    require_contract_access(session['user_id'], contract)
+    try:
+        if action == 'accept':
+            accept_booking(contract, session['user_id'])
+            flash('Đã xác nhận lịch. Đang chờ khách thanh toán.', 'success')
+        elif action == 'decline':
+            decline_booking(contract, session['user_id'])
+            flash('Đã từ chối yêu cầu đặt lịch.', 'success')
+        else:
+            pct = cancel_contract(contract, session['user_id'])
+            flash('Đã hủy hợp đồng.' + (f' Khách được hoàn {pct}% số tiền đã thanh toán.' if pct else ''), 'success')
+    except ContractFlowError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    return redirect(url_for('transaction_detail', contract_id=contract_id))
+
 @app.route('/approve-contract/<int:contract_id>', methods=['POST'])
 @login_required
 def approve_contract(contract_id):
@@ -3497,6 +4813,8 @@ def approve_contract(contract_id):
     require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
         contract.status = 'completed'
+        for pay in PaymentTransaction.query.filter_by(contract_id=contract.id, status='escrow_pending').all():
+            pay.status = 'completed'
         if contract.job:
             contract.job.status = 'completed'
         prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
@@ -3540,6 +4858,12 @@ def submit_review(contract_id):
             review = Review(contract_id=contract.id, reviewer_id=reviewer_id,
                             reviewee_id=reviewee_id, rating=rating, comment=comment)
             db.session.add(review)
+
+        if reviewer_id == contract.translator_id:
+            # Phiên dịch viên đánh giá khách -> tính lại điểm của khách từ các review hiển thị
+            db.session.flush()
+            from services.hirer import recalculate_hirer_rating
+            recalculate_hirer_rating(contract.hirer_id)
 
         if reviewer_id == contract.hirer_id:
             prof = TranslatorProfile.query.filter_by(user_id=contract.translator_id).first()
@@ -3622,6 +4946,83 @@ def get_messages(contract_id):
                      'content': m.content, 'image_url': getattr(m, 'image_url', None),
                      'time': m.created_at.strftime('%H:%M %d/%m') if m.created_at else ''} for m in msgs])
 
+@app.route('/api/jobs/<int:job_id>/report', methods=['POST'])
+@login_required
+def report_job(job_id):
+    """
+    Phiên dịch viên hoặc người dùng gửi báo cáo vi phạm về Job.
+    Task 8.1: Khi đạt đủ 3 báo cáo độc lập từ 3 người dùng khác nhau,
+    Job sẽ tự động bị gắn cờ (is_flagged=True, moderation_status='flagged') và tạm ẩn.
+    """
+    job = Job.query.get_or_404(job_id)
+    user = get_current_user()
+    
+    data = request.get_json() or {}
+    reason = data.get('reason', '').strip()
+    description = data.get('description', '').strip()
+    evidence_url = data.get('evidence_url', '').strip()
+
+    if not reason:
+        return jsonify({'status': 'error', 'message': 'Vui lòng chọn lý do báo cáo.'}), 400
+
+    # Kiểm tra xem user này đã gửi báo cáo cho job này chưa (chống gửi lặp)
+    existing_report = Report.query.filter_by(
+        reporter_id=user.id, target_type='job', target_id=job.id
+    ).first()
+    if existing_report:
+        return jsonify({'status': 'error', 'message': 'Bạn đã gửi báo cáo cho công việc này rồi.'}), 400
+
+    report = Report(
+        reporter_id=user.id,
+        target_type='job',
+        target_id=job.id,
+        reason=reason,
+        description=description,
+        evidence_url=evidence_url or None,
+        related_job_id=job.id,
+        status='new'
+    )
+    db.session.add(report)
+    db.session.flush()
+
+    # Đếm số người báo cáo độc lập
+    distinct_reporters_count = db.session.query(
+        db.func.count(db.func.distinct(Report.reporter_id))
+    ).filter(Report.target_type == 'job', Report.target_id == job.id).scalar()
+
+    auto_flagged = False
+    if distinct_reporters_count >= 3:
+        job.is_flagged = True
+        job.moderation_status = 'flagged'
+        auto_flagged = True
+        
+        AdminAuditLog.log(
+            action=ADMIN_AUDIT_ACTIONS['FLAG_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Hệ thống tự động tạm ẩn và gắn cờ Job #{job.id} sau khi nhận đủ 3 báo cáo độc lập.',
+            extra_data={'distinct_reporters': distinct_reporters_count}
+        )
+        
+        try:
+            from models import AdminNotification
+            db.session.add(AdminNotification(
+                type='NEW_REPORT',
+                title=f'Cảnh báo: Job #{job.id} bị tự động gắn cờ',
+                message=f'Công việc "{job.title}" đã nhận đủ {distinct_reporters_count} báo cáo độc lập và đã được tạm ẩn tự động khỏi sàn.',
+                related_id=job.id,
+                url=url_for('admin_job_review', job_id=job.id)
+            ))
+        except Exception:
+            pass
+
+    db.session.commit()
+    return jsonify({
+        'status': 'ok',
+        'message': 'Cảm ơn bạn đã gửi báo cáo. Ban quản trị sẽ rà soát nội dung này.',
+        'auto_flagged': auto_flagged
+    })
+
 @app.route('/api/messages/<int:contract_id>', methods=['POST'])
 @login_required
 def send_message(contract_id):
@@ -3633,6 +5034,15 @@ def send_message(contract_id):
     content = request.json.get('content', '').strip()
     image_url = request.json.get('image_url', '').strip()
     if content or image_url:
+        # TASK 8.3: QUÉT TIN NHẮN PHÁT HIỆN LIÊN HỆ NGOÀI / THANH TOÁN NGOÀI (C1/C2)
+        from services.job_moderation import scan_text_violations
+        viols = scan_text_violations(content)
+        has_warning = False
+        warning_msg = None
+        if viols:
+            has_warning = True
+            warning_msg = 'Lưu ý: Tin nhắn chứa thông tin liên hệ hoặc thanh toán ngoài nền tảng. VietTranslate khuyến cáo chỉ giao dịch qua hệ thống để đảm bảo an toàn Escrow.'
+
         db.session.add(Message(
             contract_id=contract_id, sender_id=sender_id,
             content=content or ('[Hình ảnh]' if image_url else ''),
@@ -3664,8 +5074,13 @@ def send_message(contract_id):
                     pass
 
         db.session.commit()
-        return jsonify({'status': 'ok'})
+        return jsonify({
+            'status': 'ok',
+            'has_warning': has_warning,
+            'warning_message': warning_msg
+        })
     return jsonify({'status': 'error'}), 400
+
 
 # ─── ADMIN AUTH ROUTES ───────────────────────────────────────────────────────
 
@@ -3834,17 +5249,214 @@ def admin_dashboard():
 @require_permission('view_jobs')
 def admin_jobs():
     status_filter = request.args.get('status', 'all')
-    query = Job.query
-    if status_filter == 'flagged':
-        query = query.filter_by(is_flagged=True)
-    elif status_filter == 'open':
-        query = query.filter(Job.status == 'open', db.or_(Job.is_flagged == False, Job.is_flagged == None))
-    elif status_filter == 'pending':
-        query = query.filter(Job.status == 'pending', db.or_(Job.is_flagged == False, Job.is_flagged == None))
-    elif status_filter == 'completed':
-        query = query.filter_by(status='completed')
-    jobs = query.order_by(Job.created_at.desc()).all()
-    return render_template('admin_jobs.html', jobs=jobs, status_filter=status_filter)
+    from services.job_moderation import evaluate_job_39_criteria
+    
+    # Lấy tất cả job để đánh giá tiêu chí
+    all_jobs = Job.query.order_by(Job.created_at.desc()).all()
+    
+    job_items = []
+    pending_count = 0
+    critical_count = 0
+    
+    for job in all_jobs:
+        eval_res = evaluate_job_39_criteria(job)
+        is_pending = (job.moderation_status == 'pending' or job.status == 'pending') and not job.is_flagged
+        is_critical = (eval_res['total_critical'] > 0)
+        
+        if is_pending:
+            pending_count += 1
+        if is_critical and not job.is_flagged:
+            critical_count += 1
+            
+        # Áp dụng bộ lọc
+        include = True
+        if status_filter == 'pending':
+            include = is_pending
+        elif status_filter == 'critical':
+            include = is_critical
+        elif status_filter == 'needs_revision':
+            include = (job.moderation_status == 'needs_revision' or (eval_res['total_warnings'] > 0 and is_pending))
+        elif status_filter == 'open':
+            include = (job.moderation_status == 'approved' or job.status == 'open') and not job.is_flagged
+        elif status_filter == 'flagged':
+            include = bool(job.is_flagged or job.moderation_status == 'flagged')
+        elif status_filter == 'archived':
+            include = (job.moderation_status == 'archived' or job.status == 'archived')
+            
+        if include:
+            job_items.append({'job': job, 'eval': eval_res})
+            
+    return render_template(
+        'admin_jobs.html',
+        job_items=job_items,
+        status_filter=status_filter,
+        pending_count=pending_count,
+        critical_count=critical_count
+    )
+
+@app.route('/admin/jobs/<int:job_id>/review', methods=['GET'])
+@admin_login_required
+@require_permission('view_jobs')
+def admin_job_review(job_id):
+    """Màn hình chi tiết xét duyệt Job theo chuẩn Hình 3."""
+    job = Job.query.get_or_404(job_id)
+    from services.job_moderation import evaluate_job_39_criteria
+    eval_result = evaluate_job_39_criteria(job)
+    return render_template('admin_job_review.html', job=job, eval_result=eval_result)
+
+@app.route('/admin/jobs/<int:job_id>/moderate', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_moderate_job(job_id):
+    """Ra quyết định kiểm duyệt Job (Duyệt, Yêu cầu sửa, Từ chối)."""
+    job = Job.query.get_or_404(job_id)
+    decision = request.form.get('decision', 'approve')
+    from services.job_moderation import evaluate_job_39_criteria
+    import json
+    
+    # Kiểm tra ghi đè tiêu chí thủ công C7
+    chk_c7 = (request.form.get('chk_C7') == '1')
+    manual_overrides = {'C7': chk_c7}
+    eval_res = evaluate_job_39_criteria(job, manual_overrides=manual_overrides)
+    job.moderation_checklist_data = json.dumps(eval_res)
+    job.moderated_at = datetime.utcnow()
+    job.moderated_by = session.get('admin_id')
+
+    admin_user = get_current_user()
+    
+    if decision == 'approve':
+        job.moderation_status = 'approved'
+        job.status = 'open'
+        job.is_flagged = False
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Phê duyệt job "{job.title}" (ID={job.id}) đạt kiểm duyệt.',
+            extra_data={'checklist_summary': eval_res['summary_label']}
+        )
+        # Gửi thông báo cho Hirer
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Công việc đã được phê duyệt',
+                    message=f'Công việc "{job.title}" của bạn đã được kiểm duyệt và hiển thị công khai.',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
+        try:
+            from services.matching import notify_matching_translators_for_new_job
+            notify_matching_translators_for_new_job(job)
+        except Exception:
+            pass
+        flash('Đã phê duyệt công việc thành công. Job đã hiển thị công khai.', 'success')
+        
+    elif decision == 'needs_revision':
+        notes = request.form.get('revision_notes', '').strip()
+        job.moderation_status = 'needs_revision'
+        job.status = 'pending'
+        job.moderation_notes = notes
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REQUEST_JOB_REVISION'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Yêu cầu chỉnh sửa job "{job.title}" (ID={job.id})',
+            extra_data={'notes': notes}
+        )
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Yêu cầu chỉnh sửa công việc',
+                    message=f'Job "{job.title}" cần chỉnh sửa: {notes}',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        flash('Đã gửi yêu cầu chỉnh sửa tới người đăng tuyển.', 'warning')
+        
+    elif decision == 'reject':
+        reason = request.form.get('rejection_reason', '').strip()
+        job.moderation_status = 'rejected'
+        job.status = 'pending'
+        job.moderation_notes = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REJECT_JOB'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Từ chối job "{job.title}" (ID={job.id})',
+            extra_data={'reason': reason}
+        )
+        if job.hirer:
+            try:
+                from app import create_notification
+                create_notification(
+                    user_id=job.hirer_id,
+                    notification_type='JOB_MATCH',
+                    title='Công việc bị từ chối phê duyệt',
+                    message=f'Job "{job.title}" đã bị từ chối: {reason}',
+                    url=url_for('job_detail', job_id=job.id),
+                    related_job_id=job.id
+                )
+            except Exception:
+                pass
+        flash('Đã từ chối công việc.', 'error')
+
+    db.session.commit()
+    return redirect(url_for('admin_jobs'))
+
+@app.route('/admin/jobs/<int:job_id>/edit-title', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_edit_job_title(job_id):
+    """Admin sửa nhẹ định dạng tiêu đề (D3)."""
+    job = Job.query.get_or_404(job_id)
+    old_title = job.title
+    new_title = request.form.get('new_title', '').strip()
+    if new_title and len(new_title) >= 10:
+        job.title = new_title
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['UPDATE_JOB_TITLE'],
+            target_type='job',
+            target_id=job.id,
+            description=f'Admin chuẩn hóa tiêu đề job #{job.id}',
+            extra_data={'old_title': old_title, 'new_title': new_title}
+        )
+        db.session.commit()
+        flash('Đã cập nhật tiêu đề chuẩn hóa cho bài đăng.', 'success')
+    else:
+        flash('Tiêu đề mới không hợp lệ (tối thiểu 10 ký tự).', 'error')
+    return redirect(url_for('admin_job_review', job_id=job.id))
+
+@app.route('/admin/jobs/<int:job_id>/archive', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('approve_job')
+def admin_archive_job(job_id):
+    """Lưu trữ job an toàn (ẩn khỏi danh sách nhưng bảo toàn báo giá & hợp đồng)."""
+    job = Job.query.get_or_404(job_id)
+    job.moderation_status = 'archived'
+    job.status = 'archived'
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['ARCHIVE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Lưu trữ an toàn job #{job.id} "{job.title}"',
+    )
+    db.session.commit()
+    flash(f'Đã chuyển bài đăng #{job.id} sang trạng thái Lưu trữ an toàn.', 'success')
+    return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
 @admin_login_required
@@ -3853,6 +5465,11 @@ def admin_jobs():
 def admin_flag_job(job_id):
     job = Job.query.get_or_404(job_id)
     job.is_flagged = not job.is_flagged
+    if job.is_flagged:
+        job.moderation_status = 'flagged'
+    else:
+        job.moderation_status = 'approved' if job.status == 'open' else 'pending'
+        
     action_key = ADMIN_AUDIT_ACTIONS['FLAG_JOB'] if job.is_flagged else ADMIN_AUDIT_ACTIONS['UNFLAG_JOB']
     action_text = 'Đã gắn cờ vi phạm' if job.is_flagged else 'Đã khôi phục'
     _audit_log(
@@ -3871,18 +5488,23 @@ def admin_flag_job(job_id):
 @require_permission('approve_job')
 def admin_approve_job(job_id):
     job = Job.query.get_or_404(job_id)
-    if job.status == 'pending':
-        job.status = 'open'
-        _audit_log(
-            action=ADMIN_AUDIT_ACTIONS.get('UPDATE_JOB_STATUS', 'UPDATE_JOB_STATUS'),
-            target_type='job',
-            target_id=job.id,
-            description=f'Phê duyệt job "{job.title}" (ID={job.id})',
-        )
-        db.session.commit()
-        flash('Đã phê duyệt bài đăng thành công.', 'success')
-    else:
-        flash('Bài đăng không ở trạng thái chờ duyệt.', 'warning')
+    job.status = 'open'
+    job.moderation_status = 'approved'
+    job.is_flagged = False
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['APPROVE_JOB'],
+        target_type='job',
+        target_id=job.id,
+        description=f'Phê duyệt job "{job.title}" (ID={job.id})',
+    )
+    db.session.commit()
+    # Gửi thông báo cho các phiên dịch viên phù hợp trên sàn
+    try:
+        from services.matching import notify_matching_translators_for_new_job
+        notify_matching_translators_for_new_job(job)
+    except Exception:
+        pass
+    flash('Đã phê duyệt bài đăng thành công.', 'success')
     return redirect(url_for('admin_jobs'))
 
 @app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
@@ -3892,35 +5514,186 @@ def admin_approve_job(job_id):
 def admin_delete_job(job_id):
     job = Job.query.get_or_404(job_id)
     
-    # 1. Kiểm tra dependency quan trọng: Hợp đồng
-    from models import Contract
-    contracts = Contract.query.filter_by(job_id=job.id).all()
-    if contracts:
-        flash('Không thể xóa vĩnh viễn bài đăng đã có hợp đồng. Vui lòng sử dụng "Gắn cờ/Ẩn".', 'error')
+    # 1. BẢO TỒN DỮ LIỆU GIAO DỊCH (TASK 9 CASCADE PROTECTION)
+    from models import Contract, Proposal, PaymentTransaction
+    if Contract.query.filter_by(job_id=job.id).count() > 0:
+        flash('Không thể xóa vĩnh viễn job đã có Hợp đồng. Vui lòng chọn "Lưu trữ" hoặc "Tạm ẩn" để bảo toàn dữ liệu.', 'error')
         return redirect(url_for('admin_jobs'))
         
-    # 2. Xử lý dependencies phụ
-    from models import Notification, TranslatorSchedule, Proposal, Report, JobSchedule
-    
-    # SET NULL cho các lịch sử (không xóa lịch sử)
+    if Proposal.query.filter_by(job_id=job.id).count() > 0:
+        flash('Không thể xóa vĩnh viễn job đã nhận Báo giá (Proposal). Vui lòng chọn "Lưu trữ" để bảo toàn lịch sử ứng tuyển.', 'error')
+        return redirect(url_for('admin_jobs'))
+        
+    # Xử lý dependencies phụ
+    from models import Notification, TranslatorSchedule, Report, JobSchedule
     Notification.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
     Report.query.filter_by(related_job_id=job.id).update({'related_job_id': None})
     TranslatorSchedule.query.filter_by(job_id=job.id).update({'job_id': None})
-    
-    # Xóa dọn dẹp các data ăn theo
-    Proposal.query.filter_by(job_id=job.id).delete()
     JobSchedule.query.filter_by(job_id=job.id).delete()
     
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['DELETE_JOB'],
         target_type='job',
         target_id=job.id,
-        description=f'Xóa vĩnh viễn job "{job.title}" (ID={job.id}) của hirer {job.hirer.name}',
+        description=f'Xóa vĩnh viễn job "{job.title}" (ID={job.id}) của hirer {job.hirer.name if job.hirer else ""}',
     )
     db.session.delete(job)
     db.session.commit()
-    flash('Đã xoá vĩnh viễn bài đăng an toàn.', 'success')
+    flash('Đã xoá vĩnh viễn bài đăng thành công.', 'success')
     return redirect(url_for('admin_jobs'))
+
+# ─── ADMIN HIRER VERIFICATION ROUTES ──────────────────────────────────────────
+
+@app.route('/admin/hirers')
+@admin_login_required
+@require_permission('view_hirers')
+def admin_hirers():
+    """Danh sách người đăng tuyển và tiến độ xác minh X1–X8."""
+    status_filter = request.args.get('status', 'all')
+    from services.hirer_verification import evaluate_hirer_criteria
+    from models import HirerProfile
+    
+    users = User.query.filter_by(role='hirer', is_admin=False).order_by(User.created_at.desc()).all()
+    hirer_items = []
+    pending_count = 0
+    
+    for u in users:
+        p = u.hirer_profile
+        ev = evaluate_hirer_criteria(u, p)
+        is_pending = bool(p and (p.verification_status == 'pending' or (not p.is_verified and p.verification_status != 'rejected')))
+        if is_pending:
+            pending_count += 1
+            
+        include = True
+        if status_filter == 'pending':
+            include = is_pending
+        elif status_filter == 'verified':
+            include = bool(p and (p.verification_status == 'verified' or p.is_verified))
+        elif status_filter == 'needs_revision':
+            include = bool(p and p.verification_status == 'needs_revision')
+        elif status_filter == 'rejected':
+            include = bool(p and p.verification_status == 'rejected')
+            
+        if include:
+            hirer_items.append({'user': u, 'profile': p, 'eval': ev})
+            
+    return render_template(
+        'admin_hirers.html',
+        hirer_items=hirer_items,
+        status_filter=status_filter,
+        pending_count=pending_count
+    )
+
+@app.route('/admin/hirers/<int:hirer_id>/verify', methods=['GET'])
+@admin_login_required
+@require_permission('view_hirers')
+def admin_hirer_verify(hirer_id):
+    """Màn hình thẩm định người đăng tuyển theo chuẩn Hình 1."""
+    hirer = User.query.get_or_404(hirer_id)
+    if hirer.role != 'hirer':
+        abort(404)
+    from services.hirer_verification import evaluate_hirer_criteria
+    profile = hirer.hirer_profile
+    eval_result = evaluate_hirer_criteria(hirer, profile)
+    return render_template('admin_hirer_verify.html', hirer=hirer, profile=profile, eval_result=eval_result)
+
+@app.route('/admin/hirers/<int:hirer_id>/review', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_hirer')
+def admin_hirer_review_action(hirer_id):
+    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối)."""
+    hirer = User.query.get_or_404(hirer_id)
+    action = request.form.get('action', 'verify')
+    reason = request.form.get('reason', '').strip()
+    
+    profile = hirer.hirer_profile
+    if not profile:
+        profile = HirerProfile(user_id=hirer.id)
+        db.session.add(profile)
+        
+    chk_x3 = (request.form.get('chk_X3') == '1')
+    from services.hirer_verification import evaluate_hirer_criteria
+    import json
+    eval_res = evaluate_hirer_criteria(hirer, profile, manual_overrides={'X3': chk_x3})
+    profile.verification_checklist_data = json.dumps(eval_res)
+    
+    if action == 'verify':
+        profile.verification_status = 'verified'
+        profile.is_verified = True
+        profile.verified_at = datetime.utcnow()
+        hirer.verified_at = datetime.utcnow()
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['VERIFY_HIRER'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Admin xác minh người đăng tuyển: {hirer.name} ({hirer.email})',
+            extra_data={'checklist': eval_res}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Tài khoản đã được xác minh thành công',
+                message='Hồ sơ người đăng tuyển của bạn đã được xác minh. Bạn đã có thể đăng tin tuyển dụng!',
+                url=url_for('post_job')
+            )
+        except Exception:
+            pass
+        flash(f'Đã cấp xác minh thành công cho người đăng tuyển {hirer.name}.', 'success')
+        
+    elif action == 'needs_revision':
+        profile.verification_status = 'needs_revision'
+        profile.is_verified = False
+        profile.rejection_reason = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REQUEST_HIRER_REVISION'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Yêu cầu bổ sung hồ sơ người đăng: {hirer.name}',
+            extra_data={'reason': reason}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Yêu cầu bổ sung hồ sơ người đăng',
+                message=f'Hồ sơ của bạn cần bổ sung: {reason}',
+                url=url_for('account_profile', tab='hirer_profile')
+            )
+        except Exception:
+            pass
+        flash(f'Đã gửi yêu cầu bổ sung thông tin tới {hirer.name}.', 'warning')
+        
+    elif action == 'reject':
+        profile.verification_status = 'rejected'
+        profile.is_verified = False
+        profile.rejection_reason = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REJECT_HIRER'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Từ chối xác minh người đăng tuyển: {hirer.name}',
+            extra_data={'reason': reason}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='JOB_MATCH',
+                title='Hồ sơ xác minh bị từ chối',
+                message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
+                url=url_for('account_profile', tab='hirer_profile')
+            )
+        except Exception:
+            pass
+        flash(f'Đã từ chối xác minh người đăng {hirer.name}.', 'error')
+
+    db.session.commit()
+    return redirect(url_for('admin_hirers'))
+
 
 @app.route('/admin/users')
 @admin_login_required
@@ -4013,8 +5786,25 @@ def admin_verify_translator(profile_id):
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
 
+@app.route('/admin/verifications/<int:verification_id>', methods=['GET'])
+@admin_login_required
+@require_permission('verify_translator')
+def admin_verification_detail(verification_id):
+    from models import TranslatorVerification
+    import json
+    verification = TranslatorVerification.query.get_or_404(verification_id)
+    checklist_data = {}
+    if verification.checklist_data:
+        try:
+            checklist_data = json.loads(verification.checklist_data)
+        except Exception:
+            pass
+    return render_template('admin_verification_detail.html', verification=verification, checklist_data=checklist_data)
+
 @app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
-@admin_required
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
 def admin_review_verification(verification_id, action):
     """Phê duyệt hoặc từ chối yêu cầu xác minh của phiên dịch viên."""
     from services.verification import review_verification_request
@@ -4022,6 +5812,9 @@ def admin_review_verification(verification_id, action):
 
     admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
     reason = request.form.get('reason', '')
+    
+    checklist_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2']
+    checklist_data = {key: (request.form.get(f'chk_{key}') == 'on') for key in checklist_keys}
 
     ok, msg = review_verification_request(
         verification_id=verification_id,
@@ -4029,7 +5822,8 @@ def admin_review_verification(verification_id, action):
         action=action,
         reason=reason,
         ip_address=get_client_ip(),
-        user_agent=request.headers.get('User-Agent', '')[:512]
+        user_agent=request.headers.get('User-Agent', '')[:512],
+        checklist_data=checklist_data
     )
     if ok:
         flash(msg, 'success')
@@ -4052,7 +5846,7 @@ def admin_reports():
 @app.route('/admin/reports/<int:report_id>/<action>', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('resolve_report')
 def admin_update_report(report_id, action):
     report = Report.query.get_or_404(report_id)
     
@@ -4144,7 +5938,7 @@ def admin_reviews():
 @app.route('/admin/reviews/<int:review_id>/toggle', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('hide_review')
 def admin_toggle_review(review_id):
     r = Review.query.get_or_404(review_id)
     r.is_hidden = not r.is_hidden
@@ -4159,6 +5953,11 @@ def admin_toggle_review(review_id):
         description=f"{msg} #{r.id} của {r.reviewer.name}",
     )
     
+    if r.reviewee and r.reviewee.role == 'hirer':
+        db.session.flush()
+        from services.hirer import recalculate_hirer_rating
+        recalculate_hirer_rating(r.reviewee_id)
+
     db.session.commit()
     flash(msg, 'success')
     return redirect(url_for('admin_reviews'))
@@ -4215,7 +6014,7 @@ def admin_notifications():
 @app.route('/admin/notifications/<int:notif_id>/read', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('view_notifications')
 def admin_notifications_read(notif_id):
     n = AdminNotification.query.get_or_404(notif_id)
     n.is_read = True
@@ -4225,7 +6024,7 @@ def admin_notifications_read(notif_id):
 @app.route('/admin/notifications/read-all', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('view_notifications')
 def admin_notifications_mark_all():
     AdminNotification.query.filter_by(is_read=False).update({'is_read': True})
     db.session.commit()
@@ -4269,7 +6068,7 @@ def admin_audit_logs():
 
 @app.route('/admin/admins')
 @admin_login_required
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_admins():
     # Only super_admin or users with manage_admins can see all details easily
     # But let's allow all admins to view the list, just restrict actions in UI
@@ -4279,7 +6078,7 @@ def admin_admins():
 @app.route('/admin/admins/add', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -4290,6 +6089,11 @@ def admin_add_admin():
     password = request.form.get('password')
     admin_role = request.form.get('admin_role')
     
+    # Chỉ cho phép tạo các role cấp dưới
+    if admin_role not in ['moderator', 'support', 'finance']:
+        flash('Chức vụ không hợp lệ. Không thể tạo chức vụ này.', 'error')
+        return redirect(url_for('admin_admins'))
+        
     if User.query.filter_by(email=email).first():
         flash('Email đã tồn tại trong hệ thống.', 'error')
         return redirect(url_for('admin_admins'))
@@ -4319,7 +6123,7 @@ def admin_add_admin():
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
 @admin_login_required
 @csrf_protected
-@require_permission('view_dashboard')
+@require_permission('manage_admins')
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
@@ -4330,11 +6134,60 @@ def admin_toggle_admin_status(admin_id):
         flash('Không thể tự vô hiệu hóa tài khoản của chính mình.', 'error')
         return redirect(url_for('admin_admins'))
         
+    if getattr(target_admin, 'admin_role', None) == 'super_admin':
+        flash('Không thể vô hiệu hóa tài khoản Super Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
     target_admin.is_active = not target_admin.is_active
     db.session.commit()
     
-    msg = 'Đã vô hiệu hóa admin' if not target_admin.is_active else 'Đã kích hoạt admin'
+    if not target_admin.is_active:
+        msg = 'Đã vô hiệu hóa admin'
+        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_BLOCKED']
+    else:
+        msg = 'Đã kích hoạt admin'
+        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_RESTORED']
+        
+    _audit_log(
+        action=action_key,
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f'{msg}: {target_admin.email}'
+    )
+    
     flash(msg, 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/revoke', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('manage_admins')
+def admin_revoke_admin_status(admin_id):
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        abort(403)
+        
+    target_admin = User.query.get_or_404(admin_id)
+    if target_admin.id == session.get('admin_id'):
+        flash('Không thể tự thu hồi tư cách của chính mình.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    if getattr(target_admin, 'admin_role', None) == 'super_admin':
+        flash('Không thể thu hồi tư cách của Super Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin.is_admin = False
+    target_admin.admin_role = None
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['ADMIN_PRIVILEGES_REVOKED'],
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f'Đã thu hồi tư cách Admin vĩnh viễn: {target_admin.email}'
+    )
+    
+    flash('Đã thu hồi tư cách Admin vĩnh viễn đối với tài khoản này.', 'success')
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/search')
@@ -4345,27 +6198,33 @@ def admin_search():
     results = {'users': [], 'jobs': [], 'contracts': []}
     
     if len(q) >= 2:
+        from admin_auth import _has_permission
+        role = getattr(g, 'admin_role', None)
+        
         # Search users
-        results['users'] = User.query.filter(
-            db.or_(
-                User.name.ilike(f'%{q}%'),
-                User.email.ilike(f'%{q}%')
-            )
-        ).limit(20).all()
+        if _has_permission(role, 'view_users'):
+            results['users'] = User.query.filter(
+                db.or_(
+                    User.name.ilike(f'%{q}%'),
+                    User.email.ilike(f'%{q}%')
+                )
+            ).limit(20).all()
         
         # Search jobs
-        results['jobs'] = Job.query.filter(
-            db.or_(
-                Job.title.ilike(f'%{q}%'),
-                Job.description.ilike(f'%{q}%')
-            )
-        ).limit(20).all()
+        if _has_permission(role, 'view_jobs'):
+            results['jobs'] = Job.query.filter(
+                db.or_(
+                    Job.title.ilike(f'%{q}%'),
+                    Job.description.ilike(f'%{q}%')
+                )
+            ).limit(20).all()
         
         # Search contracts (by ID if numeric)
-        if q.isdigit():
-            c = Contract.query.get(int(q))
-            if c:
-                results['contracts'].append(c)
+        if _has_permission(role, 'view_contracts'):
+            if q.isdigit():
+                c = Contract.query.get(int(q))
+                if c:
+                    results['contracts'].append(c)
                 
     return render_template('admin_search.html', query=q, results=results)
 
@@ -4480,6 +6339,8 @@ def api_invite_translator(job_id, translator_id):
     translator = User.query.get_or_404(translator_id)
     if translator.role != 'translator' or not translator.is_active:
         return jsonify({'status': 'error', 'message': 'Phiên dịch viên không hợp lệ hoặc đã bị khóa.'}), 400
+    if not translator.profile or not translator.profile.is_verified:
+        return jsonify({'status': 'error', 'message': 'Phiên dịch viên chưa được xác minh hồ sơ.'}), 400
         
     from app import translator_accepts_job
     if not translator_accepts_job(translator, job):

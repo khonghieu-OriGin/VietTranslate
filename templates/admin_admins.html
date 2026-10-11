@@ -73,14 +73,17 @@
                         {{ a.created_at.strftime('%d/%m/%Y') if a.created_at else '' }}
                     </td>
                     <td>
-                        {% if (has_permission('manage_admins') or admin_role == 'super_admin') and a.id != current_admin.id %}
+                        {% if (has_permission('manage_admins') or admin_role == 'super_admin') and a.id != current_admin.id and a.admin_role != 'super_admin' %}
                         <div class="flex items-center justify-end gap-2">
                             <form action="{{ url_for('admin_toggle_admin_status', admin_id=a.id) }}" method="POST">
                                 {% if a.is_active %}
-                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Bạn có chắc muốn vô hiệu hóa admin này?')">Vô hiệu hóa</button>
+                                    <button type="submit" class="btn btn-sm btn-warning" onclick="return confirm('Bạn có chắc muốn vô hiệu hóa admin này?')">Khóa</button>
                                 {% else %}
-                                    <button type="submit" class="btn btn-sm btn-success">Kích hoạt</button>
+                                    <button type="submit" class="btn btn-sm btn-success">Mở khóa</button>
                                 {% endif %}
+                            </form>
+                            <form action="{{ url_for('admin_revoke_admin_status', admin_id=a.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('CẢNH BÁO: Hành động này sẽ tước quyền Admin vĩnh viễn khỏi tài khoản này. Bạn có chắc chắn không?')">Thu hồi</button>
                             </form>
                         </div>
                         {% endif %}
@@ -122,9 +125,6 @@
                     <option value="moderator">Content Moderator (Kiểm duyệt nội dung)</option>
                     <option value="support">Support (Hỗ trợ khách hàng)</option>
                     <option value="finance">Finance (Kế toán / Thanh toán)</option>
-                    {% if admin_role == 'super_admin' %}
-                    <option value="super_admin">Super Admin (Toàn quyền)</option>
-                    {% endif %}
                 </select>
             </div>
             

@@ -18,3 +18,6 @@ with app.app_context():
                 col_type = str(column.type.compile(dialect=postgresql.dialect()))
                 # Postgres bool default mapping can be tricky, just basic types
                 f.write(f'ALTER TABLE "{name}" ADD COLUMN IF NOT EXISTS {column.name} {col_type};\n')
+                
+        f.write("\n-- 3. CÁC INDEX VÀ RÀNG BUỘC ĐẶC BIỆT\n")
+        f.write("CREATE UNIQUE INDEX IF NOT EXISTS unique_super_admin ON \"user\" (is_admin) WHERE admin_role = 'super_admin';\n")

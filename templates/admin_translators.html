@@ -127,20 +127,11 @@
                             {{ t('admin_page.action_view_profile') }}
                         </a>
 
-                        <!-- Approve Form -->
-                        <form method="POST" action="{{ url_for('admin_review_verification', verification_id=v.id, action='approve') }}" style="display: inline;">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-success btn-sm" onclick="return confirm('Xác nhận phê duyệt và cấp huy hiệu tích xanh cho {{ v.user.name }}?');">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span>{{ t('admin_page.action_approve_verify') }}</span>
-                            </button>
-                        </form>
-
-                        <!-- Reject Button (Opens Modal) -->
-                        <button type="button" class="btn btn-danger btn-sm ml-1" onclick="openRejectModal('{{ v.id }}', '{{ v.user.name }}')">
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span>{{ t('admin_page.action_reject_verify') }}</span>
-                        </button>
+                        <!-- Detailed Review Button -->
+                        <a href="{{ url_for('admin_verification_detail', verification_id=v.id) }}" class="btn btn-primary btn-sm ml-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                            <span>Đánh giá chi tiết</span>
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}

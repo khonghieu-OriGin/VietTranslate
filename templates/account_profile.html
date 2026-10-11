@@ -26,6 +26,27 @@
 {% endblock %}
 
 {% block content %}
+{% if not user.email_verified %}
+<div class="bg-amber-50 border-b border-amber-200 px-4 py-3 text-amber-800 text-sm flex items-center justify-center gap-3">
+    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+    <span class="font-medium">Tài khoản của bạn chưa được xác minh email. Vui lòng kiểm tra hộp thư để xác minh.</span>
+    <button onclick="resendVerificationEmail()" class="font-bold underline hover:text-amber-900 ml-2">Gửi lại email xác minh</button>
+</div>
+<script>
+function resendVerificationEmail() {
+    fetch("{{ url_for('resend_verification_email') }}", { method: 'POST' })
+    .then(response => response.json())
+    .then(data => {
+        if(data.success) {
+            alert('Email xác minh đã được gửi thành công!');
+        } else {
+            alert(data.message || 'Có lỗi xảy ra, vui lòng thử lại sau.');
+        }
+    })
+    .catch(err => alert('Có lỗi xảy ra, vui lòng thử lại sau.'));
+}
+</script>
+{% endif %}
 <div class="bg-slate-50/60 min-h-screen py-10 sm:py-14">
     <h1 class="sr-only">{{ t('account_profile_page.title') }} — {{ user.name }}</h1>
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -67,11 +88,18 @@
                             {% elif user.role == 'hirer' %}{{ t('account_profile_page.role_hirer') }}
                             {% else %}{{ t('account_profile_page.role_admin') }}{% endif %}
                         </p>
-                        {% if user.role == 'translator' and user.profile and user.profile.is_verified %}
-                        <span
-                            class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
-                            {{ t('account_profile_page.verified_badge') }}
-                        </span>
+                        {% if user.role == 'translator' and user.profile %}
+                            {% if user.profile.is_verified %}
+                            <span
+                                class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                                {{ t('account_profile_page.verified_badge') }}
+                            </span>
+                            {% else %}
+                            <span
+                                class="mt-2.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
+                                Chưa xác minh
+                            </span>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -186,6 +214,9 @@
                     <button id="tab-btn-hirer"
                         class="tab-btn {% if active_tab == 'hirer' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer"
                         onclick="switchTab('hirer')">{{ t('auto.hồ_sơ_công_ty') }}</button>
+                    <button id="tab-btn-hirer_verify"
+                        class="tab-btn {% if active_tab == 'hirer_verify' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 cursor-pointer"
+                        onclick="switchTab('hirer_verify')">Xác minh{% if user.hirer_profile and user.hirer_profile.is_verified %} <span class="text-emerald-600">✓</span>{% endif %}</button>
                     <button id="tab-btn-preferences"
                         class="tab-btn {% if active_tab == 'preferences' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer"
                         onclick="switchTab('preferences')">{{ t('account_profile_page.tab_preferences') }}</button>
@@ -1802,6 +1833,40 @@
                                 </div>
                             </div>
 
+                            {% set pref_specialties = (pref.specialties or '').split(',') if pref else [] %}
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Lĩnh vực chuyên môn <span class="normal-case font-normal text-slate-400">(giúp hệ thống gợi ý job đúng ngành)</span></label>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                                    {% for f in HIRING_FIELDS %}
+                                    <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition text-xs font-medium">
+                                        <input type="checkbox" name="specialties" value="{{ f }}" class="rounded text-brand-600" {% if f in pref_specialties %}checked{% endif %}>
+                                        <span>{{ f }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Thành phố / nơi làm việc chính</label>
+                                    <input type="text" name="city" maxlength="100" value="{{ pref.city if pref and pref.city else '' }}" placeholder="Hà Nội, TP. Hồ Chí Minh…"
+                                        class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Hình thức làm việc</label>
+                                    <select name="work_mode" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                                        <option value="">—</option>
+                                        {% for v, lbl in [('onsite','Trực tiếp'),('online','Online'),('both','Trực tiếp & online')] %}
+                                        <option value="{{ v }}" {% if pref and pref.work_mode == v %}selected{% endif %}>{{ lbl }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <label class="flex items-center gap-2 text-xs font-medium">
+                                <input type="checkbox" name="offers_certified" class="rounded text-brand-600" {% if pref and pref.offers_certified %}checked{% endif %}>
+                                Tôi có thể cung cấp bản dịch có chứng nhận / công chứng
+                            </label>
+
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
                                     t('account_profile_page.label_notifications') }}</label>
@@ -1856,41 +1921,152 @@
 
                 <!-- Tab Hirer Profile -->
                 {% if user.role == 'hirer' %}
+                {% set hp = user.hirer_profile %}
+                {% set atype = hp.account_type if hp and hp.account_type else 'individual' %}
+                {% set inp = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition' %}
+                {% set lbl = 'block text-xs font-bold text-slate-700 uppercase tracking-wide' %}
                 <div id="tab-hirer" class="tab-panel {% if active_tab == 'hirer' %}active{% endif %}">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                         <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                            {{ t('auto.hồ_sơ_công_ty__tổ_ch') }}
+                            Hồ sơ khách hàng
                         </h2>
 
-                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                        <form method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="space-y-6" id="hirer-profile-form">
                             <input type="hidden" name="action" value="hirer_profile">
+                                {% macro chips(name, options, saved) %}
+                                <div class="flex flex-wrap gap-2">
+                                    {% for o in options %}
+                                    <label class="chip-opt cursor-pointer">
+                                        <input type="checkbox" name="{{ name }}" value="{{ o }}" class="sr-only" {% if o in (saved or '').split(', ') %}checked{% endif %}>
+                                        <span class="inline-block px-3 py-1.5 rounded-full border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-600 transition">{{ o }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {% endmacro %}
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.chức_vụ') }}</label>
-                                <input type="text" name="title"
-                                    value="{{ user.hirer_profile.title if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.ví_dụ_trưởng_phòng_n') }}">
+                            <!-- Chọn loại khách -->
+                            <div class="grid grid-cols-2 gap-3">
+                                {% set type_locked = hp and hp.contact_phone and hp.account_type %}
+                                <label class="border rounded-xl p-4 flex items-center gap-3 hirer-type-opt {% if type_locked and atype != 'business' %}opacity-40 cursor-not-allowed{% else %}cursor-pointer{% endif %}">
+                                    <input type="radio" name="account_type" value="business" {% if atype == 'business' %}checked{% endif %} {% if type_locked and atype != 'business' %}disabled{% endif %} class="text-brand-600">
+                                    <span class="font-bold text-sm text-slate-800">Doanh nghiệp / Tổ chức</span>
+                                </label>
+                                <label class="border rounded-xl p-4 flex items-center gap-3 hirer-type-opt {% if type_locked and atype == 'business' %}opacity-40 cursor-not-allowed{% else %}cursor-pointer{% endif %}">
+                                    <input type="radio" name="account_type" value="individual" {% if atype != 'business' %}checked{% endif %} {% if type_locked and atype == 'business' %}disabled{% endif %} class="text-brand-600">
+                                    <span class="font-bold text-sm text-slate-800">Cá nhân</span>
+                                </label>
+                            </div>
+                            {% if type_locked %}
+                            <p class="text-xs text-slate-500 -mt-3">Loại khách hàng đã được xác lập là <strong>{{ 'Doanh nghiệp / Tổ chức' if atype == 'business' else 'Cá nhân' }}</strong> và không thể thay đổi. Mỗi tài khoản chỉ thuộc một loại.</p>
+                            {% else %}
+                            <p class="text-xs text-amber-600 -mt-3">Lưu ý: sau khi lưu hồ sơ, bạn không thể đổi sang loại khách hàng còn lại.</p>
+                            {% endif %}
+
+                            <!-- DOANH NGHIỆP -->
+                            <div id="hirer-business" class="space-y-6">
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Pháp lý</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Tên công ty / tổ chức <span class="text-red-500">*</span></label>
+                                        <input type="text" name="company" value="{{ (hp.company if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Mã số thuế <span class="text-red-500">*</span></label>
+                                            <input type="text" name="tax_code" inputmode="numeric" maxlength="14" placeholder="10 hoặc 13 chữ số" value="{{ (hp.tax_code if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Quy mô <span class="text-red-500">*</span></label>
+                                            <select name="company_size" class="{{ inp }}" data-biz-required>
+                                                <option value="">-- Chọn quy mô --</option>
+                                                {% for v, l in [('<10','Dưới 10 lao động'),('10-50','10 - 50 lao động'),('50-200','50 - 200 lao động'),('200+','Trên 200 lao động')] %}
+                                                <option value="{{ v }}" {% if hp and hp.company_size == v %}selected{% endif %}>{{ l }}</option>
+                                                {% endfor %}
+                                            </select></div>
+                                    </div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Lĩnh vực hoạt động <span class="text-red-500">*</span></label>
+                                        {{ chips('industry', BUSINESS_INDUSTRIES, hp.industry if hp else '') }}</div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Liên hệ</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Địa chỉ trụ sở / chi nhánh <span class="text-red-500">*</span></label>
+                                        <input type="text" name="address" value="{{ (hp.address if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Email doanh nghiệp <span class="text-red-500">*</span></label>
+                                        <input type="email" name="company_email" value="{{ (hp.company_email if hp else '') or '' }}" placeholder="ten@tencongty.com" class="{{ inp }}" data-biz-required></div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Website / LinkedIn / Fanpage</label>
+                                            <input type="url" name="website" value="{{ (hp.website if hp else '') or '' }}" placeholder="https://" class="{{ inp }}"></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Hotline bàn</label>
+                                            <input type="tel" name="hotline" value="{{ (hp.hotline if hp else '') or '' }}" class="{{ inp }}"></div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Người đại diện</legend>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Họ tên <span class="text-red-500">*</span></label>
+                                            <input type="text" name="rep_name" value="{{ (hp.rep_name if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                        <div class="space-y-1.5"><label class="{{ lbl }}">Chức vụ <span class="text-red-500">*</span></label>
+                                            <input type="text" name="title" value="{{ (hp.title if hp else '') or '' }}" class="{{ inp }}" data-biz-required></div>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="space-y-4">
+                                    <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Khác</legend>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn về công ty</label>
+                                        <textarea name="about" rows="3" maxlength="1000" class="{{ inp }}">{{ (hp.about if hp else '') or '' }}</textarea></div>
+                                </fieldset>
                             </div>
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.công_ty') }}</label>
-                                <input type="text" name="company"
-                                    value="{{ user.hirer_profile.company if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.tên_công_ty_hoặc_tổ') }}">
+                            <!-- CÁ NHÂN -->
+                            <div id="hirer-individual" class="space-y-4">
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Họ và tên <span class="text-red-500">*</span></label>
+                                    <input type="text" name="full_name" value="{{ user.name }}" class="{{ inp }}" data-ind-required></div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Tỉnh / thành phố <span class="text-red-500">*</span></label>
+                                    <input type="text" name="location" value="{{ (hp.location if hp and atype != 'business' else '') or '' }}" placeholder="VD: Hà Nội, TP. Hồ Chí Minh" class="{{ inp }}" data-ind-required></div>
+                                <div class="space-y-2"><label class="{{ lbl }}">Lĩnh vực thường thuê phiên dịch <span class="text-red-500">*</span> <span class="normal-case font-normal text-slate-400">(chọn một hoặc nhiều)</span></label>
+                                    {{ chips('hiring_field', HIRING_FIELDS, hp.hiring_field if hp else '') }}</div>
+                                <div class="space-y-2"><label class="{{ lbl }}">Ngôn ngữ thường cần <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span></label>
+                                    {{ chips('hiring_languages', HIRING_LANGUAGES, hp.hiring_languages if hp else '') }}</div>
+                                <div class="space-y-2"><label class="{{ lbl }}">Hình thức thường thuê <span class="normal-case font-normal text-slate-400">(không bắt buộc)</span></label>
+                                    {{ chips('hiring_services', HIRING_SERVICES, hp.hiring_services if hp else '') }}</div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Giới thiệu ngắn / lưu ý khi làm việc</label>
+                                    <textarea name="about" rows="3" maxlength="500" placeholder="VD: Hay thuê phiên dịch cho các chuyến công tác ngắn ngày, ưu tiên người có kinh nghiệm y tế." class="{{ inp }}">{{ (hp.about if hp and atype != 'business' else '') or '' }}</textarea></div>
                             </div>
 
-                            <div class="space-y-1.5">
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide">{{
-                                    t('auto.khu_vực') }}</label>
-                                <input type="text" name="location"
-                                    value="{{ user.hirer_profile.location if user.hirer_profile else '' }}"
-                                    class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-brand-500 focus:bg-white transition"
-                                    placeholder="{{ t('auto.ví_dụ_hà_nội_tp_hồ_c') }}">
+                            <!-- NHU CẦU THUÊ (không bắt buộc) — dùng để gợi ý phiên dịch viên phù hợp -->
+                            <fieldset class="space-y-4 border-t border-slate-100 pt-5">
+                                <legend class="text-xs font-extrabold text-brand-700 uppercase tracking-wider mb-2">Nhu cầu thuê <span class="normal-case font-normal text-slate-400">(không bắt buộc, giúp gợi ý phiên dịch viên phù hợp hơn)</span></legend>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Hình thức làm việc</label>
+                                        <select name="work_mode" class="{{ inp }}"><option value="">—</option>
+                                            {% for v, l in [('onsite','Trực tiếp'),('online','Online'),('both','Trực tiếp & online')] %}<option value="{{ v }}" {% if hp and hp.work_mode == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+                                        </select></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Tần suất thuê</label>
+                                        <select name="hiring_frequency" class="{{ inp }}"><option value="">—</option>
+                                            {% for v, l in [('one_time','Một lần'),('occasional','Thỉnh thoảng'),('regular','Thường xuyên / dài hạn')] %}<option value="{{ v }}" {% if hp and hp.hiring_frequency == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+                                        </select></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng từ (VND)</label>
+                                        <input type="number" min="0" name="typical_budget_min" value="{{ hp.typical_budget_min if hp and hp.typical_budget_min else '' }}" class="{{ inp }}"></div>
+                                    <div class="space-y-1.5"><label class="{{ lbl }}">Ngân sách thường dùng đến (VND)</label>
+                                        <input type="number" min="0" name="typical_budget_max" value="{{ hp.typical_budget_max if hp and hp.typical_budget_max else '' }}" class="{{ inp }}"></div>
+                                </div>
+                                <div class="flex flex-wrap gap-5 text-xs font-medium">
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_nda" class="rounded text-brand-600" {% if hp and hp.needs_nda %}checked{% endif %}> Yêu cầu bảo mật (NDA)</label>
+                                    <label class="flex items-center gap-2"><input type="checkbox" name="needs_certified" class="rounded text-brand-600" {% if hp and hp.needs_certified %}checked{% endif %}> Cần bản dịch có chứng nhận / công chứng</label>
+                                </div>
+                                <div class="space-y-1.5"><label class="{{ lbl }}">Yêu cầu đặc biệt</label>
+                                    <textarea name="special_requirements" rows="2" maxlength="1000" class="{{ inp }}">{{ (hp.special_requirements if hp else '') or '' }}</textarea></div>
+                            </fieldset>
+
+                            <!-- DÙNG CHUNG -->
+                            <div class="space-y-4 border-t border-slate-100 pt-5">
+                                <div class="space-y-1.5"><label class="{{ lbl }}"><span id="phone-label">Số điện thoại</span> <span class="text-red-500">*</span></label>
+                                    <input type="tel" name="contact_phone" required value="{{ (hp.contact_phone if hp and hp.contact_phone else user.phone) or '' }}" class="{{ inp }}"></div>
+                                <div class="space-y-1.5">
+                                    <label class="{{ lbl }}"><span id="logo-label">Ảnh đại diện</span> (PNG/JPG/WEBP, tối đa 300KB)</label>
+                                    <div class="flex items-center gap-4">
+                                        {% if hp and hp.logo %}<img src="{{ hp.logo }}" alt="" class="w-14 h-14 rounded-xl object-cover border border-slate-200">{% endif %}
+                                        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" class="text-xs text-slate-600">
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="pt-2">
@@ -1900,6 +2076,94 @@
                                 </button>
                             </div>
                         </form>
+                        <style>.hirer-type-opt:has(input:checked){border-color:#2563eb;background:#eff6ff}
+                        .chip-opt:has(input:checked) span{border-color:#2563eb;background:#eff6ff;color:#1d4ed8}
+                        .chip-opt:has(input:focus-visible) span{outline:2px solid #2563eb;outline-offset:2px}</style>
+                        <script>
+                        (function () {
+                            var form = document.getElementById('hirer-profile-form');
+                            if (!form) return;
+                            function sync() {
+                                var biz = form.querySelector('input[name=account_type]:checked').value === 'business';
+                                var bizBox = document.getElementById('hirer-business');
+                                var indBox = document.getElementById('hirer-individual');
+                                bizBox.hidden = !biz; indBox.hidden = biz;
+                                // Chỉ ô của loại đang chọn mới bắt buộc và được gửi đi
+                                bizBox.querySelectorAll('input,select,textarea').forEach(function (el) { el.disabled = !biz; el.required = biz && el.hasAttribute('data-biz-required'); });
+                                indBox.querySelectorAll('input,select,textarea').forEach(function (el) { el.disabled = biz; el.required = !biz && el.hasAttribute('data-ind-required'); });
+                                document.getElementById('phone-label').textContent = biz ? 'SĐT người đại diện' : 'Số điện thoại';
+                                document.getElementById('logo-label').textContent = biz ? 'Logo công ty' : 'Ảnh đại diện';
+                            }
+                            form.querySelectorAll('input[name=account_type]').forEach(function (r) { r.addEventListener('change', sync); });
+                            sync();
+                        })();
+                        </script>
+                    </div>
+                </div>
+
+                <!-- Tab Xác minh hồ sơ khách hàng: tự động xác minh khi điền đủ thông tin, không cần admin duyệt -->
+                {% set v_biz = (atype == 'business') %}
+                {% set v_items = [
+                    ('Tên công ty / tổ chức', hp and hp.company),
+                    ('Mã số thuế', hp and hp.tax_code),
+                    ('Lĩnh vực hoạt động', hp and hp.industry),
+                    ('Quy mô công ty', hp and hp.company_size),
+                    ('Địa chỉ trụ sở / chi nhánh', hp and hp.address),
+                    ('Email doanh nghiệp', hp and hp.company_email),
+                    ('Người đại diện và chức vụ', hp and hp.rep_name and hp.title),
+                    ('Số điện thoại liên hệ', hp and hp.contact_phone),
+                ] if v_biz else [
+                    ('Họ và tên', user.name),
+                    ('Số điện thoại liên hệ', hp and hp.contact_phone),
+                    ('Tỉnh / thành phố', hp and hp.location),
+                    ('Lĩnh vực thường thuê phiên dịch', hp and hp.hiring_field),
+                ] %}
+                {% set v_done = v_items | selectattr(1) | list | length %}
+                <div id="tab-hirer_verify" class="tab-panel {% if active_tab == 'hirer_verify' %}active{% endif %}">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                                    Xác minh hồ sơ khách hàng
+                                </h2>
+                                <p class="text-xs text-slate-500 mt-1">Điền đầy đủ thông tin bên dưới để nhận huy hiệu "✓ Đã xác minh". Hệ thống tự xác minh ngay, không cần chờ admin duyệt.</p>
+                            </div>
+                            {% if hp and hp.is_verified %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">✓ Đã xác minh</span>
+                            {% else %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">Chưa xác minh</span>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
+                                <span>Hoàn thiện hồ sơ</span>
+                                <span>{{ v_done }}/{{ v_items | length }}</span>
+                            </div>
+                            <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ (v_done * 100 / (v_items | length)) | round | int }}%"></div>
+                            </div>
+                        </div>
+
+                        <ul class="space-y-2.5">
+                            {% for label, ok in v_items %}
+                            <li class="flex items-center gap-2.5 text-sm {% if ok %}text-slate-800{% else %}text-slate-500{% endif %}">
+                                {% if ok %}
+                                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-black">✓</span>
+                                {% else %}
+                                <span class="w-5 h-5 rounded-full border border-slate-300"></span>
+                                {% endif %}
+                                {{ label }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+
+                        {% if not (hp and hp.is_verified) %}
+                        <button type="button" onclick="switchTab('hirer')" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-6 rounded-xl transition shadow-sm text-xs sm:text-sm">Hoàn thiện hồ sơ để xác minh</button>
+                        {% else %}
+                        <a href="{{ url_for('hirer_profile', hirer_id=user.id) }}" class="inline-block text-brand-600 hover:text-brand-700 font-bold text-xs sm:text-sm">Xem hồ sơ công khai →</a>
+                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
