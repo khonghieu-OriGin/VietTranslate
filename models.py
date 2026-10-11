@@ -102,8 +102,15 @@ class User(db.Model):
     @property
     def latest_verification(self):
         """Trả về yêu cầu xác minh mới nhất của người dùng (nếu có)."""
-        if hasattr(self, 'verifications') and self.verifications:
-            return self.verifications[0]
+        try:
+            if hasattr(self, 'verifications') and self.verifications:
+                return self.verifications[0]
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return None
         return None
 
 
