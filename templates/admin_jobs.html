@@ -107,7 +107,7 @@
                             {{ job.title }}
                         </div>
                         <div style="font-size: 11px; color: var(--muted); margin-top: 4px;">
-                            {{ job.display_category_text() if hasattr(job, 'display_category_text') else (job.category or '') }} • {{ job.source_lang }} → {{ job.target_lang }}
+                            {{ job.display_category_text() if job.display_category_text is defined else (job.category or '') }} • {{ job.source_lang }} → {{ job.target_lang }}
                         </div>
                     </td>
 

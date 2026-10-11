@@ -504,6 +504,10 @@ def evaluate_job_39_criteria(job, manual_overrides=None):
             groups[grp]['critical'] += 1
             total_critical += 1
 
+    # Tạo alias criteria để tránh xung đột với dict.items() trong Jinja template
+    for grp_data in groups.values():
+        grp_data['criteria'] = grp_data['items']
+
     # Nhãn tóm tắt hiển thị trên bảng hàng chờ (Task 5)
     if total_critical > 0:
         summary_label = 'Nghiêm trọng'

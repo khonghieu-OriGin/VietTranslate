@@ -128,16 +128,278 @@ class TranslatorProfile(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     certificates = db.Column(db.Text)
 
+    # Cấu hình công khai & quyền riêng tư hồ sơ
+    is_public = db.Column(db.Boolean, default=True)
+    is_cv_public = db.Column(db.Boolean, default=False)
+
+    # Cặp ngôn ngữ & Chiều phiên dịch
+    source_language = db.Column(db.String(100), nullable=True)
+    target_language = db.Column(db.String(100), nullable=True)
+    interpreting_direction = db.Column(db.String(50), nullable=True)
+    language_proficiency = db.Column(db.String(50), nullable=True)
+
+    # Lĩnh vực chuyên môn & Hình thức làm việc
+    specializations = db.Column(db.Text, nullable=True)
+    interpreting_types = db.Column(db.Text, nullable=True)
+    work_modes = db.Column(db.String(255), nullable=True)
+
+    # Học vấn & Chứng chỉ công khai
+    education_level = db.Column(db.String(100), nullable=True)
+    university = db.Column(db.String(255), nullable=True)
+    major = db.Column(db.String(255), nullable=True)
+    cert_name = db.Column(db.String(255), nullable=True)
+    cert_year = db.Column(db.Integer, nullable=True)
+
+    # Kinh nghiệm nghề nghiệp
+    experience_years = db.Column(db.Integer, default=0)
+    current_position = db.Column(db.String(255), nullable=True)
+    notable_clients = db.Column(db.Text, nullable=True)
+    featured_projects = db.Column(db.Text, nullable=True)
+
     services = db.relationship('Service', backref='profile', lazy=True)
 
     @property
     def avatar_url(self):
-        return self.user.avatar_url if self.user else None
+        try:
+            return self.user.avatar_url if self.user else None
+        except Exception:
+            return None
 
     @property
     def latest_verification(self):
         """Trả về yêu cầu xác minh mới nhất của phiên dịch viên."""
-        return self.user.latest_verification if self.user else None
+        try:
+            return self.user.latest_verification if self.user else None
+        except Exception:
+            return None
+
+    @property
+    def display_source_language(self):
+        """Ngôn ngữ nguồn chính (ưu tiên trường riêng, fallback xác minh hoặc languages)."""
+        if self.source_language and self.source_language.strip():
+            return self.source_language.strip()
+        if self.latest_verification and self.latest_verification.source_language:
+            return self.latest_verification.source_language.strip()
+        if self.languages:
+            parts = [l.strip() for l in self.languages.split(',') if l.strip()]
+            if parts:
+                return parts[0]
+        return 'Tiếng Việt'
+
+    @property
+    def display_target_language(self):
+        """Ngôn ngữ đích chính (ưu tiên trường riêng, fallback xác minh hoặc languages)."""
+        if self.target_language and self.target_language.strip():
+            return self.target_language.strip()
+        if self.latest_verification and self.latest_verification.target_language:
+            return self.latest_verification.target_language.strip()
+        if self.languages:
+            parts = [l.strip() for l in self.languages.split(',') if l.strip()]
+            if len(parts) > 1:
+                return parts[1]
+            elif len(parts) == 1 and parts[0] != 'Tiếng Anh':
+                return 'Tiếng Anh'
+        return 'Tiếng Anh'
+
+    @property
+    def display_interpreting_direction(self):
+        """Chiều phiên dịch."""
+        if self.interpreting_direction and self.interpreting_direction.strip():
+            return self.interpreting_direction.strip()
+        if self.latest_verification and self.latest_verification.interpreting_direction:
+            return self.latest_verification.interpreting_direction.strip()
+        return 'Hai chiều (Song phương)'
+
+    @property
+    def display_language_proficiency(self):
+        """Mức độ thành thạo ngôn ngữ."""
+        if self.language_proficiency and self.language_proficiency.strip():
+            return self.language_proficiency.strip()
+        if self.latest_verification and self.latest_verification.language_proficiency:
+            return self.latest_verification.language_proficiency.strip()
+        return 'Chuyên nghiệp (C2/C1)'
+
+    @property
+    def display_specializations(self):
+        """Danh sách lĩnh vực chuyên môn dạng list."""
+        val = self.specializations
+        if not val and self.latest_verification and self.latest_verification.specializations:
+            val = self.latest_verification.specializations
+        if not val and self.badges:
+            val = self.badges
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Thương mại & Hợp đồng', 'Hội nghị & Sự kiện']
+
+    @property
+    def display_interpreting_types(self):
+        """Danh sách hình thức phiên dịch dạng list."""
+        val = self.interpreting_types
+        if not val and self.latest_verification and self.latest_verification.interpreting_types:
+            val = self.latest_verification.interpreting_types
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Phiên dịch nối tiếp (Consecutive)', 'Phiên dịch tháp tùng (Escort)']
+
+    @property
+    def display_work_modes(self):
+        """Danh sách phương thức làm việc (trực tiếp / từ xa...)."""
+        val = self.work_modes
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Trực tiếp tại địa điểm (On-site)', 'Trực tuyến / Từ xa (Online)']
+
+    @property
+    def display_experience_years(self):
+        """Số năm kinh nghiệm làm nghề thực tế."""
+        if self.experience_years is not None and self.experience_years > 0:
+            return self.experience_years
+        if self.latest_verification and self.latest_verification.experience_years:
+            return self.latest_verification.experience_years
+        return 3
+
+    @property
+    def display_current_position(self):
+        """Chức danh chuyên môn hiện tại."""
+        if self.current_position and self.current_position.strip():
+            return self.current_position.strip()
+        if self.latest_verification and self.latest_verification.current_position:
+            return self.latest_verification.current_position.strip()
+        return self.title or 'Phiên dịch viên chuyên nghiệp'
+
+    @property
+    def display_education_level(self):
+        """Trình độ học vấn."""
+        if self.education_level and self.education_level.strip():
+            return self.education_level.strip()
+        if self.latest_verification and self.latest_verification.education_level:
+            return self.latest_verification.education_level.strip()
+        return 'Cử nhân'
+
+    @property
+    def display_university(self):
+        """Trường đại học đào tạo."""
+        if self.university and self.university.strip():
+            return self.university.strip()
+        if self.latest_verification and self.latest_verification.university:
+            return self.latest_verification.university.strip()
+        return None
+
+    @property
+    def display_major(self):
+        """Chuyên ngành đào tạo."""
+        if self.major and self.major.strip():
+            return self.major.strip()
+        if self.latest_verification and self.latest_verification.major:
+            return self.latest_verification.major.strip()
+        return None
+
+    @property
+    def display_cert_name(self):
+        """Tên chứng chỉ ngoại ngữ."""
+        if self.cert_name and self.cert_name.strip():
+            return self.cert_name.strip()
+        if self.latest_verification and self.latest_verification.certificate_name:
+            return self.latest_verification.certificate_name.strip()
+        return None
+
+    @property
+    def display_cert_year(self):
+        """Năm cấp chứng chỉ."""
+        if self.cert_year:
+            return self.cert_year
+        if self.latest_verification and self.latest_verification.cert_year:
+            return self.latest_verification.cert_year
+        return None
+
+    @property
+    def display_notable_clients(self):
+        """Danh sách đối tác / khách hàng tiêu biểu."""
+        val = self.notable_clients
+        if not val and self.latest_verification and self.latest_verification.notable_clients:
+            val = self.latest_verification.notable_clients
+        return val
+
+    @property
+    def display_featured_projects(self):
+        """Danh sách dự án hoặc sự kiện tiêu biểu."""
+        val = self.featured_projects
+        if not val and self.latest_verification and self.latest_verification.featured_projects:
+            val = self.latest_verification.featured_projects
+        return val
+
+    @property
+    def public_cv_document(self):
+        """
+        Trả về đối tượng tài liệu CV hợp lệ khi người dùng CHỦ ĐỘNG chọn công khai (is_cv_public=True).
+        Chỉ tìm tài liệu loại 'cv', không bao giờ lấy tài liệu id_card hay các loại riêng tư.
+        """
+        if not self.is_cv_public:
+            return None
+        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
+            for doc in self.latest_verification.documents:
+                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                    return doc
+        return None
+
+    @property
+    def has_public_cv(self):
+        """Kiểm tra xem hồ sơ có CV được công khai và khả dụng hay không."""
+        return self.public_cv_document is not None
+
+    def is_eligible_for_public(self):
+        """
+        Kiểm tra xem hồ sơ có đáp ứng đủ điều kiện tối thiểu để xuất hiện công khai:
+        - Có thông tin tài khoản người dùng và tên hiển thị.
+        - Đã có thông tin chức danh, ngôn ngữ hoặc giới thiệu (không phải hồ sơ trống).
+        """
+        if not self.user:
+            return False, 'Không tìm thấy thông tin tài khoản liên kết.'
+        if not self.user.name or not self.user.name.strip():
+            return False, 'Chưa thiết lập tên hiển thị.'
+        if not self.title and not self.languages and not self.bio:
+            return False, 'Hồ sơ chưa có thông tin chức danh, ngôn ngữ hoặc lời giới thiệu.'
+        return True, None
+
+    def can_view_public(self, viewer=None, is_admin_session=False):
+        """
+        Kiểm tra quyền xem hồ sơ của một đối tượng người xem (viewer):
+        Trả về tuple: (can_view, is_preview, reason)
+        - can_view: True nếu được phép xem toàn bộ hồ sơ (dù là public hay preview).
+        - is_preview: True nếu đang xem ở chế độ Xem trước (Preview Mode).
+        - reason: Lý do hồ sơ không công khai (nếu có).
+        """
+        is_owner = bool(viewer and self.user_id == getattr(viewer, 'id', None))
+        is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or is_admin_session)
+
+        # 1. Tài khoản bị vô hiệu hóa hoặc giới hạn
+        if self.user and not getattr(self.user, 'is_active', True):
+            if is_admin:
+                return True, True, 'Tài khoản người dùng đang bị giới hạn hoặc vô hiệu hóa bởi Quản trị viên.'
+            return False, False, 'Tài khoản phiên dịch viên này hiện đang bị tạm khóa hoặc giới hạn quyền bởi hệ thống.'
+
+        # 2. Điều kiện tối thiểu để công khai
+        is_eligible, ineligibility_reason = self.is_eligible_for_public()
+        if not is_eligible:
+            if is_owner or is_admin:
+                return True, True, f'Hồ sơ chưa đủ điều kiện công khai: {ineligibility_reason}'
+            return False, False, 'Hồ sơ đang trong quá trình hoàn thiện thông tin và chưa được kích hoạt công khai.'
+
+        # 3. Chế độ riêng tư (is_public == False)
+        is_pub = getattr(self, 'is_public', True)
+        if is_pub is False:
+            if is_owner or is_admin:
+                return True, True, 'Hồ sơ đang ở chế độ Riêng tư (Ẩn trên danh bạ và tìm kiếm).'
+            return False, False, 'Phiên dịch viên hiện chưa công khai hồ sơ nghề nghiệp này.'
+
+        # 4. Hồ sơ công khai bình thường
+        return True, False, None
 
 
 class TranslatorPreference(db.Model):
@@ -253,7 +515,14 @@ class Job(db.Model):
     moderated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     submission_version = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quản lý yêu cầu (Task 02)
+    specialty = db.Column(db.String(100))          # lĩnh vực chuyên môn
+    word_count = db.Column(db.Integer)             # số từ / khối lượng
+    extra_requirements = db.Column(db.Text)        # yêu cầu bổ sung
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    closed_at = db.Column(db.DateTime)
 
+    attachments = db.relationship('JobAttachment', backref='job', lazy=True, cascade='all, delete-orphan')
     moderator = db.relationship('User', foreign_keys=[moderated_by], backref='moderated_jobs', lazy=True)
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
@@ -301,6 +570,23 @@ class Job(db.Model):
         return Proposal.query.filter_by(job_id=self.id).count()
 
 
+class JobAttachment(db.Model):
+    """Tệp tham khảo của yêu cầu. Lưu ngoài thư mục static, chỉ tải qua route có kiểm quyền."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False, index=True)
+    original_name = db.Column(db.String(255), nullable=False)
+    stored_name = db.Column(db.String(100), nullable=False)
+    size = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FavoriteTranslator(db.Model):
+    """Phiên dịch viên được khách thuê lưu (theo tài khoản, lưu bền vững)."""
+    __table_args__ = (db.UniqueConstraint('hirer_id', 'translator_id', name='uq_favorite_hirer_translator'),)
+    id = db.Column(db.Integer, primary_key=True)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 # ─── JOB SCHEDULE MODEL (TASK 1 / TASK 2) ────────────────────────────────────
 
 class JobSchedule(db.Model):
@@ -480,8 +766,225 @@ class Proposal(db.Model):
     cover_letter = db.Column(db.Text, nullable=True)
     price = db.Column(db.Integer, nullable=False)
     time_estimate = db.Column(db.String(100))
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected, not_selected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    client_note = db.Column(db.Text, nullable=True)
+    withdrawn_reason = db.Column(db.String(255), nullable=True)
+    # Quản lý báo giá (Task 04)
+    scope = db.Column(db.Text)              # phạm vi công việc
+    delivery_terms = db.Column(db.Text)     # điều kiện bàn giao
+    revision_terms = db.Column(db.Text)     # điều kiện chỉnh sửa
+    valid_until = db.Column(db.Date)        # báo giá có hiệu lực đến
+    responded_at = db.Column(db.DateTime)   # lúc khách phản hồi
+    response_note = db.Column(db.Text)      # ghi chú khi từ chối
+
+    @property
+    def effective_status(self):
+        """Trả về 1 trong 8 mã trạng thái chuẩn nghiệp vụ:
+        - pending: Chờ phản hồi
+        - reviewing: Đang xem xét
+        - needs_response: Cần phản hồi
+        - selected: Được chọn / Chờ xác nhận
+        - accepted: Đã nhận
+        - rejected: Không được chọn
+        - withdrawn: Đã rút đơn
+        - job_closed: Tin đã đóng
+        """
+        raw = (self.status or 'pending').lower().strip()
+        if raw == 'withdrawn':
+            return 'withdrawn'
+        if raw == 'accepted':
+            return 'accepted'
+        if raw == 'rejected':
+            return 'rejected'
+        if raw == 'selected':
+            return 'selected'
+        if raw == 'needs_response':
+            return 'needs_response'
+        if raw == 'reviewing':
+            return 'reviewing'
+
+        # Nếu đang pending nhưng tin đã đóng / hết hạn / đã chốt ứng viên khác
+        if self.job:
+            from datetime import date
+            if self.job.status == 'closed':
+                return 'job_closed'
+            if self.job.status == 'contracted' and raw != 'accepted':
+                return 'job_closed'
+            if self.job.deadline and self.job.deadline < date.today():
+                return 'job_closed'
+        return 'pending'
+
+    @property
+    def status_info(self):
+        meta = {
+            'pending': {
+                'code': 'pending',
+                'label': 'Chờ phản hồi',
+                'badge_class': 'bg-amber-50 text-amber-700 border-amber-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                'desc': 'Đơn đã gửi và đang chờ bên tuyển dụng phản hồi.',
+                'can_withdraw': True,
+                'can_update': True,
+                'can_confirm': False,
+            },
+            'reviewing': {
+                'code': 'reviewing',
+                'label': 'Đang xem xét',
+                'badge_class': 'bg-blue-50 text-blue-700 border-blue-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>',
+                'desc': 'Bên tuyển dụng đang đánh giá hồ sơ và đề xuất của bạn.',
+                'can_withdraw': True,
+                'can_update': True,
+                'can_confirm': False,
+            },
+            'needs_response': {
+                'code': 'needs_response',
+                'label': 'Cần phản hồi',
+                'badge_class': 'bg-purple-50 text-purple-700 border-purple-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>',
+                'desc': 'Bên tuyển dụng có câu hỏi hoặc yêu cầu bổ sung thông tin cho đề xuất.',
+                'can_withdraw': True,
+                'can_update': True,
+                'can_confirm': False,
+            },
+            'selected': {
+                'code': 'selected',
+                'label': 'Được chọn / Chờ xác nhận',
+                'badge_class': 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-400/20 font-extrabold',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+                'desc': 'Chúc mừng! Bạn đã được chọn. Vui lòng xác nhận nhận việc để hoàn tất tạo hợp đồng.',
+                'can_withdraw': True,
+                'can_update': False,
+                'can_confirm': True,
+            },
+            'accepted': {
+                'code': 'accepted',
+                'label': 'Đã nhận',
+                'badge_class': 'bg-teal-50 text-teal-800 border-teal-200/80 font-bold',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-teal-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>',
+                'desc': 'Đã hoàn tất xác nhận nhận việc. Công việc đang trong giai đoạn thực hiện.',
+                'can_withdraw': False,
+                'can_update': False,
+                'can_confirm': False,
+            },
+            'rejected': {
+                'code': 'rejected',
+                'label': 'Không được chọn',
+                'badge_class': 'bg-rose-50 text-rose-700 border-rose-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+                'desc': 'Đơn ứng tuyển chưa phù hợp với yêu cầu lần này của bên tuyển dụng.',
+                'can_withdraw': False,
+                'can_update': False,
+                'can_confirm': False,
+            },
+            'withdrawn': {
+                'code': 'withdrawn',
+                'label': 'Đã rút đơn',
+                'badge_class': 'bg-slate-100 text-slate-600 border-slate-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>',
+                'desc': 'Bạn đã chủ động rút đơn ứng tuyển.',
+                'can_withdraw': False,
+                'can_update': False,
+                'can_confirm': False,
+            },
+            'job_closed': {
+                'code': 'job_closed',
+                'label': 'Tin đã đóng',
+                'badge_class': 'bg-slate-100 text-slate-500 border-slate-200/80',
+                'icon_svg': '<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>',
+                'desc': 'Tin tuyển dụng này đã đóng hoặc đã hết hạn nhận hồ sơ.',
+                'can_withdraw': False,
+                'can_update': False,
+                'can_confirm': False,
+            }
+        }
+        return meta.get(self.effective_status, meta['pending'])
+
+    @property
+    def timeline(self):
+        """Lịch sử thay đổi trạng thái và các mốc thời gian của đơn."""
+        events = []
+        events.append({
+            'title': 'Đã nộp đơn ứng tuyển',
+            'time': self.created_at,
+            'desc': f'Mức thù lao đề xuất: {self.price:,.0f}đ · Thời gian: {self.time_estimate or "Thỏa thuận"}',
+            'type': 'submit'
+        })
+        updated = getattr(self, 'updated_at', None)
+        if updated and (updated - self.created_at).total_seconds() > 60:
+            events.append({
+                'title': 'Cập nhật đề xuất',
+                'time': updated,
+                'desc': 'Đã cập nhật lại nội dung đề xuất hoặc bổ sung thông tin.',
+                'type': 'update'
+            })
+        eff = self.effective_status
+        if eff == 'reviewing':
+            events.append({
+                'title': 'Đang được xem xét',
+                'time': updated or self.created_at,
+                'desc': 'Bên tuyển dụng đã tiếp nhận và đang đánh giá hồ sơ.',
+                'type': 'reviewing'
+            })
+        elif eff == 'needs_response':
+            events.append({
+                'title': 'Yêu cầu phản hồi',
+                'time': updated or self.created_at,
+                'desc': getattr(self, 'client_note', None) or 'Bên tuyển dụng cần bạn bổ sung thêm thông tin.',
+                'type': 'needs_response'
+            })
+        elif eff == 'selected':
+            events.append({
+                'title': 'Được lựa chọn',
+                'time': updated or self.created_at,
+                'desc': 'Bên tuyển dụng đã chọn bạn cho công việc này. Vui lòng xác nhận nhận việc.',
+                'type': 'selected'
+            })
+        elif eff == 'accepted':
+            events.append({
+                'title': 'Đã xác nhận nhận việc',
+                'time': updated or self.created_at,
+                'desc': 'Hợp đồng làm việc đã được tạo thành công.',
+                'type': 'accepted'
+            })
+        elif eff == 'rejected':
+            events.append({
+                'title': 'Không được chọn',
+                'time': updated or self.created_at,
+                'desc': getattr(self, 'client_note', None) or 'Bên tuyển dụng đã lựa chọn ứng viên khác.',
+                'type': 'rejected'
+            })
+        elif eff == 'withdrawn':
+            events.append({
+                'title': 'Đã rút đơn',
+                'time': updated or self.created_at,
+                'desc': getattr(self, 'withdrawn_reason', None) or 'Bạn đã chủ động rút đơn ứng tuyển.',
+                'type': 'withdrawn'
+            })
+        elif eff == 'job_closed':
+            events.append({
+                'title': 'Tin tuyển dụng đã đóng',
+                'time': updated or self.created_at,
+                'desc': 'Công việc đã hết hạn hoặc không còn nhận đề xuất.',
+                'type': 'closed'
+            })
+        return events
+
+
+class SavedJob(db.Model):
+    __tablename__ = 'saved_job'
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'job_id', name='uq_saved_job_user_job'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    user = db.relationship('User', backref=db.backref('saved_jobs', lazy=True, cascade='all, delete-orphan'))
+    job = db.relationship('Job', backref=db.backref('saved_by_users', lazy=True, cascade='all, delete-orphan'))
 
 
 class Contract(db.Model):
@@ -512,6 +1015,285 @@ class Contract(db.Model):
     deliverables = db.relationship('Deliverable', backref='contract', lazy=True, cascade='all, delete-orphan')
     reviews = db.relationship('Review', backref='contract', lazy=True, cascade='all, delete-orphan')
     service = db.relationship('Service', backref='contracts')
+
+    @property
+    def event_sort_date(self):
+        """Trả về ngày của ca làm (dùng để sắp xếp và so sánh thời gian)."""
+        from datetime import date
+        try:
+            if self.schedule and self.schedule.scheduled_date:
+                return self.schedule.scheduled_date
+            if self.scheduled_date:
+                from services.schedule import _parse_date
+                d = _parse_date(self.scheduled_date)
+                if d:
+                    return d
+        except Exception:
+            pass
+        return self.created_at.date() if self.created_at else date.min
+
+    @property
+    def shift_status_info(self):
+        """
+        Đối chiếu trạng thái ca làm theo 6 trạng thái chuẩn nghiệp vụ VietTranslate:
+        - escrow_pending: Chờ xác nhận / Ký quỹ
+        - upcoming: Đã xác nhận / Sắp tới
+        - in_progress: Đang diễn ra
+        - delivered: Chờ xác nhận hoàn thành
+        - completed: Đã hoàn thành
+        - cancelled: Đã hủy
+        """
+        from datetime import date
+        today = date.today()
+
+        if self.status == 'cancelled':
+            return {
+                'code': 'cancelled',
+                'label': 'Đã hủy',
+                'badge_class': 'bg-rose-50 text-rose-700 border-rose-200',
+                'dot_class': 'bg-rose-500',
+                'desc': 'Ca làm đã bị hủy theo thỏa thuận hoặc quá hạn xác nhận.',
+                'can_report_issue': False,
+                'can_deliver': False,
+                'can_review': False,
+                'can_view_meeting': False,
+                'can_checkin': False,
+            }
+
+        if self.status == 'awaiting_translator':
+            return {
+                'code': 'awaiting_translator',
+                'label': 'Chờ PDV xác nhận',
+                'badge_class': 'bg-amber-50 text-amber-800 border-amber-200/80',
+                'dot_class': 'bg-amber-500',
+                'desc': 'Khách hàng đã gửi yêu cầu đặt lịch, đang chờ phiên dịch viên xác nhận.',
+                'can_report_issue': False,
+                'can_deliver': False,
+                'can_review': False,
+                'can_view_meeting': False,
+                'can_checkin': False,
+            }
+
+        if self.status in ['completed', 'reviewed']:
+            return {
+                'code': 'completed',
+                'label': 'Đã hoàn thành',
+                'badge_class': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'dot_class': 'bg-emerald-500',
+                'desc': 'Ca làm đã hoàn tất và được bên tuyển dụng nghiệm thu thành công.',
+                'can_report_issue': False,
+                'can_deliver': False,
+                'can_review': True,
+                'can_view_meeting': True,
+                'can_checkin': False,
+            }
+
+        if self.status == 'delivered':
+            return {
+                'code': 'delivered',
+                'label': 'Chờ xác nhận hoàn thành',
+                'badge_class': 'bg-purple-50 text-purple-700 border-purple-200',
+                'dot_class': 'bg-purple-500',
+                'desc': 'Bạn đã báo kết thúc ca / nộp biên bản, đang chờ bên tuyển dụng nghiệm thu.',
+                'can_report_issue': True,
+                'can_deliver': False,
+                'can_review': False,
+                'can_view_meeting': True,
+                'can_checkin': False,
+            }
+
+        if self.status == 'escrow_pending':
+            return {
+                'code': 'escrow_pending',
+                'label': 'Chờ xác nhận / Ký quỹ',
+                'badge_class': 'bg-amber-50 text-amber-700 border-amber-200',
+                'dot_class': 'bg-amber-500',
+                'desc': 'Đã chốt nhận việc, đang chờ bên tuyển dụng hoàn tất ký quỹ Escrow.',
+                'can_report_issue': False,
+                'can_deliver': False,
+                'can_review': False,
+                'can_view_meeting': False,
+                'can_checkin': False,
+            }
+
+        # Trạng thái in_progress hoặc escrow_paid
+        parsed_d = self.event_sort_date
+        if parsed_d and parsed_d != date.min:
+            if parsed_d > today:
+                return {
+                    'code': 'upcoming',
+                    'label': 'Đã xác nhận / Sắp tới',
+                    'badge_class': 'bg-sky-50 text-sky-700 border-sky-200',
+                    'dot_class': 'bg-sky-500',
+                    'desc': 'Ca làm đã được chốt và ký quỹ an toàn, đang trong giai đoạn chuẩn bị.',
+                    'can_report_issue': True,
+                    'can_deliver': False,
+                    'can_review': False,
+                    'can_view_meeting': True,
+                    'can_checkin': False,
+                }
+            elif parsed_d == today:
+                return {
+                    'code': 'in_progress',
+                    'label': 'Đang diễn ra',
+                    'badge_class': 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-1 ring-emerald-400/40',
+                    'dot_class': 'bg-emerald-500 animate-pulse',
+                    'desc': 'Ca làm diễn ra hôm nay. Vui lòng check-in và chuẩn bị thực hiện theo lịch.',
+                    'can_report_issue': True,
+                    'can_deliver': True,
+                    'can_review': False,
+                    'can_view_meeting': True,
+                    'can_checkin': True,
+                }
+            else:
+                return {
+                    'code': 'in_progress',
+                    'label': 'Đang diễn ra',
+                    'badge_class': 'bg-amber-50 text-amber-800 border-amber-300',
+                    'dot_class': 'bg-amber-500',
+                    'desc': 'Đã qua ngày ca làm, vui lòng báo kết thúc hoặc nộp biên bản nghiệm thu.',
+                    'can_report_issue': True,
+                    'can_deliver': True,
+                    'can_review': False,
+                    'can_view_meeting': True,
+                    'can_checkin': False,
+                }
+
+        return {
+            'code': 'upcoming',
+            'label': 'Đã xác nhận / Sắp tới',
+            'badge_class': 'bg-sky-50 text-sky-700 border-sky-200',
+            'dot_class': 'bg-sky-500',
+            'desc': 'Hợp đồng ca làm việc đã kích hoạt thành công.',
+            'can_report_issue': True,
+            'can_deliver': True,
+            'can_review': False,
+            'can_view_meeting': True,
+            'can_checkin': False,
+        }
+
+    @property
+    def platform_fee(self):
+        """Phí dịch vụ bảo đảm nền tảng Escrow (10%)."""
+        return int(self.agreed_price * 0.10) if self.agreed_price else 0
+
+    @property
+    def translator_net_amount(self):
+        """Số tiền thù lao thực nhận của phiên dịch viên sau khi trừ phí nền tảng (90%)."""
+        return (self.agreed_price - self.platform_fee) if self.agreed_price else 0
+
+    @property
+    def acceptance_status_info(self):
+        """
+        Trạng thái nghiệm thu công việc:
+        - accepted: Đã nghiệm thu (status in ['completed', 'reviewed'])
+        - pending: Chờ nghiệm thu (status == 'delivered')
+        - in_progress: Chưa tới bước nghiệm thu
+        - cancelled: Đã hủy
+        """
+        if self.status in ['completed', 'reviewed']:
+            return {
+                'code': 'accepted',
+                'label': 'Đã nghiệm thu',
+                'badge_class': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'dot_class': 'bg-emerald-500',
+                'desc': 'Bên thuê đã kiểm tra và phê duyệt kết quả công việc thành công.'
+            }
+        elif self.status == 'delivered':
+            return {
+                'code': 'pending',
+                'label': 'Chờ nghiệm thu',
+                'badge_class': 'bg-purple-50 text-purple-700 border-purple-200',
+                'dot_class': 'bg-purple-500 animate-pulse',
+                'desc': 'Bạn đã báo hoàn thành ca, đang chờ bên tuyển dụng xác nhận nghiệm thu.'
+            }
+        elif self.status == 'cancelled':
+            return {
+                'code': 'cancelled',
+                'label': 'Đã hủy',
+                'badge_class': 'bg-rose-50 text-rose-700 border-rose-200',
+                'dot_class': 'bg-rose-500',
+                'desc': 'Ca làm đã bị hủy theo thỏa thuận hoặc quá hạn.'
+            }
+        else:
+            return {
+                'code': 'in_progress',
+                'label': 'Chưa nghiệm thu',
+                'badge_class': 'bg-slate-100 text-slate-600 border-slate-200',
+                'dot_class': 'bg-slate-400',
+                'desc': 'Công việc đang trong quá trình thực hiện.'
+            }
+
+    @property
+    def payment_status_info(self):
+        """
+        Trạng thái thanh toán theo nguồn dữ liệu Escrow thực tế:
+        - paid: Đã giải ngân Escrow (status in ['completed', 'reviewed'])
+        - escrow_held: Đang tạm giữ Escrow (status in ['in_progress', 'delivered'])
+        - escrow_pending: Chờ khách ký quỹ (status == 'escrow_pending')
+        - refunded: Đã hoàn trả / Hủy (status == 'cancelled')
+        """
+        if self.status in ['completed', 'reviewed']:
+            return {
+                'code': 'paid',
+                'label': 'Đã giải ngân Escrow',
+                'badge_class': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                'is_paid': True,
+                'desc': 'Tiền đã được giải ngân thành công sau khi nghiệm thu.'
+            }
+        elif self.status in ['in_progress', 'delivered']:
+            return {
+                'code': 'escrow_held',
+                'label': 'Đang tạm giữ Escrow',
+                'badge_class': 'bg-amber-50 text-amber-700 border-amber-200',
+                'is_paid': False,
+                'desc': 'Thù lao đang được bảo đảm tạm giữ trong tài khoản Escrow an toàn.'
+            }
+        elif self.status == 'escrow_pending':
+            return {
+                'code': 'escrow_pending',
+                'label': 'Chưa ký quỹ',
+                'badge_class': 'bg-slate-100 text-slate-600 border-slate-200',
+                'is_paid': False,
+                'desc': 'Bên thuê chưa hoàn tất bước ký quỹ thù lao.'
+            }
+        elif self.status == 'cancelled':
+            return {
+                'code': 'refunded',
+                'label': 'Đã hoàn tiền / Hủy',
+                'badge_class': 'bg-rose-50 text-rose-700 border-rose-200',
+                'is_paid': False,
+                'desc': 'Giao dịch đã được hủy hoặc hoàn trả.'
+            }
+        return {
+            'code': 'unknown',
+            'label': 'Đang xử lý',
+            'badge_class': 'bg-slate-100 text-slate-600 border-slate-200',
+            'is_paid': False,
+            'desc': 'Trạng thái giao dịch đang được cập nhật.'
+        }
+
+    @property
+    def client_review(self):
+        """Nhận xét và đánh giá sao từ khách hàng tuyển dụng cho hợp đồng này."""
+        for r in self.reviews:
+            if r.reviewer_id == self.hirer_id:
+                return r
+        return None
+
+
+
+class ContractEvent(db.Model):
+    """Lịch sử xử lý của dự án (nghiệm thu, yêu cầu chỉnh sửa, bàn giao...)."""
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    event_type = db.Column(db.String(40), nullable=False)
+    note = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    contract = db.relationship('Contract', backref=db.backref('events', lazy=True, cascade='all, delete-orphan'))
 
 
 class Message(db.Model):
@@ -596,9 +1378,21 @@ NOTIFICATION_TYPES = {
     'CONTRACT_COMPLETED': 'CONTRACT_COMPLETED',
     'NEW_REVIEW': 'NEW_REVIEW',
     'VERIFICATION_SUBMITTED': 'VERIFICATION_SUBMITTED',
+    'VERIFICATION_RESUBMITTED': 'VERIFICATION_RESUBMITTED',
+    'VERIFICATION_NEEDS_REVISION': 'VERIFICATION_NEEDS_REVISION',
     'VERIFICATION_APPROVED': 'VERIFICATION_APPROVED',
-    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED'
+    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED',
+    'VERIFICATION_POLICY_UPDATE_REQUIRED': 'VERIFICATION_POLICY_UPDATE_REQUIRED'
 }
+
+VERIFICATION_NOTIFICATION_TYPES = (
+    'VERIFICATION_SUBMITTED',
+    'VERIFICATION_RESUBMITTED',
+    'VERIFICATION_NEEDS_REVISION',
+    'VERIFICATION_APPROVED',
+    'VERIFICATION_REJECTED',
+    'VERIFICATION_POLICY_UPDATE_REQUIRED'
+)
 
 
 SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
@@ -749,6 +1543,7 @@ ADMIN_AUDIT_ACTIONS = {
     'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
     'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
     'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
+    'REQUEST_POLICY_UPDATE': 'REQUEST_POLICY_UPDATE',
     'VERIFY_HIRER': 'VERIFY_HIRER',
     'REJECT_HIRER': 'REJECT_HIRER',
     'REQUEST_HIRER_REVISION': 'REQUEST_HIRER_REVISION',
@@ -777,6 +1572,8 @@ ADMIN_AUDIT_ACTIONS = {
     'ADMIN_ACCESS_BLOCKED': 'ADMIN_ACCESS_BLOCKED',
     'ADMIN_ACCESS_RESTORED': 'ADMIN_ACCESS_RESTORED',
     'ADMIN_PRIVILEGES_REVOKED': 'ADMIN_PRIVILEGES_REVOKED',
+    'ADMIN_PASSWORD_RESET': 'ADMIN_PASSWORD_RESET',
+    'PROMOTE_TO_ADMIN': 'PROMOTE_TO_ADMIN',
 }
 
 

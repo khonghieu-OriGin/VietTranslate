@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 import time
@@ -15,7 +17,7 @@ from flask import current_app
 from models import (
     db, User, TranslatorProfile, TranslatorVerification, VerificationDocument,
     AdminNotification, Notification, ADMIN_AUDIT_ACTIONS, AdminAuditLog,
-    VerificationSubmissionVersion
+    VerificationSubmissionVersion, VERIFICATION_NOTIFICATION_TYPES
 )
 
 # ─── POLICY CẤU HÌNH CÁC LOẠI TÀI LIỆU MINH CHỨNG ĐƯỢC PHÉP ───────────────────
@@ -713,16 +715,17 @@ def submit_verification_for_review(user, form_data=None, confirmed=False, ip_add
     except Exception as e:
         print(f"[ADMIN NOTIF ERROR] {e}", file=sys.stderr)
 
-    # Gửi thông báo cho phiên dịch viên
+    # Gửi thông báo cho phiên dịch viên (chống trùng và làm sạch dữ liệu)
     try:
-        user_notif = Notification(
+        send_verification_notification(
             user_id=user.id,
-            type='VERIFICATION_SUBMITTED',
+            notif_type='VERIFICATION_SUBMITTED',
             title='Hồ sơ xác minh đã gửi thành công! ⏳',
             message=f'Hồ sơ của bạn (Phiên bản #{next_version}) đã được chuyển tới hàng đợi xét duyệt của Ban quản trị. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ.',
-            url='/account/profile?tab=verification'
+            url='/account/verification/status',
+            version=next_version,
+            verification_id=verification.id
         )
-        db.session.add(user_notif)
     except Exception as e:
         print(f"[USER NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -829,16 +832,16 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_by = admin_user.id if admin_user else None
                 doc.reviewed_at = now
 
-        # Gửi thông báo cho phiên dịch viên
+        # Gửi thông báo cho phiên dịch viên (chống trùng và làm sạch dữ liệu)
         try:
-            notif = Notification(
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_APPROVED',
+                notif_type='VERIFICATION_APPROVED',
                 title='Hồ sơ đã được xác minh thành công! 🎉',
                 message='Chúc mừng bạn! Hồ sơ phiên dịch viên của bạn đã được xác minh chính thức. Huy hiệu uy tín đã xuất hiện trên trang cá nhân.',
-                url='/account/profile?tab=verification'
+                url='/account/verification/status',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -875,14 +878,15 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_at = now
 
         try:
-            notif = Notification(
+            clean_reason = sanitize_verification_message(revision_reason)
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_NEEDS_REVISION',
+                notif_type='VERIFICATION_NEEDS_REVISION',
                 title='Hồ sơ xác minh cần bổ sung',
-                message=f'Hồ sơ của bạn cần bổ sung/chỉnh sửa với lý do: "{revision_reason}".',
-                url='/account/profile?tab=verification'
+                message=f'Hồ sơ của bạn cần bổ sung/chỉnh sửa với lý do: "{clean_reason}".',
+                url='/account/verification/revision',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -917,16 +921,17 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_by = admin_user.id if admin_user else None
                 doc.reviewed_at = now
 
-        # Gửi thông báo cho phiên dịch viên kèm lý do
+        # Gửi thông báo cho phiên dịch viên kèm lý do (chống trùng và làm sạch dữ liệu)
         try:
-            notif = Notification(
+            clean_reason = sanitize_verification_message(rejection_reason)
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_REJECTED',
+                notif_type='VERIFICATION_REJECTED',
                 title='Hồ sơ xác minh chưa được phê duyệt',
-                message=f'Hồ sơ của bạn chưa được duyệt với lý do: "{rejection_reason}". Bạn có thể cập nhật tài liệu và nộp lại.',
-                url='/account/profile?tab=verification'
+                message=f'Hồ sơ của bạn chưa được duyệt với lý do: "{clean_reason}". Bạn có thể cập nhật tài liệu và nộp lại.',
+                url='/account/verification/status',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -2370,14 +2375,15 @@ def resubmit_verification(user, form_data=None, files=None, ip_address=None, use
         print(f"[ADMIN NOTIF ERROR] {e}", file=sys.stderr)
 
     try:
-        user_notif = Notification(
+        send_verification_notification(
             user_id=user.id,
-            type='VERIFICATION_RESUBMITTED',
+            notif_type='VERIFICATION_RESUBMITTED',
             title='Hồ sơ bổ sung đã gửi lại thành công! ⏳',
             message=f'Hồ sơ bổ sung của bạn (Phiên bản #{next_version}) đã được chuyển về hàng đợi xét duyệt của Ban quản trị. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ.',
-            url='/account/verification/status'
+            url='/account/verification/status',
+            version=next_version,
+            verification_id=verification.id
         )
-        db.session.add(user_notif)
     except Exception as e:
         print(f"[USER NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -2399,6 +2405,390 @@ def resubmit_verification(user, form_data=None, files=None, ip_address=None, use
         'diff': diff_data,
         'snapshot': snapshot_data
     }
+
+
+# ─── TRANSLATOR VERIFICATION NOTIFICATION CENTER SYSTEM ─────────────────────────
+
+VERIFICATION_NOTIF_CONFIG = {
+    'VERIFICATION_SUBMITTED': {
+        'code': 'VERIFICATION_SUBMITTED',
+        'category': 'submitted',
+        'label': 'Tiếp nhận hồ sơ',
+        'badge_class': 'bg-blue-50 text-blue-700 border-blue-200',
+        'icon_kind': 'submitted',
+        'default_title': 'Hồ sơ xác minh đã được tiếp nhận ⏳',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem tiến độ hồ sơ',
+        'severity': 'info'
+    },
+    'VERIFICATION_RESUBMITTED': {
+        'code': 'VERIFICATION_RESUBMITTED',
+        'category': 'submitted',
+        'label': 'Tiếp nhận hồ sơ bổ sung',
+        'badge_class': 'bg-blue-50 text-blue-700 border-blue-200',
+        'icon_kind': 'resubmitted',
+        'default_title': 'Hồ sơ bổ sung đã được tiếp nhận ⏳',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem tiến độ hồ sơ',
+        'severity': 'info'
+    },
+    'VERIFICATION_NEEDS_REVISION': {
+        'code': 'VERIFICATION_NEEDS_REVISION',
+        'category': 'revision',
+        'label': 'Yêu cầu bổ sung',
+        'badge_class': 'bg-orange-50 text-orange-700 border-orange-200',
+        'icon_kind': 'revision',
+        'default_title': 'Admin yêu cầu bổ sung hồ sơ xác minh ⚠️',
+        'default_url': '/account/verification/revision',
+        'action_label': 'Bổ sung hồ sơ ngay',
+        'severity': 'warning'
+    },
+    'VERIFICATION_APPROVED': {
+        'code': 'VERIFICATION_APPROVED',
+        'category': 'approved',
+        'label': 'Đã xác minh',
+        'badge_class': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'icon_kind': 'approved',
+        'default_title': 'Hồ sơ đã được xác minh thành công! 🎉',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem huy hiệu xác minh',
+        'severity': 'success'
+    },
+    'VERIFICATION_REJECTED': {
+        'code': 'VERIFICATION_REJECTED',
+        'category': 'rejected',
+        'label': 'Từ chối hồ sơ',
+        'badge_class': 'bg-rose-50 text-rose-700 border-rose-200',
+        'icon_kind': 'rejected',
+        'default_title': 'Hồ sơ xác minh chưa được phê duyệt ❌',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem lý do & nộp lại',
+        'severity': 'danger'
+    },
+    'VERIFICATION_POLICY_UPDATE_REQUIRED': {
+        'code': 'VERIFICATION_POLICY_UPDATE_REQUIRED',
+        'category': 'policy',
+        'label': 'Yêu cầu cập nhật chính sách',
+        'badge_class': 'bg-purple-50 text-purple-700 border-purple-200',
+        'icon_kind': 'policy',
+        'default_title': 'Yêu cầu cập nhật hồ sơ theo chính sách 📋',
+        'default_url': '/account/verification/revision',
+        'action_label': 'Cập nhật hồ sơ ngay',
+        'severity': 'purple'
+    }
+}
+
+
+def sanitize_verification_message(text: str) -> str:
+    """
+    Loại bỏ dữ liệu nhạy cảm khỏi nội dung thông báo:
+    - Loại bỏ đường dẫn tệp máy chủ nội bộ (/tmp/..., /storage/..., hash tệp)
+    - Loại bỏ mã token, mật khẩu, chuỗi truy vấn bí mật
+    - Ẩn/che số CCCD/Hộ chiếu (chuỗi 9-12 chữ số)
+    - Loại bỏ thẻ HTML/script độc hại
+    - Giới hạn độ dài an toàn tối đa 400 ký tự
+    """
+    if not text:
+        return ''
+    cleaned = str(text)
+    # Loại bỏ HTML tags
+    cleaned = re.sub(r'<[^>]+>', '', cleaned)
+    # Ẩn số định danh cá nhân (CCCD / Passport / Phone) từ 9-12 chữ số
+    cleaned = re.sub(r'\b\d{9,12}\b', lambda m: m.group(0)[:3] + '****' + m.group(0)[-2:], cleaned)
+    # Loại bỏ đường dẫn tệp máy chủ nội bộ
+    cleaned = re.sub(r'(/private_verifications|/tmp/[a-zA-Z0-9_\-\.\/]+|instance/storage/[a-zA-Z0-9_\-\.\/]+)', '[tài liệu hệ thống]', cleaned)
+    # Loại bỏ thông báo lỗi kỹ thuật database
+    cleaned = re.sub(r'(sqlite3\.[a-zA-Z0-9_]+|psycopg2\.[a-zA-Z0-9_]+|sqlalchemy\.[a-zA-Z0-9_]+)', 'Lỗi hệ thống', cleaned)
+    # Rút gọn khoảng trắng thừa
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    # Giới hạn độ dài tối đa 400 ký tự
+    if len(cleaned) > 400:
+        cleaned = cleaned[:397] + '...'
+    return cleaned
+
+
+def send_verification_notification(
+    user_id: int,
+    notif_type: str,
+    title: str = None,
+    message: str = None,
+    url: str = None,
+    version: int = None,
+    verification_id: int = None,
+    force: bool = False,
+    dedup_window_seconds: int = 1800
+) -> tuple[bool, Notification | None, bool]:
+    """
+    Gửi thông báo xác minh hồ sơ với cơ chế chống gửi trùng lặp (Idempotent).
+    Ngăn chặn việc spam hoặc gửi lặp khi người dùng bấm gửi liên tiếp,
+    hoặc Admin xử lý lặp sự kiện cùng một lúc.
+    
+    Trả về: (thành_công: bool, thông_báo: Notification, là_trùng_lặp: bool)
+    """
+    if not user_id:
+        return False, None, False
+
+    cfg = VERIFICATION_NOTIF_CONFIG.get(notif_type, {})
+    final_title = sanitize_verification_message(title or cfg.get('default_title', 'Thông báo xác minh hồ sơ'))
+    final_message = sanitize_verification_message(message or '')
+    final_url = url or cfg.get('default_url', '/account/verification/status')
+
+    # KIỂM TRA TRÙNG LẶP (DEDUPLICATION)
+    if not force:
+        from datetime import datetime as dt_cls, timedelta
+        cutoff = dt_cls.utcnow() - timedelta(seconds=dedup_window_seconds)
+
+        recent_notifs = Notification.query.filter(
+            Notification.user_id == user_id,
+            Notification.type == notif_type,
+            Notification.created_at >= cutoff
+        ).all()
+
+        for ex in recent_notifs:
+            # 1. Trùng phiên bản nộp hồ sơ
+            if version is not None and f'#{version}' in (ex.message or ''):
+                return False, ex, True
+            # 2. Trùng nội dung hoặc trùng yêu cầu bổ sung/từ chối gần đây
+            if notif_type in ('VERIFICATION_NEEDS_REVISION', 'VERIFICATION_REJECTED', 'VERIFICATION_POLICY_UPDATE_REQUIRED'):
+                if ex.message == final_message or (ex.is_read is False and ex.type == notif_type):
+                    return False, ex, True
+            # 3. Trùng phê duyệt (đã nhận thông báo phê duyệt gần đây)
+            if notif_type == 'VERIFICATION_APPROVED':
+                return False, ex, True
+            # 4. Trùng tiếp nhận hồ sơ trong cùng cửa sổ thời gian
+            if notif_type in ('VERIFICATION_SUBMITTED', 'VERIFICATION_RESUBMITTED'):
+                if version is not None and f'#{version}' in (ex.message or ''):
+                    return False, ex, True
+                elif version is None and (dt_cls.utcnow() - ex.created_at).total_seconds() < 300:
+                    return False, ex, True
+
+    try:
+        new_notif = Notification(
+            user_id=user_id,
+            type=notif_type,
+            title=final_title,
+            message=final_message,
+            url=final_url
+        )
+        db.session.add(new_notif)
+        return True, new_notif, False
+    except Exception as e:
+        print(f"[VERIFICATION NOTIF CREATION ERROR] {e}", file=sys.stderr)
+        return False, None, False
+
+
+def request_policy_reverification(
+    translator_user,
+    reason: str,
+    policy_name: str = None,
+    admin_user=None,
+    ip_address=None,
+    user_agent=None
+) -> tuple[bool, str, Notification | None]:
+    """
+    Sự kiện thật: Yêu cầu phiên dịch viên cập nhật hoặc xác minh lại hồ sơ khi chính sách yêu cầu.
+    - Cập nhật hồ sơ sang trạng thái 'needs_revision' để mở quyền cập nhật tài liệu/thông tin.
+    - Gửi thông báo VERIFICATION_POLICY_UPDATE_REQUIRED (có chống gửi trùng).
+    - Ghi nhận Audit Log.
+    """
+    if isinstance(translator_user, int):
+        translator_user = User.query.get(translator_user)
+    if not translator_user or translator_user.role != 'translator':
+        return False, 'Không tìm thấy tài khoản phiên dịch viên hợp lệ.', None
+
+    verification = TranslatorVerification.query.filter_by(user_id=translator_user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return False, 'Phiên dịch viên chưa có hồ sơ xác minh để yêu cầu cập nhật.', None
+
+    clean_reason = sanitize_verification_message(reason or 'Chính sách nền tảng định kỳ yêu cầu cập nhật hoặc xác minh lại hồ sơ năng lực.')
+    p_name = sanitize_verification_message(policy_name or 'Chính sách xác minh năng lực')
+
+    # Cập nhật hồ sơ
+    verification.status = 'needs_revision'
+    verification.rejection_reason = f"[{p_name}] {clean_reason}"
+    if translator_user.profile:
+        translator_user.profile.is_verified = False
+
+    # Gửi thông báo có chống trùng
+    msg_text = f"Theo {p_name}, hồ sơ phiên dịch viên của bạn cần được cập nhật/xác minh lại: \"{clean_reason}\". Vui lòng kiểm tra và cập nhật tài liệu."
+    ok, notif, is_dup = send_verification_notification(
+        user_id=translator_user.id,
+        notif_type='VERIFICATION_POLICY_UPDATE_REQUIRED',
+        title='Yêu cầu cập nhật & xác minh lại hồ sơ theo chính sách 📋',
+        message=msg_text,
+        url='/account/verification/revision',
+        verification_id=verification.id
+    )
+
+    # Ghi Audit Log nếu có admin
+    try:
+        AdminAuditLog.log(
+            action=ADMIN_AUDIT_ACTIONS.get('REQUEST_POLICY_UPDATE', 'REQUEST_POLICY_UPDATE'),
+            admin_id=admin_user.id if admin_user else None,
+            target_type='translator',
+            target_id=translator_user.profile.id if translator_user.profile else translator_user.id,
+            description=f'Yêu cầu cập nhật theo chính sách cho {translator_user.name} ({translator_user.email}). Lý do: {clean_reason}',
+            ip_address=ip_address,
+            user_agent=user_agent,
+            extra_data={'policy_name': p_name, 'reason': clean_reason, 'verification_id': verification.id}
+        )
+    except Exception as e:
+        print(f"[AUDIT LOG ERROR] {e}", file=sys.stderr)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return False, f'Lỗi lưu dữ liệu: {str(e)}', None
+
+    if is_dup:
+        return True, 'Yêu cầu cập nhật chính sách đã được ghi nhận (thông báo tương tự đã được gửi trước đó).', notif
+    return True, f'Đã gửi yêu cầu cập nhật hồ sơ theo chính sách cho {translator_user.name}.', notif
+
+
+def get_translator_verification_notifications(user, status_filter='all', category_filter='all', page=1, per_page=20):
+    """
+    Lấy danh sách thông báo xác minh hồ sơ riêng cho phiên dịch viên.
+    Hỗ trợ lọc theo trạng thái (all, unread, read) và phân loại sự kiện.
+    Trả về dict chứa danh sách, phân trang, bộ đếm unread và tổng số.
+    """
+    if not user or user.role != 'translator':
+        return {
+            'notifications': [],
+            'unread_count': 0,
+            'total': 0,
+            'pages': 0,
+            'current_page': 1,
+            'categories': {}
+        }
+
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    from datetime import datetime as dt_cls
+    now_dt = dt_cls.utcnow()
+
+    # Query gốc
+    query = Notification.query.filter(
+        Notification.user_id == user.id,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES)
+    )
+
+    # Đếm unread tổng số của xác minh
+    unread_count = Notification.query.filter(
+        Notification.user_id == user.id,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+
+    total_count = query.count()
+
+    # Lọc theo trạng thái đọc
+    if status_filter == 'unread':
+        query = query.filter(Notification.is_read == False)
+    elif status_filter == 'read':
+        query = query.filter(Notification.is_read == True)
+
+    # Lọc theo loại sự kiện
+    cat_mapping = {
+        'submitted': ['VERIFICATION_SUBMITTED', 'VERIFICATION_RESUBMITTED'],
+        'revision': ['VERIFICATION_NEEDS_REVISION'],
+        'approved': ['VERIFICATION_APPROVED'],
+        'rejected': ['VERIFICATION_REJECTED'],
+        'policy': ['VERIFICATION_POLICY_UPDATE_REQUIRED']
+    }
+    if category_filter in cat_mapping:
+        query = query.filter(Notification.type.in_(cat_mapping[category_filter]))
+
+    pagination = query.order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    formatted_items = []
+    for n in pagination.items:
+        cfg = VERIFICATION_NOTIF_CONFIG.get(n.type, {
+            'category': 'other',
+            'label': 'Xác minh hồ sơ',
+            'badge_class': 'bg-slate-100 text-slate-700 border-slate-200',
+            'icon_kind': 'bell',
+            'action_label': 'Xem chi tiết',
+            'severity': 'info'
+        })
+
+        # Định dạng thời gian
+        time_ago_str = ""
+        if n.created_at:
+            delta = int((now_dt - n.created_at).total_seconds())
+            if delta < 60:
+                time_ago_str = "Vừa xong"
+            elif delta < 3600:
+                time_ago_str = f"{max(1, delta // 60)} phút trước"
+            elif delta < 86400:
+                time_ago_str = f"{delta // 3600} giờ trước"
+            elif delta < 172800:
+                time_ago_str = "Hôm qua"
+            else:
+                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
+
+        formatted_items.append({
+            'id': n.id,
+            'type': n.type,
+            'category': cfg.get('category', 'other'),
+            'type_label': cfg.get('label', 'Xác minh hồ sơ'),
+            'badge_class': cfg.get('badge_class', 'bg-slate-100 text-slate-700 border-slate-200'),
+            'icon_kind': cfg.get('icon_kind', 'bell'),
+            'title': n.title,
+            'message': n.message,
+            'url': n.url or cfg.get('default_url', '/account/verification/status'),
+            'action_label': cfg.get('action_label', 'Xem chi tiết'),
+            'severity': cfg.get('severity', 'info'),
+            'is_read': n.is_read,
+            'created_at': n.created_at.isoformat() if n.created_at else None,
+            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+            'time_ago': time_ago_str
+        })
+
+    return {
+        'notifications': formatted_items,
+        'unread_count': unread_count,
+        'total': total_count,
+        'filtered_total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
+    }
+
+
+def mark_verification_notification_read(notification_id: int, user_id: int) -> tuple[bool, str]:
+    """Đánh dấu một thông báo xác minh là đã đọc."""
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    notif = Notification.query.get(notification_id)
+    if not notif:
+        return False, 'Không tìm thấy thông báo.'
+    if notif.user_id != user_id:
+        return False, 'Không có quyền truy cập thông báo này.'
+    if notif.type not in VERIFICATION_NOTIFICATION_TYPES:
+        return False, 'Thông báo không thuộc nhóm xác minh hồ sơ.'
+
+    notif.is_read = True
+    try:
+        db.session.commit()
+        return True, 'Đã đánh dấu đã đọc.'
+    except Exception as e:
+        db.session.rollback()
+        return False, f'Lỗi cơ sở dữ liệu: {str(e)}'
+
+
+def mark_all_verification_notifications_read(user_id: int) -> tuple[bool, int]:
+    """Đánh dấu tất cả thông báo xác minh của phiên dịch viên là đã đọc."""
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    try:
+        updated = Notification.query.filter(
+            Notification.user_id == user_id,
+            Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+            Notification.is_read == False
+        ).update({'is_read': True})
+        db.session.commit()
+        return True, updated
+    except Exception as e:
+        db.session.rollback()
+        return False, 0
+
 
 
 
