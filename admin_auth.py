@@ -61,6 +61,88 @@ ROLE_PERMISSIONS = {
     }
 }
 
+ROLE_DESCRIPTIONS = {
+    'super_admin': {
+        'name': 'Super Admin',
+        'title': 'Quản trị viên Cấp cao',
+        'desc': 'Toàn quyền kiểm soát hệ thống, quản lý tài khoản và phân quyền cho mọi Admin khác.',
+        'badge': 'badge-yellow',
+        'color': '#f59e0b',
+    },
+    'moderator': {
+        'name': 'Content Moderator',
+        'title': 'Kiểm duyệt viên Nội dung',
+        'desc': 'Kiểm duyệt hồ sơ phiên dịch viên, nhà tuyển dụng, tin tuyển dụng, đánh giá và xử lý báo cáo vi phạm.',
+        'badge': 'badge-blue',
+        'color': '#3b82f6',
+    },
+    'support': {
+        'name': 'Customer Support',
+        'title': 'Hỗ trợ Khách hàng',
+        'desc': 'Hỗ trợ người dùng, khóa/mở khóa tài khoản vi phạm, theo dõi hợp đồng, lịch hẹn và xử lý báo cáo.',
+        'badge': 'badge-gray',
+        'color': '#94a3b8',
+    },
+    'finance': {
+        'name': 'Finance Manager',
+        'title': 'Quản lý Tài chính',
+        'desc': 'Theo dõi thanh toán Escrow, giao dịch hợp đồng dịch thuật và phê duyệt hoàn tiền (Refund).',
+        'badge': 'badge-green',
+        'color': '#10b981',
+    }
+}
+
+PERMISSION_GROUPS = [
+    {
+        'group': 'Tổng quan & Hệ thống',
+        'permissions': [
+            ('view_dashboard', 'Xem trang Tổng quan (Dashboard)'),
+            ('view_notifications', 'Xem Thông báo hệ thống'),
+            ('view_audit_logs', 'Xem Nhật ký hoạt động (Audit Logs)'),
+            ('manage_admins', 'Quản lý & Phân quyền Admin cấp dưới'),
+        ]
+    },
+    {
+        'group': 'Người dùng & Tài khoản',
+        'permissions': [
+            ('view_users', 'Xem danh sách người dùng'),
+            ('lock_user', 'Khóa / Mở khóa người dùng'),
+            ('view_translators', 'Xem danh sách Phiên dịch viên'),
+            ('verify_translator', 'Duyệt / Từ chối Phiên dịch viên'),
+            ('view_hirers', 'Xem danh sách Khách thuê'),
+            ('verify_hirer', 'Duyệt / Từ chối Khách thuê'),
+        ]
+    },
+    {
+        'group': 'Tin tuyển dụng & Dự án',
+        'permissions': [
+            ('view_jobs', 'Xem danh sách tin tuyển dụng'),
+            ('approve_job', 'Duyệt / Từ chối tin tuyển dụng'),
+            ('flag_job', 'Gắn cờ / Bỏ cờ vi phạm tin đăng'),
+            ('moderate_job', 'Chỉnh sửa / Lưu trữ tin đăng'),
+            ('view_proposals', 'Xem báo giá / Ứng tuyển'),
+            ('view_contracts', 'Xem hợp đồng dịch thuật'),
+            ('view_schedules', 'Xem lịch hẹn phiên dịch'),
+        ]
+    },
+    {
+        'group': 'Báo cáo & Đánh giá',
+        'permissions': [
+            ('view_reports', 'Xem danh sách báo cáo vi phạm'),
+            ('resolve_report', 'Xử lý / Từ chối báo cáo vi phạm'),
+            ('view_reviews', 'Xem đánh giá từ khách hàng'),
+            ('hide_review', 'Ẩn / Khôi phục đánh giá'),
+        ]
+    },
+    {
+        'group': 'Tài chính & Thanh toán',
+        'permissions': [
+            ('view_payments', 'Xem dòng tiền Escrow & giao dịch'),
+            ('refund_payment', 'Thực hiện hoàn tiền (Refund)'),
+        ]
+    }
+]
+
 
 # ─── IP HELPER ────────────────────────────────────────────────────────────────
 

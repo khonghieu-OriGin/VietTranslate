@@ -6708,10 +6708,18 @@ def admin_audit_logs():
 @admin_login_required
 @require_permission('manage_admins')
 def admin_admins():
-    # Only super_admin or users with manage_admins can see all details easily
-    # But let's allow all admins to view the list, just restrict actions in UI
-    admins = User.query.filter_by(is_admin=True, role='admin').all()
-    return render_template('admin_admins.html', admins=admins)
+    from admin_auth import ROLE_DESCRIPTIONS, ROLE_PERMISSIONS, PERMISSION_GROUPS
+    admins = User.query.filter_by(is_admin=True).order_by(User.created_at.desc()).all()
+    # Danh sách người dùng tiềm năng chưa phải admin để hỗ trợ thăng cấp
+    candidates = User.query.filter_by(is_admin=False, is_active=True).order_by(User.name.asc()).limit(150).all()
+    return render_template(
+        'admin_admins.html',
+        admins=admins,
+        candidates=candidates,
+        role_descriptions=ROLE_DESCRIPTIONS,
+        role_permissions=ROLE_PERMISSIONS,
+        permission_groups=PERMISSION_GROUPS
+    )
 
 @app.route('/admin/admins/add', methods=['POST'])
 @admin_login_required
@@ -6720,20 +6728,33 @@ def admin_admins():
 def admin_add_admin():
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
-        abort(403)
-        
-    name = request.form.get('name')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    admin_role = request.form.get('admin_role')
-    
-    # Chỉ cho phép tạo các role cấp dưới
-    if admin_role not in ['moderator', 'support', 'finance']:
-        flash('Chức vụ không hợp lệ. Không thể tạo chức vụ này.', 'error')
+        flash('Chỉ Super Admin mới có quyền thêm Admin cấp dưới.', 'error')
         return redirect(url_for('admin_admins'))
         
-    if User.query.filter_by(email=email).first():
-        flash('Email đã tồn tại trong hệ thống.', 'error')
+    name = (request.form.get('name') or '').strip()
+    email = (request.form.get('email') or '').strip().lower()
+    password = request.form.get('password') or ''
+    admin_role = request.form.get('admin_role')
+    
+    if not name or not email:
+        flash('Vui lòng nhập đầy đủ họ tên và email.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    # Chỉ cho phép tạo các role cấp dưới
+    if admin_role not in ['moderator', 'support', 'finance']:
+        flash('Chức vụ không hợp lệ. Vui lòng chọn vai trò cấp dưới hợp lệ.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    if len(password) < 8:
+        flash('Mật khẩu tạm thời phải có tối thiểu 8 ký tự.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    existing = User.query.filter_by(email=email).first()
+    if existing:
+        if existing.is_admin:
+            flash('Email này đã là tài khoản Admin trong hệ thống.', 'error')
+        else:
+            flash(f'Tài khoản "{existing.name}" ({email}) đã có sẵn. Vui lòng chọn mục "Thăng cấp Người dùng" để cấp quyền Admin.', 'warning')
         return redirect(url_for('admin_admins'))
         
     new_admin = User(
@@ -6749,13 +6770,124 @@ def admin_add_admin():
     db.session.commit()
     
     _audit_log(
-        action=ADMIN_AUDIT_ACTIONS['LOGIN_SUCCESS'], # using existing enum or we can just pass a string
+        action=ADMIN_AUDIT_ACTIONS.get('CREATE_ADMIN', 'CREATE_ADMIN'),
         target_type='admin',
         target_id=new_admin.id,
-        description=f"Tạo admin mới: {email} ({admin_role})"
+        description=f"Tạo mới tài khoản Admin cấp dưới: {email} ({admin_role})"
     )
     
-    flash('Thêm Admin thành công.', 'success')
+    flash(f'Thêm thành công Admin {name} với vai trò {admin_role.capitalize()}.', 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/promote', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('manage_admins')
+def admin_promote_admin():
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        flash('Chỉ Super Admin mới có quyền thăng cấp Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    user_id = request.form.get('user_id')
+    admin_role = request.form.get('admin_role')
+    
+    if admin_role not in ['moderator', 'support', 'finance']:
+        flash('Chức vụ không hợp lệ.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_user = User.query.get_or_404(user_id)
+    if target_user.is_admin:
+        flash('Tài khoản này đã mang quyền Admin từ trước.', 'warning')
+        return redirect(url_for('admin_admins'))
+        
+    target_user.is_admin = True
+    target_user.admin_role = admin_role
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS.get('PROMOTE_TO_ADMIN', 'PROMOTE_TO_ADMIN'),
+        target_type='admin',
+        target_id=target_user.id,
+        description=f"Thăng cấp người dùng {target_user.email} ({target_user.name}) thành Admin vai trò {admin_role}"
+    )
+    
+    flash(f'Đã cấp quyền Admin ({admin_role.capitalize()}) cho tài khoản {target_user.name}!', 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/edit', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('manage_admins')
+def admin_edit_admin(admin_id):
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        flash('Chỉ Super Admin mới có quyền chỉnh sửa thông tin Admin.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin = User.query.get_or_404(admin_id)
+    if getattr(target_admin, 'admin_role', None) == 'super_admin' and target_admin.id != session.get('admin_id'):
+        flash('Không thể chỉnh sửa tài khoản Super Admin khác.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    name = (request.form.get('name') or '').strip()
+    new_role = request.form.get('admin_role')
+    
+    if getattr(target_admin, 'admin_role', None) != 'super_admin':
+        if new_role not in ['moderator', 'support', 'finance']:
+            flash('Vai trò phân quyền không hợp lệ.', 'error')
+            return redirect(url_for('admin_admins'))
+        old_role = target_admin.admin_role
+        target_admin.admin_role = new_role
+    else:
+        old_role = 'super_admin'
+        
+    if name:
+        target_admin.name = name
+        
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS.get('CHANGE_PERMISSION', 'CHANGE_PERMISSION'),
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f"Cập nhật Admin {target_admin.email}: vai trò {old_role} -> {target_admin.admin_role}"
+    )
+    
+    flash(f'Đã cập nhật thông tin Admin {target_admin.name} thành công.', 'success')
+    return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/reset-password', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('manage_admins')
+def admin_reset_admin_password(admin_id):
+    role = getattr(g, 'admin_role', None)
+    if role != 'super_admin':
+        flash('Chỉ Super Admin mới có quyền đặt lại mật khẩu Admin cấp dưới.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin = User.query.get_or_404(admin_id)
+    if getattr(target_admin, 'admin_role', None) == 'super_admin' and target_admin.id != session.get('admin_id'):
+        flash('Không thể đặt lại mật khẩu của Super Admin khác qua giao diện này.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    new_password = (request.form.get('password') or '').strip()
+    if len(new_password) < 8:
+        flash('Mật khẩu mới phải có tối thiểu 8 ký tự.', 'error')
+        return redirect(url_for('admin_admins'))
+        
+    target_admin.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS.get('ADMIN_PASSWORD_RESET', 'ADMIN_PASSWORD_RESET'),
+        target_type='admin',
+        target_id=target_admin.id,
+        description=f"Đặt lại mật khẩu cho Admin: {target_admin.email}"
+    )
+    
+    flash(f'Đã đặt lại mật khẩu mới cho Admin {target_admin.name} ({target_admin.email}) thành công.', 'success')
     return redirect(url_for('admin_admins'))
 
 @app.route('/admin/admins/<int:admin_id>/toggle', methods=['POST'])
@@ -6765,7 +6897,8 @@ def admin_add_admin():
 def admin_toggle_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
-        abort(403)
+        flash('Chỉ Super Admin mới có quyền khóa/mở khóa Admin.', 'error')
+        return redirect(url_for('admin_admins'))
         
     target_admin = User.query.get_or_404(admin_id)
     if target_admin.id == session.get('admin_id'):
@@ -6780,11 +6913,11 @@ def admin_toggle_admin_status(admin_id):
     db.session.commit()
     
     if not target_admin.is_active:
-        msg = 'Đã vô hiệu hóa admin'
-        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_BLOCKED']
+        msg = f'Đã vô hiệu hóa tài khoản Admin {target_admin.name}'
+        action_key = ADMIN_AUDIT_ACTIONS.get('ADMIN_ACCESS_BLOCKED', 'ADMIN_ACCESS_BLOCKED')
     else:
-        msg = 'Đã kích hoạt admin'
-        action_key = ADMIN_AUDIT_ACTIONS['ADMIN_ACCESS_RESTORED']
+        msg = f'Đã kích hoạt lại tài khoản Admin {target_admin.name}'
+        action_key = ADMIN_AUDIT_ACTIONS.get('ADMIN_ACCESS_RESTORED', 'ADMIN_ACCESS_RESTORED')
         
     _audit_log(
         action=action_key,
@@ -6803,11 +6936,12 @@ def admin_toggle_admin_status(admin_id):
 def admin_revoke_admin_status(admin_id):
     role = getattr(g, 'admin_role', None)
     if role != 'super_admin':
-        abort(403)
+        flash('Chỉ Super Admin mới có quyền thu hồi tư cách Admin.', 'error')
+        return redirect(url_for('admin_admins'))
         
     target_admin = User.query.get_or_404(admin_id)
     if target_admin.id == session.get('admin_id'):
-        flash('Không thể tự thu hồi tư cách của chính mình.', 'error')
+        flash('Không thể tự thu hồi tư cách Admin của chính mình.', 'error')
         return redirect(url_for('admin_admins'))
         
     if getattr(target_admin, 'admin_role', None) == 'super_admin':
@@ -6816,17 +6950,39 @@ def admin_revoke_admin_status(admin_id):
         
     target_admin.is_admin = False
     target_admin.admin_role = None
+    if target_admin.role == 'admin':
+        target_admin.role = 'user'
     db.session.commit()
     
     _audit_log(
-        action=ADMIN_AUDIT_ACTIONS['ADMIN_PRIVILEGES_REVOKED'],
+        action=ADMIN_AUDIT_ACTIONS.get('ADMIN_PRIVILEGES_REVOKED', 'ADMIN_PRIVILEGES_REVOKED'),
         target_type='admin',
         target_id=target_admin.id,
         description=f'Đã thu hồi tư cách Admin vĩnh viễn: {target_admin.email}'
     )
     
-    flash('Đã thu hồi tư cách Admin vĩnh viễn đối với tài khoản này.', 'success')
+    flash(f'Đã thu hồi tư cách Admin vĩnh viễn khỏi tài khoản {target_admin.name} ({target_admin.email}).', 'success')
     return redirect(url_for('admin_admins'))
+
+@app.route('/admin/admins/<int:admin_id>/activity')
+@admin_login_required
+@require_permission('manage_admins')
+def admin_admin_activity(admin_id):
+    target_admin = User.query.get_or_404(admin_id)
+    logs = AdminAuditLog.query.filter_by(admin_id=admin_id).order_by(AdminAuditLog.created_at.desc()).limit(20).all()
+    return jsonify({
+        'success': True,
+        'admin_name': target_admin.name,
+        'admin_email': target_admin.email,
+        'admin_role': target_admin.admin_role,
+        'logs': [{
+            'id': l.id,
+            'action': l.action,
+            'description': l.description or '',
+            'ip_address': l.ip_address or '—',
+            'created_at': l.created_at.strftime('%d/%m/%Y %H:%M:%S') if l.created_at else ''
+        } for l in logs]
+    })
 
 @app.route('/admin/search')
 @admin_login_required
