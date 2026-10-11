@@ -1415,6 +1415,11 @@ class TranslatorSchedule(db.Model):
     # reserved | active | completed | cancelled
     status = db.Column(db.String(20), default='reserved', index=True)
 
+    # shift | busy
+    schedule_type = db.Column(db.String(20), default='shift', index=True)
+    note = db.Column(db.String(255), nullable=True)
+    is_all_day = db.Column(db.Boolean, default=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
