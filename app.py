@@ -2079,9 +2079,11 @@ def login():
                 flash(_t('flash.account_not_found'), 'error')
                 return render_template('login.html', email=email, next_url=next_url)
         except SQLAlchemyError as e:
-            print(f"[AUTH SQL ERROR] {e}")
+            import traceback
+            print(f"[AUTH SQL ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             db.session.rollback()
-            flash(_t('flash.system_overload'), 'error')
+            flash(f"{_t('flash.system_overload')} [{type(e).__name__}]", 'error')
             return render_template('login.html', email=email, next_url=next_url)
         except Exception as e:
             print(f"[AUTH ERROR] {e}")
