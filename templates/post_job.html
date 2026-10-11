@@ -17,6 +17,25 @@
         <p class="text-slate-500 text-sm mt-1">Hoàn thành 4 bước ngắn để phiên dịch viên phù hợp gửi báo giá cho bạn.</p>
     </div>
 
+    {% if not hirer_verified %}
+    <div class="mb-6 p-5 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center gap-4 justify-between text-xs sm:text-sm text-amber-900 shadow-sm">
+        <div class="flex items-start sm:items-center gap-3">
+            <span class="text-xl">🔒</span>
+            <div>
+                <strong class="block font-bold text-amber-950 mb-0.5">Chức năng đăng tuyển tạm khóa</strong>
+                <span>Bạn cần hoàn thành xác minh người đăng tuyển để bảo vệ an toàn giao dịch trước khi đăng yêu cầu.</span>
+            </div>
+        </div>
+        <a href="{{ url_for('account_profile', tab='hirer_profile') }}" class="shrink-0 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-5 rounded-xl transition shadow-sm">Hoàn tất xác minh ngay →</a>
+    </div>
+    {% elif not editing %}
+    <div class="mb-6 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs sm:text-sm text-emerald-900">
+        <span class="text-emerald-600 font-extrabold text-base">✓</span>
+        <span class="font-bold">Người đăng đã xác minh danh tính.</span>
+        <span class="text-emerald-700">Yêu cầu sẽ được admin duyệt trước khi hiển thị cho phiên dịch viên.</span>
+    </div>
+    {% endif %}
+
     <!-- Stepper -->
     <ol id="stepper" class="grid grid-cols-4 gap-2 mb-6 text-center text-[11px] sm:text-xs font-bold">
         {% for label in ['Dịch vụ', 'Nội dung', 'Ngân sách', 'Xem lại'] %}
@@ -106,24 +125,13 @@
                 {{ field_error('word_count') }}
             </div>
             <div data-only="interpretation" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Thời gian &amp; địa điểm (phiên dịch trực tiếp)</h3>
-                <div>
-                    <label class="{{ label_cls }}" for="event_date">Ngày diễn ra <span class="text-rose-500">*</span></label>
-                    <input id="event_date" name="event_date" type="date" min="{{ today }}" value="{{ v.get('event_date', '') }}" class="{{ input_cls }}">
-                    {{ field_error('event_date') }}
+                <div class="flex items-center justify-between gap-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700">Lịch làm việc &amp; địa điểm (phiên dịch trực tiếp)</h3>
+                    <button type="button" id="add-day" class="text-xs font-bold text-brand-600 hover:text-brand-700">+ Thêm ngày</button>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="{{ label_cls }}" for="event_time_start">Bắt đầu <span class="text-rose-500">*</span></label>
-                        <input id="event_time_start" name="event_time_start" type="time" value="{{ v.get('event_time_start', '') }}" class="{{ input_cls }}">
-                        {{ field_error('event_time_start') }}
-                    </div>
-                    <div>
-                        <label class="{{ label_cls }}" for="event_time_end">Kết thúc <span class="text-rose-500">*</span></label>
-                        <input id="event_time_end" name="event_time_end" type="time" value="{{ v.get('event_time_end', '') }}" class="{{ input_cls }}">
-                        {{ field_error('event_time_end') }}
-                    </div>
-                </div>
+                <div id="schedule-container" class="space-y-3"></div>
+                <script type="application/json" id="schedule-init">{{ schedule_rows|tojson }}</script>
+                {{ field_error('schedule') }}
                 <div>
                     <label class="{{ label_cls }}" for="event_location">Địa điểm <span class="text-rose-500">*</span></label>
                     <input id="event_location" name="event_location" type="text" maxlength="200" value="{{ v.get('event_location', '') }}" class="{{ input_cls }}" placeholder="Địa chỉ hoặc &quot;Trực tuyến&quot;">
@@ -201,7 +209,7 @@
             <button type="button" id="btn-back" class="hidden px-5 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 hover:bg-slate-50 transition">← Quay lại</button>
             <span id="spacer"></span>
             <button type="button" id="btn-next" class="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-bold transition shadow-sm">Tiếp tục →</button>
-            <button type="submit" id="btn-submit" class="hidden px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold transition shadow-sm">
+            <button type="submit" id="btn-submit" {{ 'disabled' if not hirer_verified }} class="hidden px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-bold transition shadow-sm">
                 <span id="submit-label">{{ 'Lưu thay đổi' if editing else 'Đăng yêu cầu' }}</span>
             </button>
         </div>
@@ -217,6 +225,7 @@
     const MAX_BYTES = 10 * 1024 * 1024;
     const EXTS = ['pdf','doc','docx','xls','xlsx','ppt','pptx','txt','csv','png','jpg','jpeg','zip'];
     const LOCKED = {{ 'true' if locked else 'false' }};
+    const VERIFIED = {{ 'true' if hirer_verified else 'false' }};
     const EXISTING_ATT = {{ attachments|length }};
     const form = document.getElementById('job-form');
     const $ = (id) => document.getElementById(id);
@@ -249,6 +258,57 @@
     }
     form.querySelectorAll('input[name=budget_type]').forEach(r => r.addEventListener('change', syncBudget));
 
+
+    // Lịch làm việc nhiều ngày
+    function addDay(r) {
+        r = r || {};
+        const d = document.createElement('div');
+        d.className = 'schedule-row grid grid-cols-2 sm:grid-cols-[1fr_7rem_7rem_auto] gap-2 items-end bg-white border border-slate-200 rounded-xl p-3';
+        const cls = 'w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500';
+        d.innerHTML = `
+          <label class="col-span-2 sm:col-span-1 text-[10px] font-bold uppercase text-slate-500">Ngày
+            <input type="date" name="scheduled_date[]" min="{{ today }}" class="${cls} mt-1 font-normal normal-case"></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Bắt đầu
+            <input type="time" name="start_time[]" class="${cls} mt-1 font-normal normal-case"></label>
+          <label class="text-[10px] font-bold uppercase text-slate-500">Kết thúc
+            <input type="time" name="end_time[]" class="${cls} mt-1 font-normal normal-case"></label>
+          <button type="button" data-remove-day class="col-span-2 sm:col-span-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg px-3 py-2 border border-rose-200">Xóa</button>`;
+        const [i1, i2, i3] = d.querySelectorAll('input');
+        i1.value = r.scheduled_date || ''; i2.value = r.start_time || ''; i3.value = r.end_time || '';
+        $('schedule-container').appendChild(d); syncRemove();
+    }
+    function syncRemove() {
+        const rows = document.querySelectorAll('.schedule-row');
+        rows.forEach(r => r.querySelector('[data-remove-day]').classList.toggle('hidden', rows.length === 1));
+    }
+    $('schedule-container').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-remove-day]'); if (b) { b.closest('.schedule-row').remove(); syncRemove(); }
+    });
+    $('add-day').addEventListener('click', () => addDay());
+    function scheduleRows() {
+        return [...document.querySelectorAll('.schedule-row')].map(r => {
+            const [a, b, c] = r.querySelectorAll('input'); return {date: a.value, start: b.value, end: c.value};
+        }).filter(r => r.date || r.start || r.end);
+    }
+    function validateSchedule() {
+        const rows = scheduleRows(), today = new Date().toISOString().slice(0, 10), seen = new Set();
+        if (!rows.length) return 'Phải có ít nhất một ngày làm việc.';
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (!r.date) return 'Ngày ' + (i + 1) + ' chưa được chọn.';
+            if (r.date < today) return 'Ngày ' + (i + 1) + ' không được ở quá khứ.';
+            if (seen.has(r.date)) return 'Ngày ' + (i + 1) + ' bị trùng với ngày khác.';
+            seen.add(r.date);
+            if (!r.start || !r.end) return 'Ngày ' + (i + 1) + ' cần giờ bắt đầu và kết thúc.';
+            if (r.end <= r.start) return 'Ngày ' + (i + 1) + ': giờ kết thúc phải sau giờ bắt đầu.';
+        }
+        return '';
+    }
+    (function initSchedule() {
+        let rows = []; try { rows = JSON.parse($('schedule-init').textContent) || []; } catch (e) {}
+        if (!rows.length) addDay(); else rows.forEach(addDay);
+    })();
+
     // Validate theo bước (trả về map field -> lỗi)
     function groupVal() { return $('category_group').value; }
     function validateStep(n) {
@@ -263,11 +323,7 @@
             if (groupVal() === 'translation') {
                 const w = val('word_count'); if (w && !(parseInt(w, 10) > 0)) e.word_count = 'Khối lượng phải là số dương.';
             } else {
-                if (!val('event_date')) e.event_date = 'Vui lòng chọn ngày diễn ra.';
-                else if (val('event_date') < today && val('event_date') !== {{ (values.get('event_date', '') or '')|tojson }}) e.event_date = 'Ngày diễn ra không được ở quá khứ.';
-                if (!val('event_time_start')) e.event_time_start = 'Chọn giờ bắt đầu.';
-                if (!val('event_time_end')) e.event_time_end = 'Chọn giờ kết thúc.';
-                else if (val('event_time_start') && val('event_time_end') <= val('event_time_start')) e.event_time_end = 'Giờ kết thúc phải sau giờ bắt đầu.';
+                const sch = validateSchedule(); if (sch) e.schedule = sch;
                 if (!val('event_location')) e.event_location = 'Vui lòng nhập địa điểm.';
             }
             const fe = validateFiles(); if (fe) e.files = fe;
@@ -298,6 +354,10 @@
         $('files-error').textContent = '';
         Object.entries(errs).forEach(([k, msg]) => {
             if (k === 'files') { $('files-error').textContent = msg; return; }
+            if (k === 'schedule') {
+                const c = $('schedule-container'); const p = document.createElement('p'); p.dataset.clientError = '1';
+                p.className = 'text-xs text-rose-600 font-semibold'; p.textContent = msg; c.insertAdjacentElement('afterend', p); return;
+            }
             const el = form.elements[k] && form.elements[k].length === undefined ? form.elements[k] : $(k);
             if (!el) return;
             el.classList.add('border-rose-400');
@@ -336,7 +396,7 @@
             ['Mô tả', val('description')],
         ];
         if (groupVal() === 'translation') rows.push(['Khối lượng', val('word_count') ? val('word_count') + ' từ' : '—']);
-        else rows.push(['Thời gian & địa điểm', val('event_date') + ' · ' + val('event_time_start') + '–' + val('event_time_end') + ' · ' + val('event_location')]);
+        else rows.push(['Lịch làm việc', scheduleRows().map(r => r.date + ' · ' + r.start + '–' + r.end).join('\n') || '—'], ['Địa điểm', val('event_location')]);
         const nf = $('files').files.length;
         rows.push(['Tệp mới', nf ? Array.from($('files').files).map(f => f.name).join(', ') : '—']);
         rows.push(['Ngân sách', budget], ['Deadline', val('deadline') || '—'], ['Yêu cầu bổ sung', val('extra_requirements') || '—']);
@@ -359,7 +419,7 @@
     // Gửi: validate toàn bộ, chặn bấm nhiều lần
     let submitting = false;
     form.addEventListener('submit', (ev) => {
-        if (submitting) { ev.preventDefault(); return; }
+        if (submitting || !VERIFIED) { ev.preventDefault(); return; }
         for (let n = 1; n <= 3; n++) {
             const errs = validateStep(n);
             if (Object.keys(errs).length) {
@@ -374,7 +434,7 @@
         submitting = true;
         $('btn-submit').disabled = true; $('submit-label').textContent = 'Đang gửi...';
     });
-    window.addEventListener('pageshow', () => { submitting = false; $('btn-submit').disabled = false; });
+    window.addEventListener('pageshow', () => { submitting = false; $('btn-submit').disabled = !VERIFIED; });
 
     // Trạng thái ban đầu; nếu server trả lỗi thì mở bước chứa lỗi đầu tiên
     fillServiceTypes(); syncBudget();

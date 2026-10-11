@@ -43,7 +43,8 @@ ROLE_PERMISSIONS = {
     'super_admin': {'*'},  # Toàn quyền
     'moderator': {
         'view_dashboard', 'view_users', 'view_translators', 'verify_translator',
-        'reject_translator', 'view_jobs', 'approve_job', 'reject_job',
+        'reject_translator', 'view_hirers', 'verify_hirer', 'reject_hirer',
+        'view_jobs', 'approve_job', 'reject_job', 'moderate_job',
         'flag_job', 'unflag_job', 'view_reports', 'resolve_report',
         'reject_report', 'view_reviews', 'hide_review', 'restore_review',
         'view_proposals', 'view_contracts', 'view_schedules', 'view_audit_logs',
@@ -54,7 +55,7 @@ ROLE_PERMISSIONS = {
         'view_proposals', 'view_notifications',
     },
     'support': {
-        'view_dashboard', 'view_users', 'view_translators', 'view_jobs',
+        'view_dashboard', 'view_users', 'view_translators', 'view_hirers', 'view_jobs',
         'view_reports', 'view_reviews', 'view_contracts', 'view_notifications',
         'lock_user', 'unlock_user', 'view_proposals', 'view_schedules', 'resolve_report', 'reject_report', 'view_audit_logs',
     }
@@ -145,7 +146,7 @@ def create_admin_session(user):
 
     now_ts = datetime.utcnow().timestamp()
     session[ADMIN_SESSION_KEY] = user.id
-    session[ADMIN_SESSION_ROLE] = user.admin_role if hasattr(user, 'admin_role') else 'super_admin'
+    session[ADMIN_SESSION_ROLE] = getattr(user, 'admin_role', None)
     session[ADMIN_SESSION_CREATED] = now_ts
     session[ADMIN_SESSION_LAST_SEEN] = now_ts
     session[ADMIN_SESSION_CSRF] = secrets.token_hex(32)
@@ -170,6 +171,10 @@ def is_admin_session_valid():
     3. Thời gian idle không quá ADMIN_IDLE_TIMEOUT_SECONDS.
     Trả về (is_valid: bool, reason: str).
     """
+    from flask import has_request_context
+    if not has_request_context():
+        return False, 'no_request_context'
+
     admin_id = session.get(ADMIN_SESSION_KEY)
     if not admin_id:
         return False, 'no_session'
@@ -210,8 +215,9 @@ def get_current_admin():
         from models import User
         user = User.query.get(admin_id)
         # Xác minh lại server-side: phải là admin và còn active
-        if user and user.is_admin and user.is_active:
-            return user
+        if user and getattr(user, 'is_admin', False) and getattr(user, 'is_active', False):
+            if getattr(user, 'admin_role', None) in ADMIN_ROLES:
+                return user
         return None
     except SQLAlchemyError as e:
         print(f'[ADMIN AUTH] DB error in get_current_admin: {e}')
@@ -247,7 +253,7 @@ def admin_login_required(f):
 
         # 3. Lưu admin vào g để dùng trong request
         g.current_admin = admin
-        g.admin_role = session.get(ADMIN_SESSION_ROLE, 'moderator')
+        g.admin_role = admin.admin_role
         g.csrf_token = get_csrf_token()
 
         # 4. Refresh idle timer
