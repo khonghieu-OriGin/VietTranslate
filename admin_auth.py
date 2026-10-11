@@ -20,6 +20,12 @@ from flask import (
 )
 from sqlalchemy.exc import SQLAlchemyError
 
+# Re-export tiện ích cho audit log (đảm bảo tương thích ngược)
+try:
+    from models import AdminAuditLog, ADMIN_AUDIT_ACTIONS
+except ImportError:
+    pass
+
 # ─── CONSTANTS ────────────────────────────────────────────────────────────────
 
 # Key phân biệt Admin session với User session

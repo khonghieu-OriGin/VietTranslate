@@ -1995,7 +1995,8 @@ def forgot_password():
             
             # Log nếu là admin
             if user.is_admin:
-                from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+                from admin_auth import get_client_ip
+                from models import AdminAuditLog, ADMIN_AUDIT_ACTIONS
                 AdminAuditLog.log(
                     action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
                     admin_id=user.id,
@@ -2073,7 +2074,8 @@ def reset_password(token):
             
         # Log nếu là admin
         if user.is_admin:
-            from admin_auth import get_client_ip, AdminAuditLog, ADMIN_AUDIT_ACTIONS
+            from admin_auth import get_client_ip
+            from models import AdminAuditLog, ADMIN_AUDIT_ACTIONS
             AdminAuditLog.log(
                 action=ADMIN_AUDIT_ACTIONS['SECURITY_ALERT'],
                 admin_id=user.id,
