@@ -500,7 +500,6 @@ elif 'sqlite' in database_url:
     }
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
         'pool_recycle': 300,
         'connect_args': {
             'prepare_threshold': None,
@@ -938,32 +937,26 @@ def _init_db():
     else:
         print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
 
-# Chạy _init_db() một lần khi module được import
-try:
-    with app.app_context():
-        _init_db()
-except Exception as e:
-    print(f"[DB INIT ERROR] {e}", file=sys.stderr)
-
-# Trên Vercel, mỗi serverless invocation có thể là process mới;
-# _db_ready flag giúp tránh re-init trong cùng 1 process.
+# Trên Vercel (serverless) KHÔNG chạy create_all/seed ở mỗi cold start vì rất chậm
+# (hàng chục round-trip tới DB). Chạy thủ công bằng INIT_DB=1 hoặc script migration.
 _db_ready = False
+_SKIP_AUTO_INIT = os.environ.get('VERCEL') == '1' and os.environ.get('INIT_DB') != '1'
 
-@app.before_request
-def _ensure_db():
-    """Chạy _init_db() một lần duy nhất cho mỗi process.
-    Trên Vercel/serverless: mỗi cold-start là process mới,
-    nên sẽ chạy 1 lần đầu tiên của process đó.
-    KHAI BÁO này không gây re-seed nếu DB có dữ liệu (điều kiện user_count == 0).
-    """
-    global _db_ready
-    if not _db_ready:
-        try:
+if not _SKIP_AUTO_INIT:
+    try:
+        with app.app_context():
             _init_db()
-        except Exception as e:
-            db.session.rollback()
-            print(f"[DB before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB INIT ERROR] {e}", file=sys.stderr)
+
+
+@app.after_request
+def _static_cache(resp):
+    if request.path.startswith('/static/') and resp.status_code == 200:
+        resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 
 @app.errorhandler(500)
