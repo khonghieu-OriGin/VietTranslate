@@ -34,7 +34,7 @@
             <section class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="font-bold text-slate-900">Yêu cầu gần đây</h2>
-                    <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Việc làm của tôi →</a>
+                    <a href="{{ url_for('my_jobs') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700">Yêu cầu của tôi →</a>
                 </div>
                 <div id="dash-requests"></div>
             </section>
@@ -71,6 +71,8 @@
         post: {{ url_for('post_job')|tojson }},
         find: {{ url_for('translator_list')|tojson }},
         jobs: {{ url_for('account_history')|tojson }},
+        myJobs: {{ url_for('my_jobs')|tojson }},
+        myOpenJobs: {{ url_for('my_jobs', status='open')|tojson }},
         messages: {{ url_for('messages_page')|tojson }},
     };
     const $ = (id) => document.getElementById(id);
@@ -86,8 +88,8 @@
         chat: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
     };
     const STATS = [
-        {key: 'open_requests', label: 'Yêu cầu đang mở', icon: 'doc', url: URLS.jobs},
-        {key: 'new_proposals', label: 'Báo giá mới', icon: 'tag', url: URLS.jobs},
+        {key: 'open_requests', label: 'Yêu cầu đang mở', icon: 'doc', url: URLS.myOpenJobs},
+        {key: 'new_proposals', label: 'Báo giá mới', icon: 'tag', url: URLS.myOpenJobs},
         {key: 'in_progress', label: 'Dự án đang thực hiện', icon: 'work', url: URLS.jobs},
         {key: 'awaiting_acceptance', label: 'Dự án chờ nghiệm thu', icon: 'check', url: URLS.jobs},
         {key: 'unread_messages', label: 'Tin nhắn chưa đọc', icon: 'chat', url: URLS.messages},

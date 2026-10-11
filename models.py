@@ -515,7 +515,14 @@ class Job(db.Model):
     moderated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     submission_version = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quản lý yêu cầu (Task 02)
+    specialty = db.Column(db.String(100))          # lĩnh vực chuyên môn
+    word_count = db.Column(db.Integer)             # số từ / khối lượng
+    extra_requirements = db.Column(db.Text)        # yêu cầu bổ sung
+    updated_at = db.Column(db.DateTime, onupdate=datetime.utcnow)
+    closed_at = db.Column(db.DateTime)
 
+    attachments = db.relationship('JobAttachment', backref='job', lazy=True, cascade='all, delete-orphan')
     moderator = db.relationship('User', foreign_keys=[moderated_by], backref='moderated_jobs', lazy=True)
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
@@ -563,6 +570,23 @@ class Job(db.Model):
         return Proposal.query.filter_by(job_id=self.id).count()
 
 
+class JobAttachment(db.Model):
+    """Tệp tham khảo của yêu cầu. Lưu ngoài thư mục static, chỉ tải qua route có kiểm quyền."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False, index=True)
+    original_name = db.Column(db.String(255), nullable=False)
+    stored_name = db.Column(db.String(100), nullable=False)
+    size = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class FavoriteTranslator(db.Model):
+    """Phiên dịch viên được khách thuê lưu (theo tài khoản, lưu bền vững)."""
+    __table_args__ = (db.UniqueConstraint('hirer_id', 'translator_id', name='uq_favorite_hirer_translator'),)
+    id = db.Column(db.Integer, primary_key=True)
+    hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 # ─── JOB SCHEDULE MODEL (TASK 1 / TASK 2) ────────────────────────────────────
 
 class JobSchedule(db.Model):
