@@ -41,6 +41,24 @@ CREATE TABLE IF NOT EXISTS translator_profile (
 	response_time VARCHAR(50), 
 	is_verified BOOLEAN, 
 	certificates TEXT, 
+	is_public BOOLEAN, 
+	is_cv_public BOOLEAN, 
+	source_language VARCHAR(100), 
+	target_language VARCHAR(100), 
+	interpreting_direction VARCHAR(50), 
+	language_proficiency VARCHAR(50), 
+	specializations TEXT, 
+	interpreting_types TEXT, 
+	work_modes VARCHAR(255), 
+	education_level VARCHAR(100), 
+	university VARCHAR(255), 
+	major VARCHAR(255), 
+	cert_name VARCHAR(255), 
+	cert_year INTEGER, 
+	experience_years INTEGER, 
+	current_position VARCHAR(255), 
+	notable_clients TEXT, 
+	featured_projects TEXT, 
 	PRIMARY KEY (id), 
 	FOREIGN KEY(user_id) REFERENCES "user" (id)
 );
@@ -540,6 +558,24 @@ ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "total_jobs" INTEGER D
 ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "response_time" VARCHAR(50) DEFAULT '2 giờ';
 ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "is_verified" BOOLEAN DEFAULT FALSE;
 ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "certificates" TEXT;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "is_public" BOOLEAN DEFAULT TRUE;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "is_cv_public" BOOLEAN DEFAULT FALSE;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "source_language" VARCHAR(100);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "target_language" VARCHAR(100);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "interpreting_direction" VARCHAR(50);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "language_proficiency" VARCHAR(50);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "specializations" TEXT;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "interpreting_types" TEXT;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "work_modes" VARCHAR(255);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "education_level" VARCHAR(100);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "university" VARCHAR(255);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "major" VARCHAR(255);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "cert_name" VARCHAR(255);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "cert_year" INTEGER;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "experience_years" INTEGER DEFAULT 0;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "current_position" VARCHAR(255);
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "notable_clients" TEXT;
+ALTER TABLE "translator_profile" ADD COLUMN IF NOT EXISTS "featured_projects" TEXT;
 
 -- Cập nhật cột cho bảng: "translator_preference"
 ALTER TABLE "translator_preference" ADD COLUMN IF NOT EXISTS "translator_id" INTEGER;
