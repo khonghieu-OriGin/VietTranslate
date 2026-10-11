@@ -55,6 +55,10 @@
                                         <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                                         {{ t('profile_page.verified') }}
                                     </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200/80 px-2 py-0.5 rounded-md">
+                                        Chưa xác minh
+                                    </span>
                                     {% endif %}
                                 </h1>
                                 <p class="text-sm font-medium text-slate-600 mt-1">{{ profile.title or t('auto.phiên_dịch_viên_chuy') }}</p>
@@ -203,9 +207,15 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.cam_kết_chất_lượng_c') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
+                            {% if profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='basic') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_cơ_bản') }}
                             </a>
+                            {% else %}
+                            <button disabled class="block w-full text-center bg-slate-300 text-slate-500 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Phiên dịch viên chưa được duyệt
+                            </button>
+                            {% endif %}
                         </div>
 
                         <!-- Standard -->
@@ -218,9 +228,15 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.ưu_tiên_lịch_trình') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
+                            {% if profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='standard') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_tiêu_chuẩn') }}
                             </a>
+                            {% else %}
+                            <button disabled class="block w-full text-center bg-slate-300 text-slate-500 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Phiên dịch viên chưa được duyệt
+                            </button>
+                            {% endif %}
                         </div>
 
                         <!-- Premium -->
@@ -233,9 +249,15 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.hỗ_trợ_chuyên_sâu_24') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
+                            {% if profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='premium') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_cao_cấp') }}
                             </a>
+                            {% else %}
+                            <button disabled class="block w-full text-center bg-slate-300 text-slate-500 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Phiên dịch viên chưa được duyệt
+                            </button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

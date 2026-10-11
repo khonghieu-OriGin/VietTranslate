@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime, timedelta, date, time
 from sqlalchemy.exc import IntegrityError
-from models import User, TranslatorSchedule
+from models import User, TranslatorSchedule, Contract
 from app import db
 from services.schedule import (
     normalize_schedule_datetime,
@@ -24,32 +24,6 @@ class SlotTakenError(SchedulingError):
 class SlotExpiredError(SchedulingError):
     pass
 
-def _resolve_datetime_to_utc(local_date: date, local_time: time) -> datetime:
-    """Helper để chuẩn hóa timezone UTC khi lưu nếu cần (hiện tại schema đang dùng Date/Time)."""
-    # Vì schema gốc lưu db.Date và db.Time mà không có timezone (naive), ta sẽ tuân thủ nguyên tắc "không sửa data type/schema cũ".
-    # PostgreSQL sẽ lưu theo timezone mặc định của DB (hoặc naive). 
-    # Nếu phải có timezone, ta sẽ cần đổi schema. Ở đây tạm thời giữ nguyên kiểu cũ.
-    dt = datetime.combine(local_date, local_time)
-    return dt
-
-def busy_ranges(translator_id, check_date: date):
-    """
-    Trả về danh sách các khoảng thời gian bị chiếm dụng (sau khi cộng/trừ buffer) 
-    của một phiên dịch viên trong một ngày cụ thể.
-    """
-    schedules = (
-        TranslatorSchedule.query
-        .filter_by(translator_id=translator_id, scheduled_date=check_date)
-        .filter(TranslatorSchedule.status.in_(['reserved', 'active']))
-        .all()
-    )
-    ranges = []
-    for s in schedules:
-        start_dt, end_dt = build_effective_interval(
-            s.scheduled_date, s.start_time, s.end_time, s.buffer_before_minutes, s.buffer_after_minutes
-        )
-        ranges.append({'start': start_dt, 'end': end_dt, 'contract_id': s.contract_id})
-    return ranges
 
 def _release_expired_schedules():
     """
@@ -74,6 +48,10 @@ def _release_expired_schedules():
         if is_expired:
             s.status = 'cancelled'
             count += 1
+            # Hợp đồng chưa xác nhận/thanh toán mà hết hạn giữ lịch thì hủy luôn
+            contract = Contract.query.get(s.contract_id) if s.contract_id else None
+            if contract and contract.status in ('awaiting_translator', 'escrow_pending'):
+                contract.status = 'cancelled'
             
     if count > 0:
         db.session.flush()

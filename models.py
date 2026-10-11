@@ -49,12 +49,14 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    email_verified = db.Column(db.Boolean, default=False)
+    verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
     hirer_profile = db.relationship('HirerProfile', backref='user', uselist=False, cascade='all, delete-orphan')
-    jobs_posted = db.relationship('Job', backref='hirer', lazy=True, cascade='all, delete-orphan')
+    jobs_posted = db.relationship('Job', foreign_keys='Job.hirer_id', backref='hirer', lazy=True, cascade='all, delete-orphan')
     proposals = db.relationship('Proposal', backref='translator', lazy=True, cascade='all, delete-orphan')
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -144,6 +146,11 @@ class TranslatorPreference(db.Model):
     languages = db.Column(db.Text, default='')
     language_pairs = db.Column(db.Text, default='')
     service_types = db.Column(db.Text, default='')
+    # Phục vụ ghép cặp với hồ sơ khách (xem services/matching.py)
+    specialties = db.Column(db.Text, default='')    # CSV nhãn HIRING_FIELDS
+    city = db.Column(db.String(100))
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    offers_certified = db.Column(db.Boolean, default=False)
     notify_new_jobs = db.Column(db.Boolean, default=True)
     notify_messages = db.Column(db.Boolean, default=True)
     notify_contracts = db.Column(db.Boolean, default=True)
@@ -159,6 +166,49 @@ class HirerProfile(db.Model):
     company = db.Column(db.String(200))
     location = db.Column(db.String(100))
     rating = db.Column(db.Float, default=0.0)
+
+    # ── Hồ sơ mở rộng: 'business' (Doanh nghiệp / Tổ chức) hoặc 'individual' (Cá nhân)
+    account_type = db.Column(db.String(20), default='individual')
+    # Doanh nghiệp: `company` = tên công ty, `title` = chức vụ người đại diện
+    tax_code = db.Column(db.String(13))
+    industry = db.Column(db.Text)  # nhiều lĩnh vực, cách nhau bởi ", "
+    company_size = db.Column(db.String(20))
+    address = db.Column(db.String(300))
+    company_email = db.Column(db.String(150))
+    website = db.Column(db.String(300))
+    hotline = db.Column(db.String(30))
+    rep_name = db.Column(db.String(100))
+    about = db.Column(db.Text)
+    # Cá nhân
+    hiring_field = db.Column(db.Text)       # nhiều lĩnh vực, cách nhau bởi ", "
+    hiring_languages = db.Column(db.Text)   # ngôn ngữ thường cần
+    hiring_services = db.Column(db.Text)    # hình thức dịch thường thuê
+    # Dùng chung
+    contact_phone = db.Column(db.String(30))
+    logo = db.Column(db.Text)  # logo công ty / ảnh đại diện, lưu dạng data URI (đã giới hạn dung lượng)
+
+    # Đánh giá nhận được từ phiên dịch viên và nhu cầu thuê (phục vụ gợi ý phiên dịch viên)
+    total_reviews = db.Column(db.Integer, default=0)
+    is_verified = db.Column(db.Boolean, default=False)
+    verification_status = db.Column(db.String(20), default='unverified', index=True) # unverified, pending, needs_revision, verified, rejected, revoked, suspended
+    verified_at = db.Column(db.DateTime, nullable=True)
+    bank_name = db.Column(db.String(100), nullable=True)
+    bank_account_number = db.Column(db.String(50), nullable=True)
+    authorization_doc_url = db.Column(db.String(500), nullable=True)
+    verification_checklist_data = db.Column(db.Text, nullable=True)
+    rejection_reason = db.Column(db.Text, nullable=True)
+    work_mode = db.Column(db.String(20))            # onsite / online / both
+    hiring_frequency = db.Column(db.String(20))     # one_time / occasional / regular
+    typical_budget_min = db.Column(db.Integer)
+    typical_budget_max = db.Column(db.Integer)
+    needs_nda = db.Column(db.Boolean, default=False)
+    needs_certified = db.Column(db.Boolean, default=False)
+    special_requirements = db.Column(db.Text)
+
+
+    @property
+    def is_business(self):
+        return self.account_type == 'business'
 
 
 class Service(db.Model):
@@ -196,11 +246,19 @@ class Job(db.Model):
     deadline = db.Column(db.Date)
     status = db.Column(db.String(20), default='open', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
+    moderation_status = db.Column(db.String(20), default='pending', index=True) # pending, approved, needs_revision, rejected, flagged, archived
+    moderation_checklist_data = db.Column(db.Text, nullable=True)
+    moderation_notes = db.Column(db.Text, nullable=True)
+    moderated_at = db.Column(db.DateTime, nullable=True)
+    moderated_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    submission_version = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    moderator = db.relationship('User', foreign_keys=[moderated_by], backref='moderated_jobs', lazy=True)
     proposals = db.relationship('Proposal', backref='job', lazy=True, cascade='all, delete-orphan')
     contract = db.relationship('Contract', backref='job', uselist=False, cascade='all, delete-orphan')
     schedules = db.relationship('JobSchedule', backref='job', lazy=True, cascade='all, delete-orphan', order_by='JobSchedule.scheduled_date')
+
 
     @property
     def display_category_group(self):
@@ -691,11 +749,18 @@ ADMIN_AUDIT_ACTIONS = {
     'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
     'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
     'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
+    'VERIFY_HIRER': 'VERIFY_HIRER',
+    'REJECT_HIRER': 'REJECT_HIRER',
+    'REQUEST_HIRER_REVISION': 'REQUEST_HIRER_REVISION',
+    'REVOKE_HIRER': 'REVOKE_HIRER',
     'APPROVE_JOB': 'APPROVE_JOB',
     'REJECT_JOB': 'REJECT_JOB',
+    'REQUEST_JOB_REVISION': 'REQUEST_JOB_REVISION',
     'FLAG_JOB': 'FLAG_JOB',
     'UNFLAG_JOB': 'UNFLAG_JOB',
+    'ARCHIVE_JOB': 'ARCHIVE_JOB',
     'DELETE_JOB': 'DELETE_JOB',
+    'UPDATE_JOB_TITLE': 'UPDATE_JOB_TITLE',
     'LOCK_USER': 'LOCK_USER',
     'UNLOCK_USER': 'UNLOCK_USER',
     'BAN_USER': 'BAN_USER',
@@ -709,6 +774,9 @@ ADMIN_AUDIT_ACTIONS = {
     'CREATE_ADMIN': 'CREATE_ADMIN',
     'RESET_MFA': 'RESET_MFA',
     'ADMIN_REAUTH': 'ADMIN_REAUTH',
+    'ADMIN_ACCESS_BLOCKED': 'ADMIN_ACCESS_BLOCKED',
+    'ADMIN_ACCESS_RESTORED': 'ADMIN_ACCESS_RESTORED',
+    'ADMIN_PRIVILEGES_REVOKED': 'ADMIN_PRIVILEGES_REVOKED',
 }
 
 
@@ -834,11 +902,26 @@ class TranslatorVerification(db.Model):
     reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
 
+    # Tiến trình nộp hồ sơ, phiên bản & Snapshot bất biến
+    submitted_at = db.Column(db.DateTime, nullable=True, index=True)
+    submission_version = db.Column(db.Integer, default=0)
+    submitted_snapshot = db.Column(db.Text, nullable=True)
+    checklist_data = db.Column(db.Text, nullable=True)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verifications', lazy=True, cascade='all, delete-orphan', order_by='desc(TranslatorVerification.created_at)'))
     reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verifications', lazy=True))
+
+    def get_submitted_snapshot(self):
+        """Trả về dữ liệu snapshot của lần nộp hồ sơ gần nhất."""
+        if self.submitted_snapshot:
+            try:
+                return json.loads(self.submitted_snapshot)
+            except Exception:
+                return {}
+        return {}
 
     def get_draft_dict(self):
         """Trả về dictionary chứa dữ liệu nháp của tất cả các bước."""
@@ -866,3 +949,139 @@ class TranslatorVerification(db.Model):
             data['current_step'] = self.current_step or 1
 
         return data
+
+
+# ─── VERIFICATION DOCUMENT MODEL (PRIVATE STORAGE) ────────────────────────────
+
+class VerificationDocument(db.Model):
+    """
+    Tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
+    Lưu trữ riêng tư (Private Storage), hỗ trợ siêu dữ liệu (metadata),
+    kiểm tra quyền truy cập nghiêm ngặt và theo dõi trạng thái thẩm định.
+    """
+    __tablename__ = 'verification_document'
+
+    id = db.Column(db.Integer, primary_key=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('translator_verification.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Loại tài liệu chính sách: 'cv', 'certificate', 'id_card', 'diploma', 'recommendation'
+    document_type = db.Column(db.String(50), nullable=False, index=True)
+
+    # Tên tệp gốc & tên tệp an toàn trong private storage
+    original_filename = db.Column(db.String(255), nullable=False)
+    stored_filename = db.Column(db.String(255), nullable=False, unique=True, index=True)
+
+    # Nhà cung cấp lưu trữ ('local_private' hoặc 'supabase_private')
+    storage_provider = db.Column(db.String(50), default='local_private')
+    storage_path = db.Column(db.String(500), nullable=False)
+
+    # Metadata tệp
+    file_size = db.Column(db.Integer, nullable=False, default=0)  # bytes
+    mime_type = db.Column(db.String(100), nullable=False)
+    file_extension = db.Column(db.String(20), nullable=False)
+    file_hash = db.Column(db.String(64), nullable=True)
+
+    # Trạng thái thẩm định: 'uploaded', 'approved', 'rejected', 'replaced'
+    status = db.Column(db.String(30), default='uploaded', index=True)
+    review_notes = db.Column(db.Text, nullable=True)
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    # Đánh dấu tệp hiện thời
+    is_active = db.Column(db.Boolean, default=True, index=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    verification = db.relationship('TranslatorVerification', backref=db.backref('documents', lazy=True, cascade='all, delete-orphan', order_by='desc(VerificationDocument.created_at)'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('uploaded_verification_documents', lazy=True))
+    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref=db.backref('reviewed_verification_documents', lazy=True))
+
+    def to_dict(self):
+        """Chuyển đổi thành dictionary cho JSON response."""
+        return {
+            'id': self.id,
+            'verification_id': self.verification_id,
+            'document_type': self.document_type,
+            'original_filename': self.original_filename,
+            'file_size': self.file_size,
+            'mime_type': self.mime_type,
+            'file_extension': self.file_extension,
+            'status': self.status,
+            'review_notes': self.review_notes,
+            'reviewed_at': self.reviewed_at.strftime('%d/%m/%Y %H:%M') if self.reviewed_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            'can_preview': self.file_extension in ('pdf', 'jpg', 'jpeg', 'png', 'webp')
+        }
+
+
+# ─── VERIFICATION SUBMISSION VERSION MODEL ────────────────────────────────────
+
+class VerificationSubmissionVersion(db.Model):
+    """
+    Lưu giữ các phiên bản hồ sơ đã nộp của phiên dịch viên phục vụ đối soát và audit.
+    Bảo toàn snapshot bất biến tại từng thời điểm nộp hồ sơ.
+    """
+    __tablename__ = 'verification_submission_version'
+
+    id = db.Column(db.Integer, primary_key=True)
+    verification_id = db.Column(db.Integer, db.ForeignKey('translator_verification.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    version_number = db.Column(db.Integer, nullable=False, default=1)
+    status = db.Column(db.String(20), default='pending')
+    snapshot_data = db.Column(db.Text, nullable=False)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    ip_address = db.Column(db.String(50), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+
+    verification = db.relationship('TranslatorVerification', backref=db.backref('submission_versions', lazy=True, cascade='all, delete-orphan', order_by='desc(VerificationSubmissionVersion.submitted_at)'))
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('verification_submissions', lazy=True))
+
+    def get_snapshot(self):
+        """Trả về dữ liệu snapshot dạng dictionary."""
+        try:
+            return json.loads(self.snapshot_data)
+        except Exception:
+            return {}
+
+class PasswordResetToken(db.Model):
+    """
+    Token dùng để xác minh yêu cầu cấp lại mật khẩu.
+    Chỉ lưu mã băm của token.
+    """
+    __tablename__ = 'password_reset_token'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(128), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('reset_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    def is_valid(self):
+        return not self.is_used and self.expires_at > datetime.utcnow()
+
+class EmailVerificationToken(db.Model):
+    """
+    Token dùng để xác minh email.
+    Chỉ lưu mã băm của token.
+    """
+    __tablename__ = 'email_verification_token'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    token_hash = db.Column(db.String(128), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False)
+
+    user = db.relationship('User', foreign_keys=[user_id], backref=db.backref('email_verification_tokens', lazy=True, cascade='all, delete-orphan'))
+
+    def is_valid(self):
+        return not self.is_used and self.expires_at > datetime.utcnow()
+
