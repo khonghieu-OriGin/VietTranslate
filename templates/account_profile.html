@@ -473,99 +473,344 @@ function resendVerificationEmail() {
                 <!-- 5 TAB PLACEHOLDERS (MỤC V PHIÊN DỊCH VIÊN)                                  -->
                 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 
-                <!-- TAB 1 PLACEHOLDER: HỒ SƠ CÁ NHÂN (MỤC 5.1) -->
+                <!-- TAB 1: HỒ SƠ CÁ NHÂN (MỤC 5.1) -->
                 <div id="tab-profile" class="tab-panel {% if active_tab == 'profile' %}active{% endif %} space-y-6">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <!-- Header Phân hệ Hồ sơ cá nhân -->
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-                            <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                            <div class="flex items-center gap-3.5">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-50 to-indigo-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-100 shadow-2xs">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                    </svg>
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <h2 class="text-lg font-bold text-slate-900">Hồ sơ cá nhân & Thông tin định danh</h2>
-                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">Mục 5.1</span>
+                                        <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-brand-50 text-brand-700 border border-brand-200/60">Mục 5.1</span>
                                     </div>
-                                    <p class="text-xs text-slate-500 mt-0.5">Quản lý thông tin định danh cá nhân, ngày sinh, tỉnh/thành, tiểu sử chuyên môn và cài đặt hiển thị công khai hồ sơ.</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">Quản lý thông tin định danh cá nhân, ảnh đại diện, số liên hệ, ngày sinh, khu vực hoạt động và cài đặt hiển thị công khai trên danh bạ.</p>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200/60 shrink-0">
-                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                                Sẵn sàng triển khai chi tiết
-                            </span>
+                            <div>
+                                {% if user.is_verified %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full border border-emerald-200/80 shadow-2xs shrink-0">
+                                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                    </svg>
+                                    Đã xác thực định danh
+                                </span>
+                                {% else %}
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200/70 shrink-0">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    Chưa xác minh định danh
+                                </span>
+                                {% endif %}
+                            </div>
                         </div>
 
-                        <!-- Grid 2 phân khu thông tin Mục 5.1 -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6">
-                            <!-- 5.1.1: Thông tin cơ bản & liên hệ -->
-                            <div class="bg-slate-50/70 rounded-2xl p-5 border border-slate-200/70 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-brand-500"></span>
-                                        5.1.1 Thông tin cá nhân & Liên hệ
-                                    </h3>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Xem trước</span>
-                                </div>
-                                <div class="space-y-3 text-xs">
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <span class="text-slate-500 font-medium">Họ và tên</span>
-                                        <span class="font-bold text-slate-800">{{ user.name }}</span>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <span class="text-slate-500 font-medium">Email đăng nhập</span>
-                                        <span class="font-bold text-slate-800">{{ user.email }}</span>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <span class="text-slate-500 font-medium">Số điện thoại</span>
-                                        <span class="font-bold text-slate-800">{{ user.phone or 'Chưa cập nhật' }}</span>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <span class="text-slate-500 font-medium">Ngày sinh (Mới)</span>
-                                        <span class="font-bold text-brand-700">{{ user.date_of_birth or 'Chưa cập nhật (Sẵn sàng ở DB)' }}</span>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <span class="text-slate-500 font-medium">Tỉnh / Thành phố (Mới)</span>
-                                        <span class="font-bold text-brand-700">{{ user.city or 'Chưa cập nhật (Sẵn sàng ở DB)' }}</span>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- Form Cập nhật Hồ sơ Cá nhân -->
+                        <form id="personal-profile-form" method="POST" action="{{ url_for('account_profile') }}" enctype="multipart/form-data" class="pt-6 space-y-8">
+                            <input type="hidden" name="action" value="update_personal_profile">
+                            <input type="hidden" name="remove_avatar" id="input-remove-avatar" value="0">
 
-                            <!-- 5.1.2: Tiểu sử & Cấu hình công khai -->
-                            <div class="bg-slate-50/70 rounded-2xl p-5 border border-slate-200/70 space-y-4">
-                                <div class="flex items-center justify-between">
-                                    <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                                        5.1.2 Tiểu sử & Quyền riêng tư
-                                    </h3>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Xem trước</span>
-                                </div>
-                                <div class="space-y-3 text-xs">
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60">
-                                        <span class="text-slate-500 font-medium block mb-1">Chức danh nghề nghiệp</span>
-                                        <span class="font-bold text-slate-800">{{ user.profile.title if user.profile else 'Chưa đặt tiêu đề' }}</span>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60">
-                                        <span class="text-slate-500 font-medium block mb-1">Tiểu sử cá nhân (Bio)</span>
-                                        <p class="text-slate-700 line-clamp-2 italic">{{ user.bio or (user.profile.bio if user.profile else '') or 'Chưa có lời giới thiệu bản thân.' }}</p>
-                                    </div>
-                                    <div class="p-3 bg-white rounded-xl border border-slate-200/60 flex items-center justify-between">
-                                        <div>
-                                            <span class="text-slate-700 font-bold block">Hiển thị hồ sơ công khai</span>
-                                            <span class="text-[11px] text-slate-400">Cho phép khách hàng tìm kiếm</span>
+                            <!-- PHÂN KHU 1: ẢNH ĐẠI DIỆN HỒ SƠ -->
+                            <div class="p-5 sm:p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+                                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                                    <!-- Avatar Preview Box -->
+                                    <div class="relative w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden shadow-soft border-3 border-white bg-slate-100 shrink-0 ring-4 ring-slate-100/90 group">
+                                        {% if user.avatar_url %}
+                                        <img id="profile-tab-avatar-img" src="{{ user.avatar_url }}" alt="{{ user.name }}"
+                                            onerror="this.style.display='none'; document.getElementById('profile-tab-avatar-fallback').style.display='flex';"
+                                            class="w-full h-full object-cover object-top">
+                                        {% endif %}
+                                        <div id="profile-tab-avatar-fallback" style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
+                                            class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl sm:text-4xl font-black">
+                                            {{ (user.name or 'U')[0] | upper }}
                                         </div>
-                                        <span class="px-2.5 py-1 rounded-full text-[11px] font-bold {% if user.is_public_profile %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-600{% endif %}">
-                                            {{ 'Bật (Công khai)' if user.is_public_profile else 'Chế độ riêng tư' }}
-                                        </span>
+                                    </div>
+
+                                    <!-- Avatar Info & Actions -->
+                                    <div class="flex-grow text-center sm:text-left space-y-2.5">
+                                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                                            <h3 class="text-sm font-bold text-slate-900">Ảnh đại diện cá nhân</h3>
+                                            <span id="profile-avatar-badge-preview" class="hidden text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80 animate-pulse">
+                                                Ảnh mới chọn (Xem trước)
+                                            </span>
+                                            <span id="profile-avatar-badge-custom" style="{% if user.avatar %}display:inline-block;{% else %}display:none;{% endif %}"
+                                                class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+                                                Ảnh tùy chỉnh
+                                            </span>
+                                            <span id="profile-avatar-badge-default" style="{% if user.avatar %}display:none;{% else %}display:inline-block;{% endif %}"
+                                                class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200/70">
+                                                Ảnh mặc định
+                                            </span>
+                                        </div>
+                                        <p class="text-xs text-slate-500 leading-relaxed max-w-xl">
+                                            Ảnh đại diện chân dung chất lượng cao giúp tăng 70% mức độ tin cậy từ người thuê. Hỗ trợ định dạng JPG, PNG, WEBP, GIF (tối đa 5MB).
+                                        </p>
+                                        
+                                        <!-- Error Message Box (Avatar validation) -->
+                                        <div id="profile-avatar-error" class="hidden p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium items-center gap-2">
+                                            <svg class="w-4 h-4 shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                            </svg>
+                                            <span id="profile-avatar-error-text"></span>
+                                        </div>
+
+                                        <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1">
+                                            <!-- Hidden File Input -->
+                                            <input type="file" id="profile-avatar-input" name="avatar"
+                                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                                class="hidden" onchange="handleProfileAvatarSelected(this)">
+                                            
+                                            <!-- Button Trigger Upload -->
+                                            <button type="button" onclick="document.getElementById('profile-avatar-input').click()"
+                                                class="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                                                </svg>
+                                                <span>Chọn ảnh mới</span>
+                                            </button>
+
+                                            <!-- Button Cancel Preview (if user chose file locally) -->
+                                            <button type="button" id="btn-cancel-avatar-preview" onclick="cancelAvatarPreview()"
+                                                class="hidden inline-flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold rounded-xl transition cursor-pointer">
+                                                <span>Hủy ảnh vừa chọn</span>
+                                            </button>
+
+                                            <!-- Button Remove Avatar -->
+                                            <button type="button" id="btn-remove-profile-avatar" onclick="markRemoveAvatar()"
+                                                style="{% if user.avatar %}display:inline-flex;{% else %}display:none;{% endif %}"
+                                                class="items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-semibold rounded-xl transition cursor-pointer">
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                                </svg>
+                                                <span>Xóa ảnh đại diện</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Placeholder alert -->
-                        <div class="mt-6 p-4 rounded-xl bg-blue-50/70 border border-blue-200 text-xs text-blue-800 flex items-center gap-3">
-                            <svg class="w-5 h-5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Khung giao diện <strong>Tab 1: Hồ sơ cá nhân</strong> đã sẵn sàng. Form cập nhật thông tin chi tiết, upload avatar và switch công khai sẽ được triển khai đầy đủ ở prompt tiếp theo.</span>
-                        </div>
+                            <!-- PHÂN KHU 2: THÔNG TIN ĐỊNH DANH & LIÊN HỆ -->
+                            <div class="space-y-4">
+                                <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+                                    <span class="w-2 h-2 rounded-full bg-brand-500"></span>
+                                    <h3 class="text-sm font-bold text-slate-900">Thông tin định danh & Liên hệ</h3>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+                                    <!-- Họ và tên -->
+                                    <div class="space-y-1.5">
+                                        <label for="input-profile-name" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            Họ và tên <span class="text-rose-500">*</span>
+                                        </label>
+                                        {% if user.is_verified %}
+                                        <!-- RÀNG BUỘC NGHIỆP VỤ 1: ĐÃ XÁC MINH DANH TÍNH -> READ-ONLY / DISABLED CÓ ICON Ổ KHÓA -->
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-amber-600">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                                </svg>
+                                            </div>
+                                            <input type="text" id="input-profile-name" name="name" value="{{ user.name }}" readonly
+                                                class="w-full pl-10 pr-4 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-slate-700 text-xs sm:text-sm font-bold cursor-not-allowed select-none focus:outline-none">
+                                        </div>
+                                        <div class="mt-2 flex items-start gap-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs">
+                                            <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                            </svg>
+                                            <span class="leading-relaxed">Họ và tên đã được xác thực theo giấy tờ định danh. Vui lòng liên hệ bộ phận hỗ trợ nếu cần thay đổi</span>
+                                        </div>
+                                        {% else %}
+                                        <!-- CHƯA XÁC MINH DANH TÍNH -> CHO PHÉP SỬA -->
+                                        <input type="text" id="input-profile-name" name="name" value="{{ user.name }}" required
+                                            placeholder="Nhập họ và tên đầy đủ"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                        <p class="text-[11px] text-slate-400">Vui lòng nhập đúng họ tên như trên CCCD/Hộ chiếu để phục vụ công tác xác minh.</p>
+                                        <p id="err-profile-name" class="text-xs text-rose-600 hidden"></p>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Email -->
+                                    <div class="space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <label for="input-profile-email" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                                Địa chỉ Email <span class="text-rose-500">*</span>
+                                            </label>
+                                            {% if user.email_verified %}
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                                                <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                </svg>
+                                                Đã xác thực
+                                            </span>
+                                            {% else %}
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                                                <svg class="w-3 h-3 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                                </svg>
+                                                Chưa xác thực
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        <input type="email" id="input-profile-email" name="email" value="{{ user.email }}" required
+                                            placeholder="name@example.com"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                        {% if not user.email_verified %}
+                                        <div class="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/70 px-2.5 py-1 rounded-lg border border-amber-100">
+                                            <span>Email chưa xác thực. Vui lòng kiểm tra hộp thư.</span>
+                                            <button type="button" onclick="resendVerificationEmail()" class="font-bold underline hover:text-amber-950 cursor-pointer">Gửi lại email</button>
+                                        </div>
+                                        {% endif %}
+                                        <p id="err-profile-email" class="text-xs text-rose-600 hidden"></p>
+                                    </div>
+
+                                    <!-- Số điện thoại -->
+                                    <div class="space-y-1.5">
+                                        <div class="flex items-center justify-between">
+                                            <label for="input-profile-phone" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                                Số điện thoại
+                                            </label>
+                                            {% if user.is_phone_verified %}
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+                                                <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                </svg>
+                                                Đã xác thực
+                                            </span>
+                                            {% elif user.phone %}
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
+                                                Đã liên kết
+                                            </span>
+                                            {% else %}
+                                            <span class="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200/80">
+                                                Chưa cập nhật
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                        <input type="tel" id="input-profile-phone" name="phone" value="{{ user.phone or '' }}"
+                                            placeholder="VD: 0912345678"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                        <p class="text-[11px] text-slate-400">Số điện thoại dùng để nhận tin nhắn trao đổi công việc và điều phối khẩn.</p>
+                                        <p id="err-profile-phone" class="text-xs text-rose-600 hidden"></p>
+                                    </div>
+
+                                    <!-- Ngày sinh -->
+                                    <div class="space-y-1.5">
+                                        <label for="input-profile-dob" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            Ngày sinh
+                                        </label>
+                                        <input type="date" id="input-profile-dob" name="date_of_birth"
+                                            value="{{ user.date_of_birth or '' }}"
+                                            max="{{ today_str if today_str else '' }}"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                        <p class="text-[11px] text-slate-400">Ngày sinh phục vụ đối chiếu thông tin hợp đồng và chứng chỉ hành nghề.</p>
+                                        <p id="err-profile-dob" class="text-xs text-rose-600 hidden"></p>
+                                    </div>
+
+                                    <!-- Khu vực hoạt động chính (Tỉnh/Thành phố) -->
+                                    <div class="space-y-1.5 md:col-span-2">
+                                        <label for="input-profile-city" class="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                                            Khu vực hoạt động chính (Tỉnh / Thành phố)
+                                        </label>
+                                        <input type="text" id="input-profile-city" name="city" list="profile-vietnam-provinces"
+                                            value="{{ user.city or '' }}"
+                                            placeholder="VD: Hà Nội, TP. Hồ Chí Minh, Đà Nẵng..."
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white transition">
+                                        <datalist id="profile-vietnam-provinces">
+                                            <option value="Hà Nội">
+                                            <option value="TP. Hồ Chí Minh">
+                                            <option value="Đà Nẵng">
+                                            <option value="Hải Phòng">
+                                            <option value="Cần Thơ">
+                                            <option value="Bình Dương">
+                                            <option value="Đồng Nai">
+                                            <option value="Quảng Ninh">
+                                            <option value="Khánh Hòa">
+                                            <option value="Thừa Thiên Huế">
+                                            <option value="Bắc Ninh">
+                                            <option value="Hải Dương">
+                                            <option value="Bà Rịa - Vũng Tàu">
+                                            <option value="Lâm Đồng">
+                                            <option value="Nghệ An">
+                                            <option value="Thanh Hóa">
+                                            <option value="Kiên Giang">
+                                        </datalist>
+                                        <p class="text-[11px] text-slate-400">Địa bàn ưu tiên hiển thị để nhận các ca phiên dịch trực tiếp tại hiện trường (onsite).</p>
+                                        <p id="err-profile-city" class="text-xs text-rose-600 hidden"></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- PHÂN KHU 3: GIỚI THIỆU NGẮN (BIO) -->
+                            <div class="space-y-2 pt-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                        <label for="input-profile-bio" class="text-sm font-bold text-slate-900">
+                                            Giới thiệu ngắn (Bio) & Phong cách làm việc
+                                        </label>
+                                    </div>
+                                    <span id="profile-bio-counter" class="text-[11px] text-slate-400 font-medium">0 / 1000 ký tự</span>
+                                </div>
+                                <textarea id="input-profile-bio" name="bio" rows="4" maxlength="1000"
+                                    placeholder="Tóm tắt ngắn gọn thế mạnh chuyên môn, số năm kinh nghiệm, các ca dịch tiêu biểu hoặc phong thái làm việc chuyên nghiệp của bạn..."
+                                    class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-white leading-relaxed transition">{{ user.bio or (user.profile.bio if user.profile else '') or '' }}</textarea>
+                                <p class="text-[11px] text-slate-400">Một đoạn giới thiệu súc tích, ấn tượng sẽ giúp khách hàng nhanh chóng nắm bắt thế mạnh và tin tưởng gửi yêu cầu cho bạn.</p>
+                                <p id="err-profile-bio" class="text-xs text-rose-600 hidden"></p>
+                            </div>
+
+                            <!-- PHÂN KHU 4: SWITCH TOGGLE CÔNG KHAI HỒ SƠ TRÊN DANH BẠ -->
+                            <div class="p-5 sm:p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div class="flex items-start gap-3.5">
+                                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100/80">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-sm font-bold text-slate-900">Công khai hồ sơ trên danh bạ phiên dịch viên</h3>
+                                        <p class="text-xs text-slate-500 mt-0.5 max-w-xl leading-relaxed">
+                                            Khi bật, hồ sơ của bạn sẽ hiển thị công khai trên thanh tìm kiếm và danh bạ để người thuê có thể xem, gửi yêu cầu báo giá và đặt lịch trực tiếp.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                                    <label class="relative inline-flex items-center cursor-pointer select-none">
+                                        <input type="checkbox" id="toggle-public-profile" name="is_public_profile" value="1"
+                                            {% if user.is_public_profile %}checked{% endif %}
+                                            onchange="updatePublicToggleLabel(this)"
+                                            class="sr-only peer">
+                                        <div class="w-12 h-6 bg-slate-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-brand-500 rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+                                        <span id="public-toggle-status" class="ml-3 text-xs font-bold {% if user.is_public_profile %}text-brand-700{% else %}text-slate-500{% endif %}">
+                                            {{ 'Đang bật (Công khai)' if user.is_public_profile else 'Đang tắt (Riêng tư)' }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- PHÂN KHU 5: NÚT LƯU THAY ĐỔI & ĐẶT LẠI (ACTION BAR) -->
+                            <div class="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-6 border-t border-slate-100">
+                                <button type="button" onclick="resetPersonalProfileForm()"
+                                    class="w-full sm:w-auto px-5 py-2.5 border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold text-xs sm:text-sm rounded-xl transition cursor-pointer">
+                                    Đặt lại
+                                </button>
+                                <button type="submit" id="btn-save-personal-profile"
+                                    class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-7 py-2.5 bg-brand-600 hover:bg-brand-700 active:bg-brand-800 text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-sm hover:shadow cursor-pointer">
+                                    <svg id="save-profile-spinner" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                    </svg>
+                                    <svg id="save-profile-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <span id="save-profile-btn-text">Lưu thay đổi</span>
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -3052,6 +3297,15 @@ function resendVerificationEmail() {
         const defaultBadge = document.getElementById('avatar-badge-default');
         const removeBtn = document.getElementById('btn-remove-avatar');
 
+        // Tab Profile Avatar Elements
+        const profileTabImg = document.getElementById('profile-tab-avatar-img');
+        const profileTabFallback = document.getElementById('profile-tab-avatar-fallback');
+        const profileCustomBadge = document.getElementById('profile-avatar-badge-custom');
+        const profileDefaultBadge = document.getElementById('profile-avatar-badge-default');
+        const profilePreviewBadge = document.getElementById('profile-avatar-badge-preview');
+        const profileRemoveBtn = document.getElementById('btn-remove-profile-avatar');
+        const profileCancelBtn = document.getElementById('btn-cancel-avatar-preview');
+
         // Header User Dropdown Avatar
         const headerAvatar = document.querySelector('button .rounded-full.bg-gradient-to-tr');
         if (headerAvatar) {
@@ -3094,6 +3348,23 @@ function resendVerificationEmail() {
                 }
             }
             if (basicFallback) basicFallback.style.display = 'none';
+
+            // Sync Tab Profile Elements
+            if (profileTabImg) {
+                profileTabImg.src = newUrl;
+                profileTabImg.style.display = 'block';
+            } else {
+                const pContainer = document.querySelector('#tab-profile .relative.w-28, #tab-profile .relative.w-32');
+                if (pContainer) {
+                    const pImg = document.createElement('img');
+                    pImg.id = 'profile-tab-avatar-img';
+                    pImg.src = newUrl;
+                    pImg.alt = "{{ user.name }}";
+                    pImg.className = 'w-full h-full object-cover object-top';
+                    pContainer.insertBefore(pImg, pContainer.firstChild);
+                }
+            }
+            if (profileTabFallback) profileTabFallback.style.display = 'none';
         } else {
             if (sidebarImg) sidebarImg.style.display = 'none';
             if (sidebarFallback) {
@@ -3105,16 +3376,34 @@ function resendVerificationEmail() {
                 basicFallback.style.display = 'flex';
                 if (initial) basicFallback.textContent = initial;
             }
+
+            // Sync Tab Profile Elements (empty)
+            if (profileTabImg) profileTabImg.style.display = 'none';
+            if (profileTabFallback) {
+                profileTabFallback.style.display = 'flex';
+                if (initial) profileTabFallback.textContent = initial;
+            }
         }
+
+        if (profilePreviewBadge) profilePreviewBadge.classList.add('hidden');
+        if (profileCancelBtn) profileCancelBtn.classList.add('hidden');
 
         if (isCustom) {
             if (customBadge) customBadge.style.display = 'inline-block';
             if (defaultBadge) defaultBadge.style.display = 'none';
             if (removeBtn) removeBtn.style.display = 'inline-flex';
+
+            if (profileCustomBadge) profileCustomBadge.style.display = 'inline-block';
+            if (profileDefaultBadge) profileDefaultBadge.style.display = 'none';
+            if (profileRemoveBtn) profileRemoveBtn.style.display = 'inline-flex';
         } else {
             if (customBadge) customBadge.style.display = 'none';
             if (defaultBadge) defaultBadge.style.display = 'inline-block';
             if (removeBtn) removeBtn.style.display = 'none';
+
+            if (profileCustomBadge) profileCustomBadge.style.display = 'none';
+            if (profileDefaultBadge) profileDefaultBadge.style.display = 'inline-block';
+            if (profileRemoveBtn) profileRemoveBtn.style.display = 'none';
         }
     }
 
@@ -3401,5 +3690,372 @@ function resendVerificationEmail() {
 
         xhr.send(formData);
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TAB 1: HỒ SƠ CÁ NHÂN (MỤC 5.1) LOGIC & VALIDATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    let originalProfileData = {
+        name: {{ (user.name or '') | tojson }},
+        email: {{ (user.email or '') | tojson }},
+        phone: {{ (user.phone or '') | tojson }},
+        date_of_birth: {{ (user.date_of_birth or '') | tojson }},
+        city: {{ (user.city or '') | tojson }},
+        bio: {{ (user.bio or (user.profile.bio if user.profile else '') or '') | tojson }},
+        is_public_profile: {{ (true if user.is_public_profile else false) | tojson }},
+        avatar_url: {{ (user.avatar_url or '') | tojson }}
+    };
+
+    let profileSelectedAvatarFile = null;
+
+    // 1. Xử lý khi chọn file ảnh đại diện
+    function handleProfileAvatarSelected(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const errorBox = document.getElementById('profile-avatar-error');
+        const errorText = document.getElementById('profile-avatar-error-text');
+
+        if (errorBox) errorBox.classList.add('hidden');
+
+        // Validate định dạng
+        const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        if (!validTypes.includes(file.type)) {
+            if (errorText) errorText.textContent = 'Định dạng tệp không hợp lệ. Vui lòng chọn ảnh JPG, PNG, WEBP hoặc GIF.';
+            if (errorBox) { errorBox.classList.remove('hidden'); errorBox.classList.add('flex'); }
+            input.value = '';
+            showAvatarToast('Định dạng ảnh không hợp lệ (chỉ nhận JPG, PNG, WEBP, GIF)', 'error');
+            return;
+        }
+
+        // Validate dung lượng (tối đa 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            if (errorText) errorText.textContent = 'Dung lượng ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn 5MB.';
+            if (errorBox) { errorBox.classList.remove('hidden'); errorBox.classList.add('flex'); }
+            input.value = '';
+            showAvatarToast('Dung lượng ảnh vượt quá 5MB', 'error');
+            return;
+        }
+
+        profileSelectedAvatarFile = file;
+
+        // Reset cờ xóa avatar
+        const removeInput = document.getElementById('input-remove-avatar');
+        if (removeInput) removeInput.value = '0';
+
+        // Đọc và preview ảnh
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            let img = document.getElementById('profile-tab-avatar-img');
+            const fallback = document.getElementById('profile-tab-avatar-fallback');
+            if (img) {
+                img.src = e.target.result;
+                img.style.display = 'block';
+            } else {
+                const container = document.querySelector('#tab-profile .relative.w-28, #tab-profile .relative.w-32');
+                if (container) {
+                    img = document.createElement('img');
+                    img.id = 'profile-tab-avatar-img';
+                    img.src = e.target.result;
+                    img.className = 'w-full h-full object-cover object-top';
+                    container.insertBefore(img, container.firstChild);
+                }
+            }
+            if (fallback) fallback.style.display = 'none';
+
+            // Cập nhật badges và nút hủy
+            const previewBadge = document.getElementById('profile-avatar-badge-preview');
+            const customBadge = document.getElementById('profile-avatar-badge-custom');
+            const defaultBadge = document.getElementById('profile-avatar-badge-default');
+            const cancelBtn = document.getElementById('btn-cancel-avatar-preview');
+
+            if (previewBadge) previewBadge.classList.remove('hidden');
+            if (customBadge) customBadge.style.display = 'none';
+            if (defaultBadge) defaultBadge.style.display = 'none';
+            if (cancelBtn) cancelBtn.classList.remove('hidden');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 2. Hủy xem trước ảnh đại diện vừa chọn
+    function cancelAvatarPreview() {
+        profileSelectedAvatarFile = null;
+        const input = document.getElementById('profile-avatar-input');
+        if (input) input.value = '';
+
+        const removeInput = document.getElementById('input-remove-avatar');
+        if (removeInput) removeInput.value = '0';
+
+        const img = document.getElementById('profile-tab-avatar-img');
+        const fallback = document.getElementById('profile-tab-avatar-fallback');
+        const previewBadge = document.getElementById('profile-avatar-badge-preview');
+        const customBadge = document.getElementById('profile-avatar-badge-custom');
+        const defaultBadge = document.getElementById('profile-avatar-badge-default');
+        const cancelBtn = document.getElementById('btn-cancel-avatar-preview');
+        const errorBox = document.getElementById('profile-avatar-error');
+
+        if (errorBox) errorBox.classList.add('hidden');
+        if (previewBadge) previewBadge.classList.add('hidden');
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+
+        if (originalProfileData.avatar_url) {
+            if (img) {
+                img.src = originalProfileData.avatar_url;
+                img.style.display = 'block';
+            }
+            if (fallback) fallback.style.display = 'none';
+            if (customBadge) customBadge.style.display = 'inline-block';
+            if (defaultBadge) defaultBadge.style.display = 'none';
+        } else {
+            if (img) img.style.display = 'none';
+            if (fallback) fallback.style.display = 'flex';
+            if (customBadge) customBadge.style.display = 'none';
+            if (defaultBadge) defaultBadge.style.display = 'inline-block';
+        }
+    }
+
+    // 3. Đánh dấu xóa ảnh đại diện
+    function markRemoveAvatar() {
+        if (!confirm('Bạn có chắc chắn muốn xóa ảnh đại diện và quay về ảnh mặc định?')) return;
+        profileSelectedAvatarFile = null;
+        const input = document.getElementById('profile-avatar-input');
+        if (input) input.value = '';
+
+        const removeInput = document.getElementById('input-remove-avatar');
+        if (removeInput) removeInput.value = '1';
+
+        const img = document.getElementById('profile-tab-avatar-img');
+        const fallback = document.getElementById('profile-tab-avatar-fallback');
+        const previewBadge = document.getElementById('profile-avatar-badge-preview');
+        const customBadge = document.getElementById('profile-avatar-badge-custom');
+        const defaultBadge = document.getElementById('profile-avatar-badge-default');
+        const cancelBtn = document.getElementById('btn-cancel-avatar-preview');
+        const removeBtn = document.getElementById('btn-remove-profile-avatar');
+
+        if (img) img.style.display = 'none';
+        if (fallback) fallback.style.display = 'flex';
+        if (previewBadge) previewBadge.classList.add('hidden');
+        if (customBadge) customBadge.style.display = 'none';
+        if (defaultBadge) defaultBadge.style.display = 'inline-block';
+        if (cancelBtn) cancelBtn.classList.add('hidden');
+        if (removeBtn) removeBtn.style.display = 'none';
+    }
+
+    // 4. Cập nhật nhãn trạng thái switch công khai
+    function updatePublicToggleLabel(checkbox) {
+        const statusEl = document.getElementById('public-toggle-status');
+        if (!statusEl) return;
+        if (checkbox.checked) {
+            statusEl.textContent = 'Đang bật (Công khai)';
+            statusEl.className = 'ml-3 text-xs font-bold text-brand-700';
+        } else {
+            statusEl.textContent = 'Đang tắt (Riêng tư)';
+            statusEl.className = 'ml-3 text-xs font-bold text-slate-500';
+        }
+    }
+
+    // 5. Khởi tạo bộ đếm ký tự Bio
+    function initProfileBioCounter() {
+        const bioEl = document.getElementById('input-profile-bio');
+        const counterEl = document.getElementById('profile-bio-counter');
+        if (bioEl && counterEl) {
+            const updateCount = () => {
+                counterEl.textContent = bioEl.value.length + ' / 1000 ký tự';
+            };
+            bioEl.addEventListener('input', updateCount);
+            updateCount();
+        }
+    }
+
+    // 6. Đặt lại form (Reset về dữ liệu ban đầu)
+    function resetPersonalProfileForm() {
+        const nameInput = document.getElementById('input-profile-name');
+        if (nameInput && !nameInput.readOnly) {
+            nameInput.value = originalProfileData.name || '';
+        }
+        const emailInput = document.getElementById('input-profile-email');
+        if (emailInput) emailInput.value = originalProfileData.email || '';
+
+        const phoneInput = document.getElementById('input-profile-phone');
+        if (phoneInput) phoneInput.value = originalProfileData.phone || '';
+
+        const dobInput = document.getElementById('input-profile-dob');
+        if (dobInput) dobInput.value = originalProfileData.date_of_birth || '';
+
+        const cityInput = document.getElementById('input-profile-city');
+        if (cityInput) cityInput.value = originalProfileData.city || '';
+
+        const bioInput = document.getElementById('input-profile-bio');
+        if (bioInput) {
+            bioInput.value = originalProfileData.bio || '';
+            const counterEl = document.getElementById('profile-bio-counter');
+            if (counterEl) counterEl.textContent = (originalProfileData.bio || '').length + ' / 1000 ký tự';
+        }
+
+        const publicToggle = document.getElementById('toggle-public-profile');
+        if (publicToggle) {
+            publicToggle.checked = Boolean(originalProfileData.is_public_profile);
+            updatePublicToggleLabel(publicToggle);
+        }
+
+        cancelAvatarPreview();
+
+        ['err-profile-name', 'err-profile-email', 'err-profile-phone', 'err-profile-dob', 'err-profile-city', 'err-profile-bio'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+    }
+
+    // 7. Validate Client & Submit AJAX
+    document.addEventListener('DOMContentLoaded', function() {
+        initProfileBioCounter();
+
+        const form = document.getElementById('personal-profile-form');
+        if (!form) return;
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            // Clear lỗi cũ
+            const errorIds = ['err-profile-name', 'err-profile-email', 'err-profile-phone', 'err-profile-dob', 'err-profile-city', 'err-profile-bio'];
+            errorIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.textContent = ''; el.classList.add('hidden'); }
+            });
+
+            let hasError = false;
+
+            // Validate Họ và tên (nếu chưa xác minh)
+            const nameInput = document.getElementById('input-profile-name');
+            if (nameInput && !nameInput.readOnly) {
+                const nameVal = nameInput.value.trim();
+                if (!nameVal || nameVal.length < 2) {
+                    const errEl = document.getElementById('err-profile-name');
+                    if (errEl) { errEl.textContent = 'Họ và tên bắt buộc và phải có ít nhất 2 ký tự.'; errEl.classList.remove('hidden'); }
+                    nameInput.focus();
+                    hasError = true;
+                }
+            }
+
+            // Validate Email (QUY TẮC 2)
+            const emailInput = document.getElementById('input-profile-email');
+            if (emailInput) {
+                const emailVal = emailInput.value.trim();
+                const emailRegex = /^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$/;
+                if (!emailVal || !emailRegex.test(emailVal)) {
+                    const errEl = document.getElementById('err-profile-email');
+                    if (errEl) { errEl.textContent = 'Email không hợp lệ. Vui lòng nhập đúng định dạng (VD: user@example.com).'; errEl.classList.remove('hidden'); }
+                    if (!hasError) emailInput.focus();
+                    hasError = true;
+                }
+            }
+
+            // Validate Số điện thoại (QUY TẮC 2)
+            const phoneInput = document.getElementById('input-profile-phone');
+            if (phoneInput && phoneInput.value.trim()) {
+                const rawPhone = phoneInput.value.trim().replace(/[\s\-\.]/g, '');
+                const vnPhoneRegex = /^(?:\+84|0)(?:3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])\d{7}$/;
+                if (!vnPhoneRegex.test(rawPhone)) {
+                    const errEl = document.getElementById('err-profile-phone');
+                    if (errEl) { errEl.textContent = 'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam (VD: 0912345678).'; errEl.classList.remove('hidden'); }
+                    if (!hasError) phoneInput.focus();
+                    hasError = true;
+                }
+            }
+
+            // Validate Ngày sinh
+            const dobInput = document.getElementById('input-profile-dob');
+            if (dobInput && dobInput.value) {
+                const selectedDate = new Date(dobInput.value);
+                const today = new Date();
+                today.setHours(23, 59, 59, 999);
+                if (selectedDate > today) {
+                    const errEl = document.getElementById('err-profile-dob');
+                    if (errEl) { errEl.textContent = 'Ngày sinh không thể lớn hơn ngày hiện tại.'; errEl.classList.remove('hidden'); }
+                    if (!hasError) dobInput.focus();
+                    hasError = true;
+                }
+            }
+
+            if (hasError) {
+                showAvatarToast('Vui lòng kiểm tra lại các trường thông tin chưa hợp lệ.', 'error');
+                return;
+            }
+
+            // QUY TẮC 3: Trạng thái Loading trên nút [Lưu thay đổi]
+            const submitBtn = document.getElementById('btn-save-personal-profile');
+            const spinner = document.getElementById('save-profile-spinner');
+            const icon = document.getElementById('save-profile-icon');
+            const btnText = document.getElementById('save-profile-btn-text');
+
+            if (submitBtn) submitBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (icon) icon.classList.add('hidden');
+            if (btnText) btnText.textContent = 'Đang lưu thay đổi...';
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch("{{ url_for('account_profile') }}", {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // QUY TẮC 3: Toast thông báo kết quả thành công
+                    showAvatarToast(data.message || 'Cập nhật hồ sơ cá nhân thành công!', 'success');
+
+                    // Cập nhật backup dữ liệu
+                    if (data.user) {
+                        originalProfileData.name = data.user.name;
+                        originalProfileData.email = data.user.email;
+                        originalProfileData.phone = data.user.phone;
+                        originalProfileData.date_of_birth = data.user.date_of_birth;
+                        originalProfileData.city = data.user.city;
+                        originalProfileData.bio = data.user.bio;
+                        originalProfileData.is_public_profile = data.user.is_public_profile;
+                        originalProfileData.avatar_url = data.user.avatar_url;
+
+                        // Cập nhật ảnh đại diện trên sidebar, header và preview tab
+                        updateAvatarElements(data.user.avatar_url, Boolean(data.user.avatar_url), data.user.initial);
+
+                        // Cập nhật tên hiển thị ở sidebar nếu có thay đổi
+                        const sidebarName = document.querySelector('aside h2');
+                        if (sidebarName && data.user.name) {
+                            sidebarName.textContent = data.user.name;
+                        }
+                    }
+
+                    // Reset các cờ file/xóa avatar tạm thời
+                    profileSelectedAvatarFile = null;
+                    const fileInput = document.getElementById('profile-avatar-input');
+                    if (fileInput) fileInput.value = '';
+                    const removeInput = document.getElementById('input-remove-avatar');
+                    if (removeInput) removeInput.value = '0';
+                    const previewBadge = document.getElementById('profile-avatar-badge-preview');
+                    if (previewBadge) previewBadge.classList.add('hidden');
+                    const cancelBtn = document.getElementById('btn-cancel-avatar-preview');
+                    if (cancelBtn) cancelBtn.classList.add('hidden');
+
+                } else {
+                    // QUY TẮC 3: Toast thông báo thất bại
+                    // QUY TẮC 4: Nếu lưu thất bại, GIỮ NGUYÊN DỮ LIỆU HỢP LỆ TRƯỚC ĐÓ (form không reload, không xóa)
+                    showAvatarToast(data.message || 'Lưu thông tin thất bại. Vui lòng thử lại!', 'error');
+                }
+            } catch (err) {
+                // Lỗi mạng hoặc server
+                showAvatarToast('Lỗi kết nối khi gửi dữ liệu. Dữ liệu chưa lưu được bảo toàn.', 'error');
+            } finally {
+                // Tắt trạng thái Loading
+                if (submitBtn) submitBtn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (icon) icon.classList.remove('hidden');
+                if (btnText) btnText.textContent = 'Lưu thay đổi';
+            }
+        });
+    });
 </script>
 {% endblock %}

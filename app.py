@@ -2521,6 +2521,151 @@ def account_profile():
             db.session.commit()
             flash(_t('flash.profile_updated'), 'success')
 
+        elif action == 'update_personal_profile':
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                       'application/json' in request.headers.get('Accept', '') or
+                       request.is_json)
+
+            # 1. RÀNG BUỘC ĐỊNH DANH ĐÃ XÁC MINH:
+            # Nếu tài khoản đã được xác minh danh tính (is_verified == true), trường "Họ và tên" BẮT BUỘC
+            # phải ở trạng thái Read-only (Disabled) và server không cho phép chỉnh sửa.
+            is_identity_verified = bool(user.is_verified)
+            if not is_identity_verified:
+                new_name = request.form.get('name', '').strip()
+                if not new_name or len(new_name) < 2:
+                    msg = 'Họ và tên không được để trống và phải có ít nhất 2 ký tự.'
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile', tab='profile'))
+                user.name = new_name
+            # Nếu đã xác minh danh tính: tuyệt đối không cho phép đổi họ và tên từ form
+
+            # 2. KIỂM TRA ĐỊNH DẠNG EMAIL
+            email = request.form.get('email', '').strip().lower()
+            EMAIL_REGEX = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+            if not email or not re.match(EMAIL_REGEX, email):
+                msg = 'Email không hợp lệ. Vui lòng nhập đúng định dạng email (VD: user@example.com).'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 400
+                flash(msg, 'error')
+                return redirect(url_for('account_profile', tab='profile'))
+
+            if email != user.email.lower():
+                existing_email = User.query.filter(User.email.ilike(email), User.id != user.id).first()
+                if existing_email:
+                    msg = 'Địa chỉ email này đã được sử dụng bởi một tài khoản khác.'
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile', tab='profile'))
+                user.email = email
+                user.email_verified = False  # Đổi email thì cần xác thực lại
+
+            # 3. KIỂM TRA ĐỊNH DẠNG SỐ ĐIỆN THOẠI
+            phone = request.form.get('phone', '').strip()
+            clean_phone = re.sub(r'[\s\-.]', '', phone)
+            PHONE_REGEX = r'^(?:\+84|0)(?:3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-9])\d{7}$'
+            if clean_phone:
+                if not re.match(PHONE_REGEX, clean_phone):
+                    msg = 'Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 chữ số (VD: 0912345678).'
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile', tab='profile'))
+                user.phone = clean_phone
+            else:
+                user.phone = ''
+
+            # 4. NGÀY SINH
+            dob = request.form.get('date_of_birth', '').strip()
+            if dob:
+                try:
+                    dob_date = datetime.strptime(dob, '%Y-%m-%d')
+                    if dob_date > datetime.utcnow():
+                        msg = 'Ngày sinh không thể lớn hơn ngày hiện tại.'
+                        if is_ajax:
+                            return jsonify({'success': False, 'message': msg}), 400
+                        flash(msg, 'error')
+                        return redirect(url_for('account_profile', tab='profile'))
+                    user.date_of_birth = dob
+                except ValueError:
+                    msg = 'Ngày sinh không đúng định dạng (YYYY-MM-DD).'
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile', tab='profile'))
+            else:
+                user.date_of_birth = None
+
+            # 5. KHU VỰC HOẠT ĐỘNG CHÍNH (TỈNH/THÀNH PHỐ)
+            city = request.form.get('city', '').strip()
+            user.city = city[:100] if city else None
+            if user.preference:
+                user.preference.city = user.city
+
+            # 6. GIỚI THIỆU NGẮN (BIO)
+            bio = request.form.get('bio', '').strip()
+            user.bio = bio
+            if user.profile:
+                user.profile.bio = bio
+
+            # 7. SWITCH TOGGLE: CÔNG KHAI HỒ SƠ TRÊN DANH BẠ PHIÊN DỊCH VIÊN
+            is_public_val = request.form.get('is_public_profile')
+            is_public = (is_public_val in ('1', 'true', 'True', 'on'))
+            user.is_public_profile = is_public
+            if user.profile:
+                user.profile.is_public = is_public
+
+            # 8. XỬ LÝ ẢNH ĐẠI DIỆN
+            if request.form.get('remove_avatar') == '1':
+                delete_user_avatar(user.avatar)
+                user.avatar = None
+            elif 'avatar' in request.files and request.files['avatar'].filename:
+                avatar_file = request.files['avatar']
+                ok, res = save_user_avatar(avatar_file, user.id, user.avatar)
+                if not ok:
+                    msg = _t(res)
+                    if is_ajax:
+                        return jsonify({'success': False, 'message': msg}), 400
+                    flash(msg, 'error')
+                    return redirect(url_for('account_profile', tab='profile'))
+                user.avatar = res
+
+            # 9. LƯU THAY ĐỔI VỚI ROLLBACK NẾU THẤT BẠI
+            try:
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                msg = 'Có lỗi xảy ra trong quá trình lưu dữ liệu. Dữ liệu hợp lệ trước đó vẫn được giữ nguyên.'
+                if is_ajax:
+                    return jsonify({'success': False, 'message': msg}), 500
+                flash(msg, 'error')
+                return redirect(url_for('account_profile', tab='profile'))
+
+            msg = 'Cập nhật hồ sơ cá nhân thành công!'
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': msg,
+                    'user': {
+                        'name': user.name,
+                        'email': user.email,
+                        'phone': user.phone,
+                        'date_of_birth': user.date_of_birth,
+                        'city': user.city,
+                        'bio': user.bio,
+                        'is_public_profile': user.is_public_profile,
+                        'avatar_url': user.avatar_url,
+                        'initial': (user.name or 'U')[0].upper(),
+                        'email_verified': user.email_verified,
+                        'is_verified': user.is_verified,
+                        'is_phone_verified': user.is_phone_verified
+                    }
+                })
+            flash(msg, 'success')
+            return redirect(url_for('account_profile', tab='profile'))
+
         elif action == 'upload_avatar':
             file = request.files.get('avatar')
             is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
@@ -2796,7 +2941,8 @@ def account_profile():
         profile_completion=profile_completion,
         unread_notifs_count=unread_notifs_count,
         verification_documents=verification_documents,
-        DOCUMENT_POLICIES=DOCUMENT_POLICIES
+        DOCUMENT_POLICIES=DOCUMENT_POLICIES,
+        today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
 
 
