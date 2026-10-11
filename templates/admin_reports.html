@@ -15,7 +15,7 @@
         <a href="{{ url_for('admin_reports', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">Tất cả</a>
         <div class="filter-sep"></div>
         <a href="{{ url_for('admin_reports', status='new') }}" class="filter-tab {% if status_filter == 'new' %}active{% endif %}">
-            Mới <span class="badge badge-red ml-1">{{ badge_counts.admin_badge_reports }}</span>
+            Mới {% if admin_badge_reports and admin_badge_reports > 0 %}<span class="badge badge-red ml-1">{{ admin_badge_reports }}</span>{% elif badge_counts is defined and badge_counts.admin_badge_reports %}<span class="badge badge-red ml-1">{{ badge_counts.admin_badge_reports }}</span>{% endif %}
         </a>
         <a href="{{ url_for('admin_reports', status='investigating') }}" class="filter-tab {% if status_filter == 'investigating' %}active{% endif %}">Đang điều tra</a>
         <a href="{{ url_for('admin_reports', status='resolved') }}" class="filter-tab {% if status_filter == 'resolved' %}active{% endif %}">Đã giải quyết</a>
@@ -99,7 +99,7 @@
                         </div>
                     </td>
                 </tr>
-                {% endendfor %}
+                {% endfor %}
             </tbody>
         </table>
     </div>

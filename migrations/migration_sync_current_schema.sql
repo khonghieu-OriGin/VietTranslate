@@ -6,7 +6,8 @@
 ALTER TABLE "user" 
 ADD COLUMN IF NOT EXISTS admin_role VARCHAR(50),
 ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE,
-ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+ADD COLUMN IF NOT EXISTS avatar VARCHAR(255);
 
 -- 2. Update "translator_schedule" table
 ALTER TABLE translator_schedule
@@ -15,7 +16,11 @@ ADD COLUMN IF NOT EXISTS buffer_after_minutes INTEGER DEFAULT 30,
 ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'reserved',
 ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP;
 
--- 3. Create missing tables if they don't exist
+-- 3. Update "review" table
+ALTER TABLE review
+ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN DEFAULT FALSE NOT NULL;
+
+-- 4. Create missing tables if they don't exist
 -- Note: It is generally safer to let SQLAlchemy create new tables via db.create_all() (or migration_admin_security.py)
 -- but adding them here ensures the SQL migration is complete.
 
@@ -91,7 +96,7 @@ CREATE INDEX IF NOT EXISTS ix_admin_audit_log_admin_id ON admin_audit_log (admin
 CREATE INDEX IF NOT EXISTS ix_admin_audit_log_action ON admin_audit_log (action);
 CREATE INDEX IF NOT EXISTS ix_admin_audit_log_created_at ON admin_audit_log (created_at);
 
--- 4. Constraint checking for translator_schedule (from migration_add_exclusion.sql)
+-- 5. Constraint checking for translator_schedule (from migration_add_exclusion.sql)
 -- Create extension if not exists
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
@@ -117,3 +122,30 @@ BEGIN
         WHERE (status IN ('reserved', 'active'));
     END IF;
 END $$;
+
+-- 4. Create "saved_job" table
+CREATE TABLE IF NOT EXISTS saved_job (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+    job_id INTEGER NOT NULL REFERENCES job(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now(),
+    CONSTRAINT uq_saved_job_user_job UNIQUE (user_id, job_id)
+);
+CREATE INDEX IF NOT EXISTS ix_saved_job_user_id ON saved_job (user_id);
+CREATE INDEX IF NOT EXISTS ix_saved_job_job_id ON saved_job (job_id);
+
+-- 5. Add proposal tracking columns
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='proposal' AND column_name='updated_at') THEN
+        ALTER TABLE proposal ADD COLUMN updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT now();
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='proposal' AND column_name='client_note') THEN
+        ALTER TABLE proposal ADD COLUMN client_note TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='proposal' AND column_name='withdrawn_reason') THEN
+        ALTER TABLE proposal ADD COLUMN withdrawn_reason VARCHAR(255);
+    END IF;
+END $$;
+
+
