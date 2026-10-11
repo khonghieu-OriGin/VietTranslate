@@ -824,7 +824,7 @@ def _ensure_new_columns():
         print(f"[DB Sync Error] {e}", file=sys.stderr)
 
 def _ensure_job_columns():
-    """Bổ sung các cột mới của bảng job (additive, nullable) nếu DB cũ chưa có. Xem migration_job_management.sql."""
+    """Bổ sung các cột mới của bảng job (additive, nullable) nếu DB cũ chưa có. Xem migrations/migration_job_management.sql."""
     try:
         from sqlalchemy import inspect, text
         existing = {c['name'] for c in inspect(db.engine).get_columns('job')}
