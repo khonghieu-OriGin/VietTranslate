@@ -499,12 +499,22 @@ elif 'sqlite' in database_url:
         'connect_args': {'check_same_thread': False, 'timeout': 15},
     }
 else:
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    _engine_opts = {
+        'pool_pre_ping': True,
         'pool_recycle': 300,
         'connect_args': {
             'prepare_threshold': None,
+            'connect_timeout': 10,
         },
     }
+    if os.environ.get('VERCEL') == '1' or 'pooler' in database_url or ':6543' in database_url:
+        # Serverless / Supabase pooler: để pooler quản lý kết nối, tránh cạn connection → "quá tải"
+        from sqlalchemy.pool import NullPool
+        _engine_opts['poolclass'] = NullPool
+        _engine_opts.pop('pool_recycle')
+    else:
+        _engine_opts.update({'pool_size': 3, 'max_overflow': 2, 'pool_timeout': 15})
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = _engine_opts
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
@@ -2031,7 +2041,15 @@ def login():
         password = request.form.get('password', '')
 
         try:
-            user = User.query.filter_by(email=email).first()
+            try:
+                user = User.query.filter_by(email=email).first()
+            except SQLAlchemyError as first_err:
+                # Kết nối cũ/hỏng: rollback, bỏ connection và thử lại 1 lần
+                print(f"[AUTH SQL RETRY] {first_err}")
+                db.session.rollback()
+                db.session.remove()
+                db.engine.dispose()
+                user = User.query.filter_by(email=email).first()
             if user:
                 if not user.is_active:
                     flash(_t('flash.account_locked'), 'error')
@@ -2062,6 +2080,7 @@ def login():
                 return render_template('login.html', email=email, next_url=next_url)
         except SQLAlchemyError as e:
             print(f"[AUTH SQL ERROR] {e}")
+            db.session.rollback()
             flash(_t('flash.system_overload'), 'error')
             return render_template('login.html', email=email, next_url=next_url)
         except Exception as e:
