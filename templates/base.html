@@ -270,6 +270,8 @@
                 <!-- Desktop Navigation Links -->
                 <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
                     {% if current_user and current_user.role == 'hirer' %}
+                    <a href="{{ url_for('client_dashboard') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'client_dashboard' %}active text-brand-600 font-bold{% endif %}">Tổng quan</a>
                     <a href="{{ url_for('translator_list') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.find_translators') }}</a>
@@ -394,6 +396,13 @@
                                             <p class="font-bold text-slate-900 truncate">{{ current_user.name }}</p>
                                             <p class="text-slate-400 truncate">{{ current_user.email }}</p>
                                         </div>
+                                        {% if current_user.role == 'hirer' %}
+                                        <a href="{{ url_for('client_dashboard') }}"
+                                            class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition">
+                                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-3a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1v-7z"/></svg>
+                                            Tổng quan
+                                        </a>
+                                        {% endif %}
                                         <a href="{{ url_for('account_profile') }}"
                                             class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition">
                                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
@@ -473,6 +482,8 @@
                 </div>
 
                 {% if current_user and current_user.role == 'hirer' %}
+                <a href="{{ url_for('client_dashboard') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'client_dashboard' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tổng quan</a>
                 <a href="{{ url_for('translator_list') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'translator_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.find_translators') }}</a>

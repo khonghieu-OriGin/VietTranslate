@@ -2795,6 +2795,150 @@ def api_unread_notifications_count():
     from models import Notification
     count = Notification.query.filter_by(user_id=session['user_id'], is_read=False).count()
     return jsonify({'count': count})
+# ─── CLIENT DASHBOARD ──────────────────────────────────────────────────────────
+
+JOB_STATUS_LABELS = {'open': 'Đang mở', 'in_progress': 'Đang thực hiện', 'completed': 'Hoàn tất',
+                     'closed': 'Đã đóng', 'cancelled': 'Đã huỷ'}
+CONTRACT_STATUS_LABELS = {'escrow_pending': 'Chờ thanh toán Escrow', 'in_progress': 'Đang thực hiện',
+                          'completed': 'Hoàn tất', 'cancelled': 'Đã huỷ'}
+
+
+def build_client_dashboard(user):
+    """Gom dữ liệu dashboard của một khách thuê (chỉ dữ liệu thuộc user.id)."""
+    from models import Notification
+    uid = user.id
+
+    open_jobs = Job.query.filter_by(hirer_id=uid, status='open').count()
+    new_proposals = Notification.query.filter_by(user_id=uid, type='JOB_APPLICATION', is_read=False).count()
+    in_progress = Contract.query.filter_by(hirer_id=uid, status='in_progress').count()
+
+    # Chờ nghiệm thu = hợp đồng đang thực hiện đã có tài liệu bàn giao
+    awaiting_contracts = Contract.query.filter(
+        Contract.hirer_id == uid, Contract.status == 'in_progress',
+        Contract.deliverables.any()
+    ).order_by(Contract.updated_at.desc()).all()
+    escrow_pending = Contract.query.filter_by(hirer_id=uid, status='escrow_pending') \
+        .order_by(Contract.created_at.desc()).all()
+
+    dm_unread = DirectMessage.query.filter_by(receiver_id=uid, is_read=False).count()
+    contract_ids = [c.id for c in Contract.query.with_entities(Contract.id).filter_by(hirer_id=uid).all()]
+    contract_unread = Message.query.filter(
+        Message.contract_id.in_(contract_ids), Message.sender_id != uid, Message.is_read == False
+    ).count() if contract_ids else 0
+    unread_messages = dm_unread + contract_unread
+
+    # Yêu cầu gần đây
+    jobs = Job.query.filter_by(hirer_id=uid).order_by(Job.created_at.desc()).limit(5).all()
+    counts = {}
+    if jobs:
+        counts = dict(db.session.query(Proposal.job_id, db.func.count(Proposal.id))
+                      .filter(Proposal.job_id.in_([j.id for j in jobs])).group_by(Proposal.job_id).all())
+    lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+    recent_requests = [{
+        'title': j.title,
+        'language_pair': ' → '.join(x for x in (j.source_lang, j.target_lang) if x),
+        'service': j.display_category_text(lang),
+        'created_at': j.created_at.strftime('%d/%m/%Y') if j.created_at else '',
+        'proposal_count': counts.get(j.id, 0),
+        'status': j.status,
+        'status_label': JOB_STATUS_LABELS.get(j.status, j.status or ''),
+        'url': url_for('job_detail', job_id=j.id),
+    } for j in jobs]
+
+    # Dự án gần đây
+    contracts = Contract.query.filter_by(hirer_id=uid).order_by(Contract.created_at.desc()).limit(5).all()
+    recent_projects = []
+    for c in contracts:
+        deadline = c.job.deadline.strftime('%d/%m/%Y') if c.job and c.job.deadline else (c.scheduled_date or '')
+        recent_projects.append({
+            'title': c.job.title if c.job else (c.service.name if c.service else f'Hợp đồng #{c.id}'),
+            'translator': c.translator.name if c.translator else '',
+            'deadline': deadline,
+            'status': c.status,
+            'status_label': CONTRACT_STATUS_LABELS.get(c.status, c.status or ''),
+            'url': url_for('transaction_detail', contract_id=c.id),
+        })
+
+    # Hoạt động gần đây: chỉ các thông báo hệ thống thực sự lưu
+    notifs = Notification.query.filter_by(user_id=uid).order_by(Notification.created_at.desc()).limit(8).all()
+    activities = [{
+        'title': n.title, 'message': n.message, 'type': n.type, 'is_read': bool(n.is_read),
+        'created_at': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+        'url': n.url or url_for('notifications_page'),
+    } for n in notifs]
+
+    # Việc cần xử lý (chỉ hiện khi điều kiện thực tế đúng)
+    tasks = []
+    if new_proposals:
+        first = Notification.query.filter_by(user_id=uid, type='JOB_APPLICATION', is_read=False) \
+            .order_by(Notification.created_at.desc()).first()
+        tasks.append({'title': f'Xem {new_proposals} báo giá mới',
+                      'desc': 'Phiên dịch viên vừa ứng tuyển vào yêu cầu của bạn.',
+                      'url': (first.url if first and first.url else url_for('account_history')),
+                      'cta': 'Xem báo giá', 'level': 'info'})
+    for c in awaiting_contracts:
+        name = c.job.title if c.job else f'Hợp đồng #{c.id}'
+        tasks.append({'title': f'Nghiệm thu: {name}', 'desc': 'Phiên dịch viên đã bàn giao tài liệu, đang chờ bạn xác nhận.',
+                      'url': url_for('transaction_detail', contract_id=c.id), 'cta': 'Nghiệm thu', 'level': 'warn'})
+    for c in escrow_pending:
+        name = c.job.title if c.job else f'Hợp đồng #{c.id}'
+        tasks.append({'title': f'Thanh toán Escrow: {name}', 'desc': 'Hoàn tất thanh toán để dự án được bắt đầu.',
+                      'url': url_for('payment_mockup', contract_id=c.id), 'cta': 'Thanh toán', 'level': 'warn'})
+    if unread_messages:
+        tasks.append({'title': f'{unread_messages} tin nhắn chưa đọc', 'desc': 'Phản hồi phiên dịch viên để dự án không bị chậm.',
+                      'url': url_for('messages_page'), 'cta': 'Mở tin nhắn', 'level': 'info'})
+    hp = user.hirer_profile
+    if not user.phone or not hp or not (hp.company and hp.location):
+        tasks.append({'title': 'Bổ sung thông tin hồ sơ', 'desc': 'Hồ sơ đầy đủ giúp phiên dịch viên tin tưởng bạn hơn.',
+                      'url': url_for('account_profile'), 'cta': 'Cập nhật hồ sơ', 'level': 'neutral'})
+
+    return {
+        'stats': {
+            'open_requests': open_jobs, 'new_proposals': new_proposals, 'in_progress': in_progress,
+            'awaiting_acceptance': len(awaiting_contracts), 'unread_messages': unread_messages,
+        },
+        'recent_requests': recent_requests,
+        'recent_projects': recent_projects,
+        'activities': activities,
+        'tasks': tasks,
+    }
+
+
+EMPTY_DASHBOARD = {
+    'stats': {'open_requests': 0, 'new_proposals': 0, 'in_progress': 0, 'awaiting_acceptance': 0, 'unread_messages': 0},
+    'recent_requests': [], 'recent_projects': [], 'activities': [], 'tasks': [],
+}
+
+
+@app.route('/dashboard')
+@login_required
+def client_dashboard():
+    user = get_current_user()
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('index'))
+    if user.role != 'hirer':
+        flash(_t('flash.hirer_only_post'), 'error')
+        return redirect(url_for('index'))
+    return render_template('client_dashboard.html', user=user)
+
+
+@app.route('/api/dashboard/summary')
+@login_required
+def api_dashboard_summary():
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        return jsonify({'error': 'forbidden'}), 403
+    if isinstance(user.id, str):  # tài khoản MongoDB: chưa có dữ liệu SQL
+        return jsonify(EMPTY_DASHBOARD)
+    try:
+        return jsonify(build_client_dashboard(user))
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        print(f"[dashboard SQLError] {e}")
+        return jsonify({'error': 'db_error'}), 500
+
+
 @app.route('/api/jobs/recommended', methods=['GET'])
 @login_required
 def api_recommended_jobs():
