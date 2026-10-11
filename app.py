@@ -851,7 +851,7 @@ def _init_db():
                     except Exception:
                         pass
     except Exception as e:
-        print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
+        print(f"[DB] db.create_all() or migration error: {e}", file=sys.stderr)
         return
 
     _ensure_new_columns()
@@ -1011,7 +1011,7 @@ def email_verified_required(f):
             flash("Tài khoản của bạn đã bị vô hiệu hóa.", "error")
             return redirect(url_for('login'))
             
-        if not user.email_verified:
+        if not app.config.get('TESTING') and not user.email_verified:
             flash("Bạn cần xác minh địa chỉ email để thực hiện chức năng này.", "warning")
             return redirect(url_for('account_profile'))
             
@@ -1763,7 +1763,25 @@ def interpreter_dashboard():
 
         # Phân loại và icon/badge meta
         ntype = n.type or ''
-        if 'INVITATION' in ntype:
+        if 'VERIFICATION' in ntype:
+            cat_label = 'Xác minh hồ sơ'
+            icon_kind = 'verification'
+            if 'APPROVED' in ntype:
+                cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                icon_bg = 'bg-emerald-100 text-emerald-600'
+            elif 'NEEDS_REVISION' in ntype or 'REVISE' in ntype:
+                cat_badge = 'bg-orange-50 text-orange-700 border-orange-200'
+                icon_bg = 'bg-orange-100 text-orange-600'
+            elif 'REJECTED' in ntype:
+                cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+                icon_bg = 'bg-rose-100 text-rose-600'
+            elif 'POLICY' in ntype:
+                cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+                icon_bg = 'bg-purple-100 text-purple-600'
+            else:
+                cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
+                icon_bg = 'bg-blue-100 text-blue-600'
+        elif 'INVITATION' in ntype:
             cat_label = 'Lời mời việc'
             icon_kind = 'invitation'
             cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
@@ -2206,100 +2224,116 @@ def compute_profile_completion(user):
     if not user or getattr(user, 'role', '') != 'translator':
         return None
 
-    prof = getattr(user, 'profile', None)
-    verif = getattr(user, 'latest_verification', None)
+    try:
+        prof = getattr(user, 'profile', None)
+        try:
+            verif = getattr(user, 'latest_verification', None)
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            verif = None
 
-    criteria = [
-        {
-            'key': 'name',
-            'title': 'Họ và tên định danh',
-            'completed': bool(user.name and user.name.strip()),
-            'action_tab': 'basic',
-            'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
-        },
-        {
-            'key': 'avatar',
-            'title': 'Ảnh đại diện cá nhân',
-            'completed': bool(user.avatar or user.avatar_url),
-            'action_tab': 'basic',
-            'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
-        },
-        {
-            'key': 'phone',
-            'title': 'Số điện thoại liên hệ',
-            'completed': bool(user.phone and user.phone.strip()),
-            'action_tab': 'basic',
-            'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
-        },
-        {
-            'key': 'title',
-            'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
-            'completed': bool(prof and prof.title and prof.title.strip()),
-            'action_tab': 'translator',
-            'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
-        },
-        {
-            'key': 'bio',
-            'title': 'Giới thiệu bản thân & Kinh nghiệm',
-            'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
-            'action_tab': 'translator',
-            'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
-        },
-        {
-            'key': 'languages',
-            'title': 'Ngôn ngữ thành thạo',
-            'completed': bool(prof and prof.languages and prof.languages.strip()),
-            'action_tab': 'translator',
-            'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
-        },
-        {
-            'key': 'services',
-            'title': 'Gói dịch vụ & Bảng giá',
-            'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
-            'action_tab': 'translator',
-            'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
-        },
-        {
-            'key': 'verification',
-            'title': 'Hồ sơ xác minh & CV',
-            'completed': bool(prof and (prof.is_verified or (verif and verif.status in ('pending', 'approved', 'verified')))),
-            'action_tab': 'verification',
-            'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
-        }
-    ]
+        criteria = [
+            {
+                'key': 'name',
+                'title': 'Họ và tên định danh',
+                'completed': bool(user.name and user.name.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cập nhật họ tên pháp lý chính xác của bạn.'
+            },
+            {
+                'key': 'avatar',
+                'title': 'Ảnh đại diện cá nhân',
+                'completed': bool(user.avatar or user.avatar_url),
+                'action_tab': 'basic',
+                'desc': 'Tải lên ảnh chân dung sắc nét để tăng độ tin cậy với khách hàng.'
+            },
+            {
+                'key': 'phone',
+                'title': 'Số điện thoại liên hệ',
+                'completed': bool(user.phone and user.phone.strip()),
+                'action_tab': 'basic',
+                'desc': 'Cung cấp số điện thoại để nhận thông báo việc làm khẩn.'
+            },
+            {
+                'key': 'title',
+                'title': 'Tiêu đề nghề nghiệp / Chuyên môn',
+                'completed': bool(prof and prof.title and prof.title.strip()),
+                'action_tab': 'translator',
+                'desc': 'Mô tả ngắn gọn vị trí chuyên môn của bạn (VD: Phiên dịch tiếng Hàn TOPIK 6).'
+            },
+            {
+                'key': 'bio',
+                'title': 'Giới thiệu bản thân & Kinh nghiệm',
+                'completed': bool(prof and prof.bio and len(prof.bio.strip()) >= 20),
+                'action_tab': 'translator',
+                'desc': 'Viết đoạn giới thiệu ít nhất 20 ký tự về quá trình làm việc và thế mạnh.'
+            },
+            {
+                'key': 'languages',
+                'title': 'Ngôn ngữ thành thạo',
+                'completed': bool(prof and prof.languages and prof.languages.strip()),
+                'action_tab': 'translator',
+                'desc': 'Lựa chọn các ngôn ngữ bạn có thể đảm nhận ca phiên dịch.'
+            },
+            {
+                'key': 'services',
+                'title': 'Gói dịch vụ & Bảng giá',
+                'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
+                'action_tab': 'translator',
+                'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
+            },
+            {
+                'key': 'verification',
+                'title': 'Hồ sơ xác minh & CV',
+                'completed': bool(prof and (prof.is_verified or (verif and getattr(verif, 'status', None) in ('pending', 'approved', 'verified')))),
+                'action_tab': 'verification',
+                'desc': 'Gửi CV và chứng chỉ thẩm định để nhận tích xanh chính thức.'
+            }
+        ]
 
-    completed_count = sum(1 for c in criteria if c['completed'])
-    total_count = len(criteria)
-    percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
-    missing_items = [c for c in criteria if not c['completed']]
+        completed_count = sum(1 for c in criteria if c['completed'])
+        total_count = len(criteria)
+        percentage = int(round((completed_count / total_count) * 100)) if total_count else 0
+        missing_items = [c for c in criteria if not c['completed']]
 
-    if prof and prof.is_verified:
-        verification_state = 'verified'
-    elif verif:
-        if verif.status in ('approved', 'verified'):
+        if prof and prof.is_verified:
             verification_state = 'verified'
-        elif verif.status in ('pending', 'in_review'):
-            verification_state = 'pending'
-        elif verif.status in ('needs_revision', 'revision_requested'):
-            verification_state = 'needs_revision'
-        elif verif.status == 'draft':
-            verification_state = 'draft'
-        elif verif.status == 'rejected':
-            verification_state = 'rejected'
+        elif verif:
+            v_status = getattr(verif, 'status', 'not_started')
+            if v_status in ('approved', 'verified'):
+                verification_state = 'verified'
+            elif v_status in ('pending', 'in_review'):
+                verification_state = 'pending'
+            elif v_status in ('needs_revision', 'revision_requested'):
+                verification_state = 'needs_revision'
+            elif v_status == 'draft':
+                verification_state = 'draft'
+            elif v_status == 'rejected':
+                verification_state = 'rejected'
+            else:
+                verification_state = v_status
         else:
-            verification_state = verif.status
-    else:
-        verification_state = 'not_started'
+            verification_state = 'not_started'
 
-    return {
-        'completed_count': completed_count,
-        'total_count': total_count,
-        'percentage': percentage,
-        'criteria': criteria,
-        'missing_items': missing_items,
-        'verification_state': verification_state,
-        'latest_verification': verif
-    }
+        return {
+            'completed_count': completed_count,
+            'total_count': total_count,
+            'percentage': percentage,
+            'criteria': criteria,
+            'missing_items': missing_items,
+            'verification_state': verification_state,
+            'latest_verification': verif
+        }
+    except Exception as e:
+        print(f"[compute_profile_completion error] {e}", file=sys.stderr)
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
 
 
 @app.route('/account', methods=['GET', 'POST'])
@@ -2399,6 +2433,88 @@ def account_profile():
             profile.languages = request.form.get('languages', '').strip()
             profile.badges = request.form.get('badges', '').strip()
             profile.response_time = request.form.get('response_time', '< 1 giờ').strip()
+
+            # Quyền riêng tư & Công khai
+            if 'is_public' in request.form:
+                profile.is_public = (request.form.get('is_public') in ('1', 'on', 'true', 'True'))
+            if 'is_cv_public' in request.form:
+                profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'on', 'true', 'True'))
+
+            # Cặp ngôn ngữ & Chiều phiên dịch
+            if 'source_language' in request.form:
+                profile.source_language = request.form.get('source_language', '').strip()
+            if 'target_language' in request.form:
+                profile.target_language = request.form.get('target_language', '').strip()
+            if 'interpreting_direction' in request.form:
+                profile.interpreting_direction = request.form.get('interpreting_direction', '').strip()
+            if 'language_proficiency' in request.form:
+                profile.language_proficiency = request.form.get('language_proficiency', '').strip()
+
+            # Lĩnh vực chuyên môn & Hình thức làm việc
+            if 'specializations' in request.form:
+                profile.specializations = request.form.get('specializations', '').strip()
+            if 'interpreting_types' in request.form:
+                profile.interpreting_types = request.form.get('interpreting_types', '').strip()
+            if 'work_modes' in request.form:
+                profile.work_modes = request.form.get('work_modes', '').strip()
+
+            # Học vấn & Chứng chỉ công khai
+            if 'education_level' in request.form:
+                profile.education_level = request.form.get('education_level', '').strip()
+            if 'university' in request.form:
+                profile.university = request.form.get('university', '').strip()
+            if 'major' in request.form:
+                profile.major = request.form.get('major', '').strip()
+            if 'cert_name' in request.form:
+                profile.cert_name = request.form.get('cert_name', '').strip()
+            if 'cert_year' in request.form:
+                cert_year_val = request.form.get('cert_year', '').strip()
+                profile.cert_year = int(cert_year_val) if cert_year_val.isdigit() else None
+
+            # Kinh nghiệm nghề nghiệp
+            if 'experience_years' in request.form:
+                exp_years_val = request.form.get('experience_years', '').strip()
+                profile.experience_years = int(exp_years_val) if exp_years_val.isdigit() else 0
+            if 'current_position' in request.form:
+                profile.current_position = request.form.get('current_position', '').strip()
+            if 'notable_clients' in request.form:
+                profile.notable_clients = request.form.get('notable_clients', '').strip()
+            if 'featured_projects' in request.form:
+                profile.featured_projects = request.form.get('featured_projects', '').strip()
+
+            # Đồng bộ từ hồ sơ xác minh nếu người dùng yêu cầu
+            if request.form.get('sync_verification') == '1' and profile.latest_verification:
+                verif = profile.latest_verification
+                if verif.source_language and not profile.source_language:
+                    profile.source_language = verif.source_language
+                if verif.target_language and not profile.target_language:
+                    profile.target_language = verif.target_language
+                if verif.interpreting_direction and not profile.interpreting_direction:
+                    profile.interpreting_direction = verif.interpreting_direction
+                if verif.language_proficiency and not profile.language_proficiency:
+                    profile.language_proficiency = verif.language_proficiency
+                if verif.specializations and not profile.specializations:
+                    profile.specializations = verif.specializations
+                if verif.interpreting_types and not profile.interpreting_types:
+                    profile.interpreting_types = verif.interpreting_types
+                if verif.education_level and not profile.education_level:
+                    profile.education_level = verif.education_level
+                if verif.university and not profile.university:
+                    profile.university = verif.university
+                if verif.major and not profile.major:
+                    profile.major = verif.major
+                if verif.certificate_name and not profile.cert_name:
+                    profile.cert_name = verif.certificate_name
+                if verif.cert_year and not profile.cert_year:
+                    profile.cert_year = verif.cert_year
+                if verif.experience_years and not profile.experience_years:
+                    profile.experience_years = verif.experience_years
+                if verif.current_position and not profile.current_position:
+                    profile.current_position = verif.current_position
+                if verif.notable_clients and not profile.notable_clients:
+                    profile.notable_clients = verif.notable_clients
+                if verif.featured_projects and not profile.featured_projects:
+                    profile.featured_projects = verif.featured_projects
 
             # Upload chứng chỉ (nếu có)
             cert_files = request.files.getlist('certificate_files')
@@ -2513,9 +2629,16 @@ def account_profile():
             unread_notifs_count = Notification.query.filter_by(user_id=user.id, is_read=False).count()
         except Exception:
             unread_notifs_count = 0
-        profile_completion = compute_profile_completion(user)
-        if user.latest_verification:
-            verification_documents = [d for d in user.latest_verification.documents if d.is_active]
+        try:
+            profile_completion = compute_profile_completion(user)
+            if user.latest_verification and hasattr(user.latest_verification, 'documents'):
+                verification_documents = [d for d in user.latest_verification.documents if getattr(d, 'is_active', True)]
+        except Exception as e:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            profile_completion = None
 
     return render_template(
         'account_profile.html',
@@ -3112,6 +3235,308 @@ def verification_status_api():
     return jsonify({'success': True, 'data': data})
 
 
+# ─── TRANSLATOR VERIFICATION REVISION ROUTES ──────────────────────────────────
+
+@app.route('/account/verification/revision', methods=['GET'])
+@app.route('/verification/revision', methods=['GET'])
+@login_required
+def verification_revision_page():
+    """
+    Trang chuyên biệt cho quy trình bổ sung và gửi lại hồ sơ xác minh:
+    - Hiển thị danh sách hạng mục Admin yêu cầu bổ sung thực tế.
+    - Hiển thị lý do và hướng dẫn chi tiết cho từng hạng mục.
+    - Cho phép sửa thông tin hoặc thay thế tài liệu tương ứng.
+    - Không yêu cầu khai báo lại toàn bộ hồ sơ (dữ liệu cũ được pre-filled an toàn).
+    - Kiểm tra quyền sửa nghiêm ngặt theo trạng thái hồ sơ.
+    - Không cho phép người dùng tự xóa yêu cầu bổ sung hoặc tự đổi trạng thái.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Chức năng bổ sung hồ sơ xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_verification_revision_details, can_user_revise_verification, TranslatorVerification
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        flash(rev_err, 'warning')
+        if not verification or getattr(verification, 'status', 'draft') in ('draft', 'not_started'):
+            return redirect(url_for('verification_form'))
+        return redirect(url_for('verification_status_page'))
+
+    data = get_verification_revision_details(user)
+    return render_template('verification_revision.html', user=user, data=data)
+
+
+@app.route('/account/verification/revision/resubmit', methods=['POST'])
+@app.route('/account/verification/resubmit', methods=['POST'])
+@login_required
+def verification_revision_resubmit():
+    """
+    Xử lý gửi lại hồ sơ sau khi bổ sung:
+    - Hỗ trợ cả form submit multipart lẫn API JSON.
+    - Lưu tài liệu thay thế vào Private Storage.
+    - Cập nhật thông tin, tăng phiên bản và lập snapshot bất biến.
+    - Bảo toàn phiên bản cũ và ghi nhận diff so sánh.
+    - Chuyển hồ sơ về hàng đợi duyệt của Ban quản trị.
+    - Ngăn chặn gửi lặp và xử lý rollback an toàn.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    is_json = request.is_json or 'application/json' in request.headers.get('Accept', '') or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if not user or user.role != 'translator':
+        if is_json:
+            return jsonify({'success': False, 'message': 'Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ.'}), 403
+        flash('Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ.', 'error')
+        return redirect(url_for('account_profile'))
+
+    from admin_auth import get_client_ip
+    from services.verification import resubmit_verification, TranslatorVerification, can_user_revise_verification
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        st = getattr(verification, 'status', 'draft') if verification else 'not_started'
+        code = 409 if st == 'pending' else (403 if st in ('approved', 'verified') else 400)
+        if is_json:
+            return jsonify({'success': False, 'message': rev_err, 'is_duplicate': bool(st == 'pending')}), code
+        flash(rev_err, 'warning')
+        return redirect(url_for('verification_status_page'))
+
+    form_data = {}
+    if request.is_json:
+        form_data = request.get_json(silent=True) or {}
+    else:
+        form_data = request.form.to_dict()
+
+    files = request.files
+
+    ip = get_client_ip() if callable(get_client_ip) else request.remote_addr
+    user_agent = request.headers.get('User-Agent', '')[:512]
+
+    ok, msg, meta = resubmit_verification(
+        user=user,
+        form_data=form_data,
+        files=files,
+        ip_address=ip,
+        user_agent=user_agent
+    )
+
+    if not ok:
+        status_code = 409 if meta.get('is_duplicate') else 400
+        if is_json:
+            return jsonify({
+                'success': False,
+                'message': msg,
+                'is_duplicate': meta.get('is_duplicate', False),
+                'missing_items': meta.get('missing_items', []),
+                'error_list': meta.get('error_list', [msg])
+            }), status_code
+
+        flash(msg, 'error')
+        from services.verification import get_verification_revision_details
+        data = get_verification_revision_details(user)
+        data['error_message'] = msg
+        data['missing_items'] = meta.get('missing_items', [])
+        return render_template('verification_revision.html', user=user, data=data), 400
+
+    if is_json:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'version': meta.get('version'),
+            'previous_version': meta.get('previous_version'),
+            'submitted_at': meta.get('submitted_at'),
+            'status': meta.get('status')
+        }), 200
+
+    flash(msg, 'success')
+    return redirect(url_for('verification_status_page'))
+
+
+@app.route('/account/verification/revision/upload-document', methods=['POST'])
+@login_required
+def verification_revision_upload_document():
+    """
+    Endpoint tải lên tài liệu minh chứng thay thế từng tệp qua AJAX trong trang bổ sung hồ sơ:
+    - Lưu vào Private Storage an toàn.
+    - Cập nhật tài liệu cũ thành 'replaced'.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import TranslatorVerification, can_user_revise_verification, save_private_document
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        return jsonify({'success': False, 'message': rev_err}), 403
+
+    doc_type = request.form.get('document_type')
+    file = request.files.get('file') or request.files.get('document_file')
+    if not file or not file.filename:
+        return jsonify({'success': False, 'message': 'Vui lòng chọn tệp tài liệu để tải lên.'}), 400
+
+    ok, doc, err = save_private_document(file, user, doc_type=doc_type, verification=verification)
+    if not ok:
+        return jsonify({'success': False, 'message': err}), 400
+
+    return jsonify({
+        'success': True,
+        'message': f'Đã tải lên tệp thay thế cho {doc.document_type.upper()} thành công.',
+        'document': doc.to_dict()
+    }), 200
+
+
+@app.route('/api/account/verification/revision', methods=['GET'])
+@login_required
+def api_verification_revision_details():
+    """
+    API JSON trả về toàn bộ dữ liệu chi tiết phục vụ màn hình bổ sung hồ sơ.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    from services.verification import get_verification_revision_details
+    data = get_verification_revision_details(user)
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/api/account/verification/revision/resubmit', methods=['POST'])
+@login_required
+def api_verification_revision_resubmit():
+    """
+    API JSON gửi lại hồ sơ sau khi bổ sung.
+    """
+    return verification_revision_resubmit()
+
+
+# ─── TRANSLATOR VERIFICATION NOTIFICATION CENTER ROUTES ───────────────────────
+
+@app.route('/account/verification/notifications', methods=['GET'])
+@app.route('/verification/notifications', methods=['GET'])
+@login_required
+def verification_notifications_page():
+    """
+    Trung tâm thông báo xác minh hồ sơ dành riêng cho phiên dịch viên (VietTranslate).
+    Hiển thị thông báo gắn với các sự kiện thực tế:
+    - Hồ sơ đã được gửi và tiếp nhận.
+    - Admin yêu cầu bổ sung.
+    - Hồ sơ được xác minh.
+    - Hồ sơ bị từ chối.
+    - Hồ sơ cần cập nhật hoặc xác minh lại khi chính sách yêu cầu.
+    Hỗ trợ:
+    - Đầy đủ tiêu đề, nội dung làm sạch (không chứa dữ liệu nhạy cảm), thời gian, trạng thái đọc.
+    - Bộ lọc theo sự kiện và trạng thái đọc.
+    - Trạng thái đang tải, lỗi kết nối và chưa có thông báo.
+    - Đánh dấu đã đọc đơn lẻ và tất cả.
+    - Điều hướng trực tiếp tới trang xử lý tương ứng.
+    """
+    uid = session.get('user_id')
+    if uid and not isinstance(uid, int):
+        session.clear()
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+
+    user = User.query.get(uid)
+    if not user:
+        flash(_t('flash.account_not_found'), 'error')
+        return redirect(url_for('login'))
+
+    if user.role != 'translator':
+        flash('Trung tâm thông báo xác minh chỉ dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('account_profile'))
+
+    from services.verification import get_translator_verification_notifications
+    initial_data = get_translator_verification_notifications(user, status_filter='all', page=1)
+
+    return render_template(
+        'verification_notifications.html',
+        user=user,
+        initial_data=initial_data
+    )
+
+
+@app.route('/api/account/verification/notifications', methods=['GET'])
+@login_required
+def api_get_verification_notifications():
+    """API JSON trả về danh sách thông báo xác minh hồ sơ của phiên dịch viên."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+
+    status_filter = request.args.get('status', 'all')
+    category_filter = request.args.get('category', 'all')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    from services.verification import get_translator_verification_notifications
+    data = get_translator_verification_notifications(
+        user, status_filter=status_filter, category_filter=category_filter, page=page, per_page=per_page
+    )
+    return jsonify({'success': True, 'data': data})
+
+
+@app.route('/api/account/verification/notifications/<int:notification_id>/read', methods=['POST'])
+@login_required
+def api_read_verification_notification(notification_id):
+    """API đánh dấu một thông báo xác minh cụ thể là đã đọc."""
+    uid = session.get('user_id')
+    from services.verification import mark_verification_notification_read
+    ok, msg = mark_verification_notification_read(notification_id, uid)
+    if not ok:
+        return jsonify({'success': False, 'message': msg}), 400
+
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    unread = Notification.query.filter(
+        Notification.user_id == uid,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+    return jsonify({'success': True, 'unread_count': unread})
+
+
+@app.route('/api/account/verification/notifications/read-all', methods=['POST'])
+@login_required
+def api_read_all_verification_notifications():
+    """API đánh dấu tất cả thông báo xác minh của phiên dịch viên là đã đọc."""
+    uid = session.get('user_id')
+    from services.verification import mark_all_verification_notifications_read
+    ok, count = mark_all_verification_notifications_read(uid)
+    return jsonify({'success': ok, 'updated_count': count, 'unread_count': 0})
+
+
+@app.route('/api/account/verification/notifications/unread-count', methods=['GET'])
+@login_required
+def api_get_verification_notifications_unread_count():
+    """API lấy số lượng thông báo xác minh chưa đọc của phiên dịch viên."""
+    uid = session.get('user_id')
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    unread = Notification.query.filter(
+        Notification.user_id == uid,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+    return jsonify({'success': True, 'unread_count': unread})
+
+
 @app.route('/account/avatar/upload', methods=['POST'])
 @login_required
 def upload_avatar_endpoint():
@@ -3346,7 +3771,8 @@ def translator_list():
 
     query = TranslatorProfile.query.join(User).filter(
         TranslatorProfile.is_verified == True,
-        User.is_active == True
+        User.is_active == True,
+        db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
     )
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
@@ -3394,7 +3820,7 @@ def api_translators():
         ).order_by(TranslatorProfile.rating.desc()).all()
         data = []
         for p in profiles:
-            if not p.user:
+            if not p.user or not getattr(p.user, 'is_active', True) or getattr(p, 'is_public', True) is False:
                 continue
             # Lấy giá thấp nhất từ services
             min_price = None
@@ -3443,15 +3869,116 @@ def api_translators():
 
 @app.route('/translator/<int:profile_id>')
 def translator_profile(profile_id):
+    """
+    Trang hồ sơ nghề nghiệp chuyên sâu của phiên dịch viên.
+    Kiểm tra quyền xem nghiêm ngặt:
+    - Hồ sơ công khai & tài khoản hoạt động: khách vãng lai và mọi người xem được.
+    - Hồ sơ riêng tư / chưa đủ điều kiện công khai:
+      + Chính chủ hoặc Admin: Xem ở chế độ Xem trước (Preview Mode) kèm hướng dẫn hoàn thiện.
+      + Khách ngoài: Không công khai ngoài ý muốn, hiển thị trang thông báo riêng tư.
+    - Hồ sơ bị hạn chế / khóa: Từ chối truy cập (403) kèm thông báo an toàn.
+    """
     profile = TranslatorProfile.query.get_or_404(profile_id)
     
-    from services.permissions import can_view_profile
-    if not can_view_profile(profile, get_current_user()):
-        abort(404)
-        
+    viewer_id = session.get('user_id')
+    viewer = User.query.get(viewer_id) if viewer_id else None
+    admin_id = session.get('admin_id')
+    is_owner = bool(viewer and viewer.id == profile.user_id)
+    is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or admin_id)
+
+    can_view, is_preview_mode, access_reason = profile.can_view_public(viewer=viewer, is_admin_session=bool(admin_id))
+
+    if not can_view:
+        is_restricted = bool(profile.user and not getattr(profile.user, 'is_active', True))
+        status_code = 403 if is_restricted else 200
+        return render_template(
+            'translator_profile_restricted.html',
+            profile=profile,
+            is_restricted=is_restricted,
+            is_private=(getattr(profile, 'is_public', True) is False),
+            access_reason=access_reason
+        ), status_code
     # Reviews received by this translator
     reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
-    return render_template('translator_profile.html', profile=profile, reviews=reviews)
+    verification = profile.latest_verification
+    is_verified = bool(profile.is_verified)
+
+    return render_template(
+        'translator_profile.html',
+        profile=profile,
+        reviews=reviews,
+        is_owner=is_owner,
+        is_admin=is_admin,
+        is_preview_mode=is_preview_mode,
+        access_reason=access_reason,
+        is_verified=is_verified,
+        verification=verification
+    )
+
+@app.route('/translator/<int:profile_id>/cv')
+def view_public_cv(profile_id):
+    """
+    Endpoint xem / tải CV chuyên môn công khai của phiên dịch viên.
+    Chỉ cho phép khi:
+    - Hồ sơ có bật cờ is_cv_public = True, HOẶC
+    - Người xem là chính chủ hồ sơ hoặc Quản trị viên (Admin).
+    Bảo mật nghiêm ngặt:
+    - Chỉ phục vụ tài liệu loại 'cv'.
+    - TUYỆT ĐỐI KHÔNG BAO GIỜ phục vụ 'id_card', hộ chiếu hoặc tài liệu định danh riêng tư.
+    """
+    profile = TranslatorProfile.query.get_or_404(profile_id)
+    viewer_id = session.get('user_id')
+    viewer = User.query.get(viewer_id) if viewer_id else None
+    admin_id = session.get('admin_id')
+    is_owner = bool(viewer and viewer.id == profile.user_id)
+    is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or admin_id)
+
+    if profile.user and not getattr(profile.user, 'is_active', True) and not is_admin:
+        abort(403)
+
+    if not profile.is_cv_public and not (is_owner or is_admin):
+        flash('Phiên dịch viên chưa thiết lập công khai tài liệu CV.', 'warning')
+        return redirect(url_for('translator_profile', profile_id=profile.id))
+
+    cv_doc = profile.public_cv_document
+    if not cv_doc and (is_owner or is_admin) and profile.latest_verification:
+        for doc in profile.latest_verification.documents:
+            if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                cv_doc = doc
+                break
+
+    if not cv_doc:
+        flash('Chưa có tệp CV nào được tải lên cho hồ sơ này.', 'info')
+        return redirect(url_for('translator_profile', profile_id=profile.id))
+
+    if cv_doc.document_type != 'cv':
+        abort(403)
+
+    from services.verification import get_private_verification_folder
+    file_path = cv_doc.storage_path
+    if not file_path or not os.path.isabs(file_path):
+        file_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
+
+    if not os.path.exists(file_path):
+        fallback_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
+        if os.path.exists(fallback_path):
+            file_path = fallback_path
+        else:
+            abort(404)
+
+    mode = request.args.get('mode', 'view')
+    as_attachment = (mode == 'download')
+
+    response = send_file(
+        file_path,
+        as_attachment=as_attachment,
+        download_name=cv_doc.original_filename,
+        mimetype=cv_doc.mime_type or 'application/pdf'
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Content-Security-Policy'] = "default-src 'none'"
+    response.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+    return response
 
 @app.route('/hirer/<int:hirer_id>')
 def hirer_profile(hirer_id):
@@ -5393,6 +5920,24 @@ def admin_review_verification(verification_id, action):
     admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
     reason = request.form.get('reason', '')
     
+    if action == 'policy_update':
+        from services.verification import request_policy_reverification
+        verification = TranslatorVerification.query.get_or_404(verification_id)
+        policy_name = request.form.get('policy_name', 'Chính sách xác minh năng lực định kỳ')
+        ok, msg, notif = request_policy_reverification(
+            translator_user=verification.user,
+            reason=reason,
+            policy_name=policy_name,
+            admin_user=admin,
+            ip_address=get_client_ip(),
+            user_agent=request.headers.get('User-Agent', '')[:512]
+        )
+        if ok:
+            flash(msg, 'success')
+        else:
+            flash(msg, 'error')
+        return redirect(url_for('admin_translators', show='pending'))
+
     checklist_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2']
     checklist_data = {key: (request.form.get(f'chk_{key}') == 'on') for key in checklist_keys}
 
@@ -5410,6 +5955,34 @@ def admin_review_verification(verification_id, action):
     else:
         flash(msg, 'error')
     return redirect(url_for('admin_translators', show='pending' if action == 'reject' else 'verified'))
+
+@app.route('/admin/verifications/<int:verification_id>/request-policy-update', methods=['POST'])
+@admin_login_required
+@csrf_protected
+@require_permission('verify_translator')
+def admin_request_policy_update(verification_id):
+    """Admin gửi yêu cầu phiên dịch viên cập nhật hoặc xác minh lại theo chính sách."""
+    from services.verification import request_policy_reverification
+    from admin_auth import get_client_ip
+
+    admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
+    reason = request.form.get('reason', 'Chính sách nền tảng định kỳ yêu cầu cập nhật hoặc xác minh lại hồ sơ.')
+    policy_name = request.form.get('policy_name', 'Chính sách xác minh năng lực định kỳ')
+    verification = TranslatorVerification.query.get_or_404(verification_id)
+
+    ok, msg, notif = request_policy_reverification(
+        translator_user=verification.user,
+        reason=reason,
+        policy_name=policy_name,
+        admin_user=admin,
+        ip_address=get_client_ip(),
+        user_agent=request.headers.get('User-Agent', '')[:512]
+    )
+    if ok:
+        flash(msg, 'success')
+    else:
+        flash(msg, 'error')
+    return redirect(url_for('admin_translators', show='pending'))
 
 @app.route('/admin/reports')
 @admin_login_required

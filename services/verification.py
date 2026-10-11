@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import sys
 import time
@@ -15,7 +17,7 @@ from flask import current_app
 from models import (
     db, User, TranslatorProfile, TranslatorVerification, VerificationDocument,
     AdminNotification, Notification, ADMIN_AUDIT_ACTIONS, AdminAuditLog,
-    VerificationSubmissionVersion
+    VerificationSubmissionVersion, VERIFICATION_NOTIFICATION_TYPES
 )
 
 # ─── POLICY CẤU HÌNH CÁC LOẠI TÀI LIỆU MINH CHỨNG ĐƯỢC PHÉP ───────────────────
@@ -713,16 +715,17 @@ def submit_verification_for_review(user, form_data=None, confirmed=False, ip_add
     except Exception as e:
         print(f"[ADMIN NOTIF ERROR] {e}", file=sys.stderr)
 
-    # Gửi thông báo cho phiên dịch viên
+    # Gửi thông báo cho phiên dịch viên (chống trùng và làm sạch dữ liệu)
     try:
-        user_notif = Notification(
+        send_verification_notification(
             user_id=user.id,
-            type='VERIFICATION_SUBMITTED',
+            notif_type='VERIFICATION_SUBMITTED',
             title='Hồ sơ xác minh đã gửi thành công! ⏳',
             message=f'Hồ sơ của bạn (Phiên bản #{next_version}) đã được chuyển tới hàng đợi xét duyệt của Ban quản trị. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ.',
-            url='/account/profile?tab=verification'
+            url='/account/verification/status',
+            version=next_version,
+            verification_id=verification.id
         )
-        db.session.add(user_notif)
     except Exception as e:
         print(f"[USER NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -829,16 +832,16 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_by = admin_user.id if admin_user else None
                 doc.reviewed_at = now
 
-        # Gửi thông báo cho phiên dịch viên
+        # Gửi thông báo cho phiên dịch viên (chống trùng và làm sạch dữ liệu)
         try:
-            notif = Notification(
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_APPROVED',
+                notif_type='VERIFICATION_APPROVED',
                 title='Hồ sơ đã được xác minh thành công! 🎉',
                 message='Chúc mừng bạn! Hồ sơ phiên dịch viên của bạn đã được xác minh chính thức. Huy hiệu uy tín đã xuất hiện trên trang cá nhân.',
-                url='/account/profile?tab=verification'
+                url='/account/verification/status',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -875,14 +878,15 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_at = now
 
         try:
-            notif = Notification(
+            clean_reason = sanitize_verification_message(revision_reason)
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_NEEDS_REVISION',
+                notif_type='VERIFICATION_NEEDS_REVISION',
                 title='Hồ sơ xác minh cần bổ sung',
-                message=f'Hồ sơ của bạn cần bổ sung/chỉnh sửa với lý do: "{revision_reason}".',
-                url='/account/profile?tab=verification'
+                message=f'Hồ sơ của bạn cần bổ sung/chỉnh sửa với lý do: "{clean_reason}".',
+                url='/account/verification/revision',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -917,16 +921,17 @@ def review_verification_request(verification_id, admin_user, action, reason=None
                 doc.reviewed_by = admin_user.id if admin_user else None
                 doc.reviewed_at = now
 
-        # Gửi thông báo cho phiên dịch viên kèm lý do
+        # Gửi thông báo cho phiên dịch viên kèm lý do (chống trùng và làm sạch dữ liệu)
         try:
-            notif = Notification(
+            clean_reason = sanitize_verification_message(rejection_reason)
+            send_verification_notification(
                 user_id=user.id,
-                type='VERIFICATION_REJECTED',
+                notif_type='VERIFICATION_REJECTED',
                 title='Hồ sơ xác minh chưa được phê duyệt',
-                message=f'Hồ sơ của bạn chưa được duyệt với lý do: "{rejection_reason}". Bạn có thể cập nhật tài liệu và nộp lại.',
-                url='/account/profile?tab=verification'
+                message=f'Hồ sơ của bạn chưa được duyệt với lý do: "{clean_reason}". Bạn có thể cập nhật tài liệu và nộp lại.',
+                url='/account/verification/status',
+                verification_id=verification.id
             )
-            db.session.add(notif)
         except Exception as e:
             print(f"[NOTIF ERROR] {e}", file=sys.stderr)
 
@@ -1717,7 +1722,7 @@ def get_translator_verification_status_details(user):
             'guidance': 'Vui lòng chỉnh sửa các mục chưa đạt theo yêu cầu của Ban quản trị và nộp lại hồ sơ.',
             'primary_btn': {
                 'text': 'Cập nhật & Bổ sung hồ sơ ngay',
-                'url': '/account/verification/form',
+                'url': '/account/verification/revision',
                 'icon': 'refresh',
                 'class': 'bg-orange-600 hover:bg-orange-700 text-white shadow-md shadow-orange-500/20'
             },
@@ -1733,8 +1738,8 @@ def get_translator_verification_status_details(user):
             'type': 'reapply',
             'guidance': 'Hồ sơ chưa đạt tiêu chuẩn. Bạn có thể cập nhật lại thông tin, tải tài liệu rõ nét hơn và gửi lại.',
             'primary_btn': {
-                'text': 'Soạn lại hồ sơ & Gửi lại',
-                'url': '/account/verification/form',
+                'text': 'Bổ sung hồ sơ & Gửi lại',
+                'url': '/account/verification/revision',
                 'icon': 'refresh',
                 'class': 'bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-500/20'
             },
@@ -1796,5 +1801,994 @@ def get_translator_verification_status_details(user):
         'submission_history': submission_history,
         'next_action': next_action
     }
+
+
+# ─── TRANSLATOR VERIFICATION REVISION & RESUBMISSION WORKFLOW ─────────────────
+
+def can_user_revise_verification(user, verification):
+    """
+    Kiểm tra xem phiên dịch viên có quyền bổ sung và gửi lại hồ sơ hay không:
+    - User phải tồn tại và có role 'translator'.
+    - verification phải thuộc quyền sở hữu của user.
+    - Trạng thái hồ sơ PHẢI là 'needs_revision', 'revision_requested', hoặc 'rejected'.
+    - Nếu trạng thái là 'pending': Chặn vì hồ sơ đang trong hàng đợi xử lý của Ban quản trị.
+    - Nếu trạng thái là 'approved': Chặn vì hồ sơ đã được duyệt cấp tích xanh.
+    - Nếu trạng thái là 'draft' hoặc 'not_started': Chưa nộp lần đầu, hướng dẫn qua form chính.
+    """
+    if not user or getattr(user, 'role', '') != 'translator':
+        return False, 'Chỉ tài khoản phiên dịch viên mới có quyền bổ sung hồ sơ xác minh.'
+
+    if not verification:
+        return False, 'Chưa tìm thấy hồ sơ xác minh cần bổ sung.'
+
+    if verification.user_id != user.id:
+        return False, 'Bạn không có quyền thao tác trên hồ sơ của người khác.'
+
+    st = getattr(verification, 'status', 'draft') or 'draft'
+    if st == 'pending':
+        return False, 'Hồ sơ của bạn đã được gửi và đang trong hàng đợi xét duyệt của Ban quản trị. Bạn không thể chỉnh sửa vào lúc này.'
+
+    if st in ('approved', 'verified'):
+        return False, 'Hồ sơ của bạn đã được phê duyệt xác minh chính thức. Không cần bổ sung thêm.'
+
+    if st in ('draft', 'not_started'):
+        return False, 'Hồ sơ đang ở trạng thái bản nháp. Vui lòng hoàn thành các bước khai báo ban đầu và gửi duyệt lần đầu.'
+
+    if st not in ('needs_revision', 'revision_requested', 'rejected'):
+        return False, f'Trạng thái hồ sơ hiện tại ({st}) không yêu cầu bổ sung.'
+
+    return True, None
+
+
+def get_actual_revision_items(verification, user=None):
+    """
+    Trích xuất toàn bộ danh sách các hạng mục Admin yêu cầu bổ sung từ dữ liệu thực tế đã lưu trong hệ thống:
+    1. Các tài liệu minh chứng bị Admin đánh giá 'rejected' trong bảng VerificationDocument (kèm lý do và hướng dẫn).
+    2. Các tiêu chí / trường dữ liệu được Admin lưu trong verification.rejection_reason (hỗ trợ cả JSON cấu trúc và văn bản).
+    3. Đánh giá trạng thái giải quyết (is_resolved) cho từng hạng mục để giao diện phản ánh trực tiếp tiến trình bổ sung.
+    """
+    items = []
+    if not verification:
+        return items
+
+    draft_dict = verification.get_draft_dict()
+    prev_snapshot = verification.get_submitted_snapshot()
+    prev_form = prev_snapshot.get('form_data', {}) if isinstance(prev_snapshot, dict) else {}
+
+    # 1. TÀI LIỆU MINH CHỨNG BỊ REJECTED TỪ ADMIN
+    active_docs = [d for d in verification.documents if d.is_active]
+    rejected_docs = [d for d in verification.documents if d.status == 'rejected']
+    for rd in verification.documents:
+        if rd.status == 'replaced' and rd.review_notes and rd.document_type not in [d.document_type for d in rejected_docs]:
+            rejected_docs.append(rd)
+
+    handled_doc_types = set()
+    for rd in rejected_docs:
+        d_type = rd.document_type
+        handled_doc_types.add(d_type)
+        policy = DOCUMENT_POLICIES.get(d_type, {})
+        type_name = policy.get('name', get_document_type_label(d_type))
+
+        # Kiểm tra xem đã có tài liệu mới nào thay thế cho tài liệu này chưa
+        replacement_doc = next(
+            (d for d in active_docs if d.document_type == d_type and d.id != rd.id and d.status in ('uploaded', 'pending', 'approved')),
+            None
+        )
+        is_resolved = bool(replacement_doc is not None)
+
+        instruction = f"Tải lên tệp thay thế định dạng {', '.join([e.upper() for e in policy.get('allowed_extensions', ['pdf', 'jpg', 'png'])])}, dung lượng tối đa {policy.get('max_size_mb', 10)} MB."
+        if d_type == 'cv':
+            instruction = "Tải lên tệp CV mới nhất (PDF/DOCX), cập nhật đầy đủ kinh nghiệm dịch thuật và dự án tiêu biểu."
+        elif d_type == 'certificate':
+            instruction = "Chụp hoặc scan lại bản gốc chứng chỉ rõ nét (PDF, JPG, PNG, WEBP), không bị lóa hoặc che khuất số hiệu/ngày cấp."
+        elif d_type == 'id_card':
+            instruction = "Chụp bản gốc CCCD/CMND rõ cả hai mặt, đầy đủ 4 góc, thông tin số và ảnh chân dung sắc nét."
+
+        items.append({
+            'id': f"doc_{rd.id}",
+            'item_type': 'document',
+            'category': 'documents',
+            'document_type': d_type,
+            'title': f"Tài liệu minh chứng: {type_name}",
+            'reason': rd.review_notes or getattr(verification, 'rejection_reason', None) or 'Tài liệu chưa đạt tiêu chuẩn rõ ràng hoặc không hợp lệ.',
+            'instruction': instruction,
+            'current_file_id': rd.id,
+            'current_filename': rd.original_filename,
+            'current_file_size': format_file_size(rd.file_size),
+            'rejected_at': rd.reviewed_at.strftime('%d/%m/%Y %H:%M') if rd.reviewed_at else None,
+            'is_resolved': is_resolved,
+            'replacement_filename': replacement_doc.original_filename if replacement_doc else None,
+            'replacement_file_id': replacement_doc.id if replacement_doc else None
+        })
+
+    # 2. CÁC HẠNG MỤC THÔNG TIN TỪ REJECTION_REASON CỦA ADMIN
+    raw_reason = (verification.rejection_reason or '').strip()
+    if raw_reason:
+        parsed_from_json = False
+        if raw_reason.startswith('{') or raw_reason.startswith('['):
+            try:
+                parsed_json = json.loads(raw_reason)
+                raw_items = []
+                if isinstance(parsed_json, dict):
+                    raw_items = parsed_json.get('items') or parsed_json.get('revision_items') or []
+                elif isinstance(parsed_json, list):
+                    raw_items = parsed_json
+
+                if raw_items:
+                    parsed_from_json = True
+                    for idx, r_item in enumerate(raw_items):
+                        if not isinstance(r_item, dict):
+                            continue
+                        itype = r_item.get('item_type', 'field')
+                        if itype == 'document':
+                            doc_code = r_item.get('document_type', 'certificate')
+                            if doc_code not in handled_doc_types:
+                                handled_doc_types.add(doc_code)
+                                p = DOCUMENT_POLICIES.get(doc_code, {})
+                                has_repl = any(d.document_type == doc_code and d.status in ('uploaded', 'pending') for d in active_docs)
+                                items.append({
+                                    'id': r_item.get('id', f"doc_req_{idx}"),
+                                    'item_type': 'document',
+                                    'category': 'documents',
+                                    'document_type': doc_code,
+                                    'title': r_item.get('title', f"Tài liệu minh chứng: {p.get('name', doc_code.upper())}"),
+                                    'reason': r_item.get('reason', raw_reason),
+                                    'instruction': r_item.get('instruction', f"Vui lòng tải lên tài liệu {p.get('name', doc_code)} hợp lệ."),
+                                    'is_resolved': has_repl,
+                                    'current_filename': None
+                                })
+                        else:
+                            f_name = r_item.get('field_name') or r_item.get('field', 'notes')
+                            curr_val = draft_dict.get(f_name)
+                            old_val = prev_form.get(f_name)
+                            is_res = bool(curr_val and (old_val is None or str(curr_val).strip() != str(old_val).strip()))
+                            items.append({
+                                'id': r_item.get('id', f"field_{f_name}_{idx}"),
+                                'item_type': 'field',
+                                'category': r_item.get('category', 'general'),
+                                'field_name': f_name,
+                                'related_fields': [f_name],
+                                'title': r_item.get('title', f"Thông tin: {f_name}"),
+                                'reason': r_item.get('reason', raw_reason),
+                                'instruction': r_item.get('instruction', 'Vui lòng cập nhật lại thông tin này.'),
+                                'current_value': curr_val,
+                                'is_resolved': is_res
+                            })
+            except Exception:
+                parsed_from_json = False
+
+        if not parsed_from_json:
+            lower_reason = raw_reason.lower()
+
+            exp_keywords = ('kinh nghiệm', 'dự án', 'hội nghị', 'cabin', 'năm kinh nghiệm', 'khách hàng', 'vị trí')
+            if any(k in lower_reason for k in exp_keywords):
+                curr_exp = draft_dict.get('notes') or draft_dict.get('featured_projects') or draft_dict.get('experience_years')
+                old_exp = prev_form.get('notes') or prev_form.get('featured_projects') or prev_form.get('experience_years')
+                is_res = bool(curr_exp and (old_exp is None or str(curr_exp).strip() != str(old_exp).strip()))
+                items.append({
+                    'id': 'item_field_experience',
+                    'item_type': 'field',
+                    'category': 'experience',
+                    'field_name': 'notes',
+                    'related_fields': ['experience_years', 'current_position', 'featured_projects', 'notes'],
+                    'title': 'Kinh nghiệm nghề nghiệp & Dự án tiêu biểu',
+                    'reason': raw_reason,
+                    'instruction': 'Cập nhật lại số năm kinh nghiệm, liệt kê cụ thể các dự án/hội nghị phiên dịch đã tham gia hoặc bổ sung lời nhắn chi tiết cho Ban quản trị.',
+                    'current_value': draft_dict.get('notes') or draft_dict.get('featured_projects'),
+                    'is_resolved': is_res
+                })
+
+            lang_keywords = ('ngôn ngữ', 'tiếng', 'chiều dịch', 'trình độ ngôn ngữ')
+            if any(k in lower_reason for k in lang_keywords):
+                curr_l = draft_dict.get('language_proficiency') or draft_dict.get('source_language')
+                old_l = prev_form.get('language_proficiency') or prev_form.get('source_language')
+                is_res = bool(curr_l and (old_l is None or str(curr_l).strip() != str(old_l).strip()))
+                items.append({
+                    'id': 'item_field_languages',
+                    'item_type': 'field',
+                    'category': 'languages',
+                    'field_name': 'language_proficiency',
+                    'related_fields': ['source_language', 'target_language', 'interpreting_direction', 'language_proficiency'],
+                    'title': 'Ngôn ngữ phiên dịch & Trình độ',
+                    'reason': raw_reason,
+                    'instruction': 'Kiểm tra và cập nhật đúng cặp ngôn ngữ, chiều dịch và trình độ thành thạo.',
+                    'current_value': draft_dict.get('language_proficiency'),
+                    'is_resolved': is_res
+                })
+
+            edu_keywords = ('chứng chỉ', 'ielts', 'jlpt', 'hsk', 'topik', 'bằng cấp', 'đại học')
+            if any(k in lower_reason for k in edu_keywords) and 'certificate' not in handled_doc_types and 'diploma' not in handled_doc_types:
+                curr_c = draft_dict.get('certificate_name') or draft_dict.get('major')
+                old_c = prev_form.get('certificate_name') or prev_form.get('major')
+                is_res = bool(curr_c and (old_c is None or str(curr_c).strip() != str(old_c).strip()))
+                items.append({
+                    'id': 'item_field_education',
+                    'item_type': 'field',
+                    'category': 'education',
+                    'field_name': 'certificate_name',
+                    'related_fields': ['education_level', 'university', 'major', 'certificate_type', 'certificate_name', 'cert_year'],
+                    'title': 'Thông tin Học vấn & Chứng chỉ',
+                    'reason': raw_reason,
+                    'instruction': 'Bổ sung tên chứng chỉ, điểm số / cấp độ hoặc thông tin văn bằng đào tạo.',
+                    'current_value': draft_dict.get('certificate_name'),
+                    'is_resolved': is_res
+                })
+
+            if not items:
+                curr_n = draft_dict.get('notes')
+                old_n = prev_form.get('notes')
+                is_res = bool(curr_n and (old_n is None or str(curr_n).strip() != str(old_n).strip()))
+                items.append({
+                    'id': 'item_field_general',
+                    'item_type': 'field',
+                    'category': 'general',
+                    'field_name': 'notes',
+                    'related_fields': ['notes'],
+                    'title': 'Nội dung giải trình & Bổ sung hồ sơ',
+                    'reason': raw_reason,
+                    'instruction': 'Ghi rõ nội dung giải trình hoặc thông tin điều chỉnh theo hướng dẫn của Ban quản trị vào ô ghi chú bên dưới.',
+                    'current_value': draft_dict.get('notes'),
+                    'is_resolved': is_res
+                })
+
+    return items
+
+
+def get_verification_revision_details(user):
+    """
+    Thu thập toàn bộ dữ liệu phục vụ trang và API bổ sung hồ sơ:
+    - Quyền sửa theo trạng thái.
+    - Danh sách các hạng mục yêu cầu bổ sung thực tế được Admin lưu.
+    - Dữ liệu biểu mẫu hiện tại (pre-filled, người dùng không cần khai báo lại từ đầu).
+    - Danh sách tài liệu hiện có.
+    - Lịch sử các phiên bản nộp trước đó để đối chiếu so sánh.
+    """
+    if not user or getattr(user, 'role', '') != 'translator':
+        return {'can_revise': False, 'error': 'Chỉ tài khoản phiên dịch viên mới có quyền truy cập.'}
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    can_revise, err_reason = can_user_revise_verification(user, verification)
+
+    revision_items = get_actual_revision_items(verification, user=user) if verification else []
+    resolved_count = sum(1 for it in revision_items if it.get('is_resolved'))
+    total_items_count = len(revision_items)
+    is_all_resolved = (total_items_count > 0 and resolved_count == total_items_count)
+
+    draft_dict = verification.get_draft_dict() if verification else {}
+    active_docs = [d for d in verification.documents if d.is_active] if verification else []
+
+    versions = []
+    if verification:
+        sub_records = VerificationSubmissionVersion.query.filter_by(verification_id=verification.id).order_by(VerificationSubmissionVersion.version_number.desc()).all()
+        for s in sub_records:
+            snap = s.get_snapshot()
+            versions.append({
+                'version_number': s.version_number,
+                'submitted_at_str': s.submitted_at.strftime('%d/%m/%Y %H:%M') if s.submitted_at else None,
+                'status': s.status,
+                'ip_address': s.ip_address,
+                'snapshot': snap
+            })
+
+    current_version = getattr(verification, 'submission_version', 0) or 1
+    next_version = current_version + 1
+
+    return {
+        'can_revise': can_revise,
+        'revision_error': err_reason,
+        'verification_id': verification.id if verification else None,
+        'status': getattr(verification, 'status', 'draft') if verification else 'not_started',
+        'current_version': current_version,
+        'next_version': next_version,
+        'general_reason': getattr(verification, 'rejection_reason', None) if verification else None,
+        'reviewed_at_str': verification.reviewed_at.strftime('%d/%m/%Y %H:%M') if (verification and verification.reviewed_at) else None,
+        'revision_items': revision_items,
+        'resolved_count': resolved_count,
+        'total_items_count': total_items_count,
+        'is_all_resolved': is_all_resolved,
+        'form_data': draft_dict,
+        'active_documents': [d.to_dict() for d in active_docs],
+        'versions_history': versions,
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone
+        }
+    }
+
+
+def validate_revision_submission(verification, form_data=None, files=None):
+    """
+    Kiểm tra xem người dùng đã thực sự giải quyết tất cả các hạng mục mà Admin yêu cầu bổ sung hay chưa:
+    - Tài liệu: Có tệp thay thế hợp lệ tải lên trong request HOẶC đã có tài liệu active mới thay thế.
+    - Thông tin: Có giá trị cập nhật hợp lệ mới trong form_data hoặc draft_dict.
+    Trả về: (hợp_lệ: bool, missing_items: list, thông_báo: str)
+    """
+    if not verification:
+        return False, [], "Không tìm thấy hồ sơ xác minh."
+
+    revision_items = get_actual_revision_items(verification)
+    if not revision_items:
+        return True, [], "Không có hạng mục bổ sung bắt buộc cụ thể nào."
+
+    missing_items = []
+    active_docs = [d for d in verification.documents if d.is_active]
+
+    for item in revision_items:
+        itype = item.get('item_type')
+        if itype == 'document':
+            doc_type = item.get('document_type')
+            has_uploaded_in_req = False
+            if files:
+                for k in (f"doc_file_{doc_type}", f"file_{doc_type}", doc_type):
+                    f = files.get(k)
+                    if f:
+                        if isinstance(f, tuple) and len(f) > 1 and f[1]:
+                            has_uploaded_in_req = True
+                            break
+                        elif getattr(f, 'filename', ''):
+                            has_uploaded_in_req = True
+                            break
+
+            has_active_replacement = bool(item.get('is_resolved'))
+            if not has_active_replacement:
+                cur_file_id = item.get('current_file_id')
+                for d in active_docs:
+                    if d.document_type == doc_type and d.id != cur_file_id and d.status in ('uploaded', 'pending', 'approved'):
+                        has_active_replacement = True
+                        break
+
+            if not (has_uploaded_in_req or has_active_replacement):
+                missing_items.append(item)
+
+        elif itype == 'field':
+            related_fields = item.get('related_fields', [item.get('field_name', 'notes')])
+            has_update = False
+
+            prev_snapshot = verification.get_submitted_snapshot()
+            prev_form = prev_snapshot.get('form_data', {}) if isinstance(prev_snapshot, dict) else {}
+
+            if form_data:
+                for rf in related_fields:
+                    val = form_data.get(rf)
+                    if val is not None and str(val).strip() != '':
+                        prev_val = prev_form.get(rf)
+                        if prev_val is None or str(val).strip() != str(prev_val).strip() or len(str(val).strip()) > 0:
+                            has_update = True
+                            break
+
+            if not has_update:
+                curr_draft = verification.get_draft_dict()
+                for rf in related_fields:
+                    cval = curr_draft.get(rf)
+                    pval = prev_form.get(rf)
+                    if cval and (pval is None or str(cval).strip() != str(pval).strip()):
+                        has_update = True
+                        break
+
+            if not has_update:
+                missing_items.append(item)
+
+    if missing_items:
+        missing_titles = [m.get('title') for m in missing_items]
+        msg = f"Bạn chưa hoàn tất bổ sung {len(missing_items)} hạng mục theo yêu cầu: {', '.join(missing_titles)}. Vui lòng kiểm tra và cập nhật đầy đủ trước khi gửi lại."
+        return False, missing_items, msg
+
+    return True, [], "Tất cả các hạng mục yêu cầu bổ sung đã được hoàn thành đầy đủ."
+
+
+def resubmit_verification(user, form_data=None, files=None, ip_address=None, user_agent=None):
+    """
+    Quy trình gửi lại hồ sơ sau khi bổ sung theo yêu cầu Admin:
+    - Kiểm tra quyền sửa theo trạng thái ('needs_revision', 'revision_requested', 'rejected').
+    - Ngăn gửi lặp nếu hồ sơ đã ở trạng thái 'pending' (Anti-duplicate guard).
+    - Lưu các tài liệu minh chứng thay thế vào vùng lưu trữ riêng tư (Private Storage).
+    - Cập nhật các trường thông tin bổ sung, giữ nguyên toàn bộ thông tin hợp lệ đã khai trước đó.
+    - Kiểm tra xem người dùng đã hoàn thành đầy đủ các hạng mục Admin yêu cầu chưa.
+    - Tăng phiên bản hồ sơ (version N -> N+1).
+    - Tạo snapshot bất biến của phiên bản mới kèm diff so sánh với phiên bản trước.
+    - Lưu bản ghi lịch sử vào VerificationSubmissionVersion (bảo toàn phiên bản cũ để đối chiếu).
+    - Chuyển trạng thái hồ sơ về 'pending' (đưa vào hàng đợi Admin).
+    - Xếp thông báo AdminNotification và Notification cho người dùng.
+    - Xử lý lỗi an toàn (transaction rollback) và trả về thông báo kết quả thực tế.
+    """
+    if not user or getattr(user, 'role', '') != 'translator':
+        return False, 'Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ xác minh.', {'error_list': ['Chỉ tài khoản phiên dịch viên mới có quyền gửi lại hồ sơ xác minh.']}
+
+    verification = TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return False, 'Không tìm thấy hồ sơ xác minh để gửi lại.', {'error_list': ['Không tìm thấy hồ sơ xác minh.']}
+
+    # 1. KIỂM TRA QUYỀN SỬA THEO TRẠNG THÁI VÀ CHẶN GỬI LẶP
+    current_status = getattr(verification, 'status', 'draft') or 'draft'
+    if current_status == 'pending':
+        return False, 'Hồ sơ của bạn đã được gửi lại trước đó và đang trong hàng đợi xử lý của Ban quản trị. Vui lòng không gửi lặp lại.', {
+            'is_duplicate': True,
+            'status': 'pending',
+            'submitted_at': verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at else None,
+            'version': verification.submission_version or 1,
+            'error_list': ['Hồ sơ đã được gửi lại và đang chờ xét duyệt. Vui lòng không gửi lặp lại.']
+        }
+
+    can_rev, rev_err = can_user_revise_verification(user, verification)
+    if not can_rev:
+        return False, rev_err, {'error_list': [rev_err], 'status': current_status}
+
+    # 2. XỬ LÝ LƯU CÁC TÀI LIỆU MINH CHỨNG THAY THẾ (NẾU CÓ TRONG FILES)
+    if files:
+        from werkzeug.datastructures import FileStorage
+        for file_key in files:
+            file_storage = files[file_key]
+            if isinstance(file_storage, tuple):
+                stream = file_storage[0]
+                fname = file_storage[1]
+                ctype = file_storage[2] if len(file_storage) > 2 else 'application/octet-stream'
+                file_storage = FileStorage(stream=stream, filename=fname, content_type=ctype)
+            if file_storage and getattr(file_storage, 'filename', ''):
+                raw_type = file_key.replace('doc_file_', '').replace('file_', '')
+                if raw_type in DOCUMENT_POLICIES:
+                    ok_doc, saved_doc, doc_err = save_private_document(file_storage, user, doc_type=raw_type, verification=verification)
+                    if not ok_doc:
+                        return False, f"Lỗi lưu tài liệu {get_document_type_label(raw_type)}: {doc_err}", {
+                            'document_error': doc_err,
+                            'error_list': [f"Lỗi tải lên tài liệu {get_document_type_label(raw_type)}: {doc_err}"]
+                        }
+
+    # 3. CẬP NHẬT CÁC TRƯỜNG THÔNG TIN MỚI, BẢO TOÀN DỮ LIỆU ĐÃ KHAI BÁO
+    draft_dict = verification.get_draft_dict()
+    allowed_fields = [
+        'full_name', 'phone', 'gender', 'dob', 'location', 'bio',
+        'source_language', 'target_language', 'interpreting_direction', 'language_proficiency',
+        'specializations', 'interpreting_types',
+        'education_level', 'university', 'major', 'certificate_type', 'certificate_name',
+        'current_position', 'notable_clients', 'featured_projects', 'notes'
+    ]
+    if form_data and isinstance(form_data, dict):
+        for f in allowed_fields:
+            if f in form_data and form_data[f] is not None:
+                val = form_data[f]
+                if isinstance(val, list):
+                    val = ', '.join([str(v).strip() for v in val if v])
+                elif isinstance(val, str):
+                    val = val.strip()
+                draft_dict[f] = val
+                setattr(verification, f, val)
+
+        if 'cert_year' in form_data and form_data['cert_year']:
+            try:
+                cy = int(form_data['cert_year'])
+                draft_dict['cert_year'] = cy
+                verification.cert_year = cy
+            except (ValueError, TypeError):
+                pass
+
+        if 'experience_years' in form_data and form_data['experience_years'] != '':
+            try:
+                ey = int(form_data['experience_years'])
+                draft_dict['experience_years'] = ey
+                verification.experience_years = ey
+            except (ValueError, TypeError):
+                pass
+
+        if verification.source_language and verification.target_language:
+            verification.primary_language = f"{verification.source_language} ➔ {verification.target_language}"
+
+        verification.draft_data = json.dumps(draft_dict, ensure_ascii=False)
+
+    # 4. KIỂM TRA ĐẦY ĐỦ CÁC HẠNG MỤC ADMIN YÊU CẦU BỔ SUNG
+    is_valid, missing_items, val_msg = validate_revision_submission(verification, form_data=form_data, files=files)
+    if not is_valid:
+        return False, val_msg, {
+            'missing_items': missing_items,
+            'error_list': [val_msg],
+            'status': verification.status
+        }
+
+    # 5. TĂNG PHIÊN BẢN VÀ LẬP SNAPSHOT BẤT BIẾN MỚI
+    prev_version = getattr(verification, 'submission_version', 0) or 1
+    next_version = prev_version + 1
+    now = datetime.utcnow()
+
+    # So sánh Diff giữa phiên bản trước và phiên bản hiện tại
+    prev_snapshot = verification.get_submitted_snapshot()
+    prev_form = prev_snapshot.get('form_data', {}) if isinstance(prev_snapshot, dict) else {}
+    diff_data = {}
+    for k, v in draft_dict.items():
+        old_v = prev_form.get(k)
+        if str(v or '').strip() != str(old_v or '').strip():
+            diff_data[k] = {'old': old_v, 'new': v}
+
+    active_docs = [d for d in verification.documents if d.is_active]
+    docs_snapshot = [
+        {
+            'id': d.id,
+            'document_type': d.document_type,
+            'type_name': get_document_type_label(d.document_type),
+            'original_filename': d.original_filename,
+            'stored_filename': d.stored_filename,
+            'file_size': d.file_size,
+            'file_size_formatted': format_file_size(d.file_size),
+            'mime_type': d.mime_type,
+            'file_hash': d.file_hash,
+            'file_extension': d.file_extension,
+            'created_at': d.created_at.strftime('%d/%m/%Y %H:%M') if d.created_at else None
+        }
+        for d in active_docs
+    ]
+
+    snapshot_data = {
+        'version': next_version,
+        'previous_version': prev_version,
+        'is_revision': True,
+        'submitted_at': now.strftime('%Y-%m-%d %H:%M:%S'),
+        'user': {
+            'id': user.id,
+            'name': user.name,
+            'email': user.email,
+            'phone': user.phone
+        },
+        'form_data': draft_dict,
+        'documents': docs_snapshot,
+        'diff': diff_data,
+        'admin_feedback_addressed': verification.rejection_reason,
+        'pledge_confirmed': True,
+        'ip_address': ip_address,
+        'user_agent': user_agent
+    }
+    snapshot_json = json.dumps(snapshot_data, ensure_ascii=False)
+
+    # 6. CẬP NHẬT TRẠNG THÁI VÀ BẢO LƯU LỊCH SỬ
+    verification.submission_version = next_version
+    verification.submitted_at = now
+    verification.submitted_snapshot = snapshot_json
+    verification.status = 'pending'
+    verification.rejection_reason = None
+    verification.reviewed_by = None
+    verification.reviewed_at = None
+    verification.current_step = 6
+    verification.updated_at = now
+
+    sub_version_record = VerificationSubmissionVersion(
+        verification_id=verification.id,
+        user_id=user.id,
+        version_number=next_version,
+        status='pending',
+        snapshot_data=snapshot_json,
+        submitted_at=now,
+        ip_address=ip_address,
+        user_agent=user_agent
+    )
+    db.session.add(sub_version_record)
+
+    # 7. CHUYỂN HỒ SƠ VỀ HÀNG ĐỢI XỬ LÝ (AdminNotification & Notification)
+    try:
+        admin_notif = AdminNotification(
+            type='NEW_TRANSLATOR',
+            title='Hồ sơ xác minh đã được bổ sung & gửi lại',
+            message=f'Phiên dịch viên {user.name} ({user.email}) vừa bổ sung hồ sơ và gửi lại (Phiên bản #{next_version}).',
+            url='/admin/translators?show=pending',
+            related_id=verification.id
+        )
+        db.session.add(admin_notif)
+    except Exception as e:
+        print(f"[ADMIN NOTIF ERROR] {e}", file=sys.stderr)
+
+    try:
+        send_verification_notification(
+            user_id=user.id,
+            notif_type='VERIFICATION_RESUBMITTED',
+            title='Hồ sơ bổ sung đã gửi lại thành công! ⏳',
+            message=f'Hồ sơ bổ sung của bạn (Phiên bản #{next_version}) đã được chuyển về hàng đợi xét duyệt của Ban quản trị. Chúng tôi sẽ phản hồi trong vòng 24–48 giờ.',
+            url='/account/verification/status',
+            version=next_version,
+            verification_id=verification.id
+        )
+    except Exception as e:
+        print(f"[USER NOTIF ERROR] {e}", file=sys.stderr)
+
+    # 8. COMMIT TRANSACTION AN TOÀN
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return False, f'Lỗi kết nối cơ sở dữ liệu khi gửi lại hồ sơ: {str(e)}', {
+            'error_list': ['Lỗi kết nối cơ sở dữ liệu. Dữ liệu bổ sung của bạn được bảo lưu an toàn, vui lòng thử gửi lại.']
+        }
+
+    success_msg = f'Hồ sơ bổ sung (Phiên bản #{next_version}) đã được gửi lại thành công tới Ban quản trị! Thời gian xét duyệt dự kiến 24–48 giờ.'
+    return True, success_msg, {
+        'version': next_version,
+        'previous_version': prev_version,
+        'submitted_at': now.strftime('%d/%m/%Y %H:%M'),
+        'status': 'pending',
+        'diff': diff_data,
+        'snapshot': snapshot_data
+    }
+
+
+# ─── TRANSLATOR VERIFICATION NOTIFICATION CENTER SYSTEM ─────────────────────────
+
+VERIFICATION_NOTIF_CONFIG = {
+    'VERIFICATION_SUBMITTED': {
+        'code': 'VERIFICATION_SUBMITTED',
+        'category': 'submitted',
+        'label': 'Tiếp nhận hồ sơ',
+        'badge_class': 'bg-blue-50 text-blue-700 border-blue-200',
+        'icon_kind': 'submitted',
+        'default_title': 'Hồ sơ xác minh đã được tiếp nhận ⏳',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem tiến độ hồ sơ',
+        'severity': 'info'
+    },
+    'VERIFICATION_RESUBMITTED': {
+        'code': 'VERIFICATION_RESUBMITTED',
+        'category': 'submitted',
+        'label': 'Tiếp nhận hồ sơ bổ sung',
+        'badge_class': 'bg-blue-50 text-blue-700 border-blue-200',
+        'icon_kind': 'resubmitted',
+        'default_title': 'Hồ sơ bổ sung đã được tiếp nhận ⏳',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem tiến độ hồ sơ',
+        'severity': 'info'
+    },
+    'VERIFICATION_NEEDS_REVISION': {
+        'code': 'VERIFICATION_NEEDS_REVISION',
+        'category': 'revision',
+        'label': 'Yêu cầu bổ sung',
+        'badge_class': 'bg-orange-50 text-orange-700 border-orange-200',
+        'icon_kind': 'revision',
+        'default_title': 'Admin yêu cầu bổ sung hồ sơ xác minh ⚠️',
+        'default_url': '/account/verification/revision',
+        'action_label': 'Bổ sung hồ sơ ngay',
+        'severity': 'warning'
+    },
+    'VERIFICATION_APPROVED': {
+        'code': 'VERIFICATION_APPROVED',
+        'category': 'approved',
+        'label': 'Đã xác minh',
+        'badge_class': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+        'icon_kind': 'approved',
+        'default_title': 'Hồ sơ đã được xác minh thành công! 🎉',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem huy hiệu xác minh',
+        'severity': 'success'
+    },
+    'VERIFICATION_REJECTED': {
+        'code': 'VERIFICATION_REJECTED',
+        'category': 'rejected',
+        'label': 'Từ chối hồ sơ',
+        'badge_class': 'bg-rose-50 text-rose-700 border-rose-200',
+        'icon_kind': 'rejected',
+        'default_title': 'Hồ sơ xác minh chưa được phê duyệt ❌',
+        'default_url': '/account/verification/status',
+        'action_label': 'Xem lý do & nộp lại',
+        'severity': 'danger'
+    },
+    'VERIFICATION_POLICY_UPDATE_REQUIRED': {
+        'code': 'VERIFICATION_POLICY_UPDATE_REQUIRED',
+        'category': 'policy',
+        'label': 'Yêu cầu cập nhật chính sách',
+        'badge_class': 'bg-purple-50 text-purple-700 border-purple-200',
+        'icon_kind': 'policy',
+        'default_title': 'Yêu cầu cập nhật hồ sơ theo chính sách 📋',
+        'default_url': '/account/verification/revision',
+        'action_label': 'Cập nhật hồ sơ ngay',
+        'severity': 'purple'
+    }
+}
+
+
+def sanitize_verification_message(text: str) -> str:
+    """
+    Loại bỏ dữ liệu nhạy cảm khỏi nội dung thông báo:
+    - Loại bỏ đường dẫn tệp máy chủ nội bộ (/tmp/..., /storage/..., hash tệp)
+    - Loại bỏ mã token, mật khẩu, chuỗi truy vấn bí mật
+    - Ẩn/che số CCCD/Hộ chiếu (chuỗi 9-12 chữ số)
+    - Loại bỏ thẻ HTML/script độc hại
+    - Giới hạn độ dài an toàn tối đa 400 ký tự
+    """
+    if not text:
+        return ''
+    cleaned = str(text)
+    # Loại bỏ HTML tags
+    cleaned = re.sub(r'<[^>]+>', '', cleaned)
+    # Ẩn số định danh cá nhân (CCCD / Passport / Phone) từ 9-12 chữ số
+    cleaned = re.sub(r'\b\d{9,12}\b', lambda m: m.group(0)[:3] + '****' + m.group(0)[-2:], cleaned)
+    # Loại bỏ đường dẫn tệp máy chủ nội bộ
+    cleaned = re.sub(r'(/private_verifications|/tmp/[a-zA-Z0-9_\-\.\/]+|instance/storage/[a-zA-Z0-9_\-\.\/]+)', '[tài liệu hệ thống]', cleaned)
+    # Loại bỏ thông báo lỗi kỹ thuật database
+    cleaned = re.sub(r'(sqlite3\.[a-zA-Z0-9_]+|psycopg2\.[a-zA-Z0-9_]+|sqlalchemy\.[a-zA-Z0-9_]+)', 'Lỗi hệ thống', cleaned)
+    # Rút gọn khoảng trắng thừa
+    cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+    # Giới hạn độ dài tối đa 400 ký tự
+    if len(cleaned) > 400:
+        cleaned = cleaned[:397] + '...'
+    return cleaned
+
+
+def send_verification_notification(
+    user_id: int,
+    notif_type: str,
+    title: str = None,
+    message: str = None,
+    url: str = None,
+    version: int = None,
+    verification_id: int = None,
+    force: bool = False,
+    dedup_window_seconds: int = 1800
+) -> tuple[bool, Notification | None, bool]:
+    """
+    Gửi thông báo xác minh hồ sơ với cơ chế chống gửi trùng lặp (Idempotent).
+    Ngăn chặn việc spam hoặc gửi lặp khi người dùng bấm gửi liên tiếp,
+    hoặc Admin xử lý lặp sự kiện cùng một lúc.
+    
+    Trả về: (thành_công: bool, thông_báo: Notification, là_trùng_lặp: bool)
+    """
+    if not user_id:
+        return False, None, False
+
+    cfg = VERIFICATION_NOTIF_CONFIG.get(notif_type, {})
+    final_title = sanitize_verification_message(title or cfg.get('default_title', 'Thông báo xác minh hồ sơ'))
+    final_message = sanitize_verification_message(message or '')
+    final_url = url or cfg.get('default_url', '/account/verification/status')
+
+    # KIỂM TRA TRÙNG LẶP (DEDUPLICATION)
+    if not force:
+        from datetime import datetime as dt_cls, timedelta
+        cutoff = dt_cls.utcnow() - timedelta(seconds=dedup_window_seconds)
+
+        recent_notifs = Notification.query.filter(
+            Notification.user_id == user_id,
+            Notification.type == notif_type,
+            Notification.created_at >= cutoff
+        ).all()
+
+        for ex in recent_notifs:
+            # 1. Trùng phiên bản nộp hồ sơ
+            if version is not None and f'#{version}' in (ex.message or ''):
+                return False, ex, True
+            # 2. Trùng nội dung hoặc trùng yêu cầu bổ sung/từ chối gần đây
+            if notif_type in ('VERIFICATION_NEEDS_REVISION', 'VERIFICATION_REJECTED', 'VERIFICATION_POLICY_UPDATE_REQUIRED'):
+                if ex.message == final_message or (ex.is_read is False and ex.type == notif_type):
+                    return False, ex, True
+            # 3. Trùng phê duyệt (đã nhận thông báo phê duyệt gần đây)
+            if notif_type == 'VERIFICATION_APPROVED':
+                return False, ex, True
+            # 4. Trùng tiếp nhận hồ sơ trong cùng cửa sổ thời gian
+            if notif_type in ('VERIFICATION_SUBMITTED', 'VERIFICATION_RESUBMITTED'):
+                if version is not None and f'#{version}' in (ex.message or ''):
+                    return False, ex, True
+                elif version is None and (dt_cls.utcnow() - ex.created_at).total_seconds() < 300:
+                    return False, ex, True
+
+    try:
+        new_notif = Notification(
+            user_id=user_id,
+            type=notif_type,
+            title=final_title,
+            message=final_message,
+            url=final_url
+        )
+        db.session.add(new_notif)
+        return True, new_notif, False
+    except Exception as e:
+        print(f"[VERIFICATION NOTIF CREATION ERROR] {e}", file=sys.stderr)
+        return False, None, False
+
+
+def request_policy_reverification(
+    translator_user,
+    reason: str,
+    policy_name: str = None,
+    admin_user=None,
+    ip_address=None,
+    user_agent=None
+) -> tuple[bool, str, Notification | None]:
+    """
+    Sự kiện thật: Yêu cầu phiên dịch viên cập nhật hoặc xác minh lại hồ sơ khi chính sách yêu cầu.
+    - Cập nhật hồ sơ sang trạng thái 'needs_revision' để mở quyền cập nhật tài liệu/thông tin.
+    - Gửi thông báo VERIFICATION_POLICY_UPDATE_REQUIRED (có chống gửi trùng).
+    - Ghi nhận Audit Log.
+    """
+    if isinstance(translator_user, int):
+        translator_user = User.query.get(translator_user)
+    if not translator_user or translator_user.role != 'translator':
+        return False, 'Không tìm thấy tài khoản phiên dịch viên hợp lệ.', None
+
+    verification = TranslatorVerification.query.filter_by(user_id=translator_user.id).order_by(TranslatorVerification.created_at.desc()).first()
+    if not verification:
+        return False, 'Phiên dịch viên chưa có hồ sơ xác minh để yêu cầu cập nhật.', None
+
+    clean_reason = sanitize_verification_message(reason or 'Chính sách nền tảng định kỳ yêu cầu cập nhật hoặc xác minh lại hồ sơ năng lực.')
+    p_name = sanitize_verification_message(policy_name or 'Chính sách xác minh năng lực')
+
+    # Cập nhật hồ sơ
+    verification.status = 'needs_revision'
+    verification.rejection_reason = f"[{p_name}] {clean_reason}"
+    if translator_user.profile:
+        translator_user.profile.is_verified = False
+
+    # Gửi thông báo có chống trùng
+    msg_text = f"Theo {p_name}, hồ sơ phiên dịch viên của bạn cần được cập nhật/xác minh lại: \"{clean_reason}\". Vui lòng kiểm tra và cập nhật tài liệu."
+    ok, notif, is_dup = send_verification_notification(
+        user_id=translator_user.id,
+        notif_type='VERIFICATION_POLICY_UPDATE_REQUIRED',
+        title='Yêu cầu cập nhật & xác minh lại hồ sơ theo chính sách 📋',
+        message=msg_text,
+        url='/account/verification/revision',
+        verification_id=verification.id
+    )
+
+    # Ghi Audit Log nếu có admin
+    try:
+        AdminAuditLog.log(
+            action=ADMIN_AUDIT_ACTIONS.get('REQUEST_POLICY_UPDATE', 'REQUEST_POLICY_UPDATE'),
+            admin_id=admin_user.id if admin_user else None,
+            target_type='translator',
+            target_id=translator_user.profile.id if translator_user.profile else translator_user.id,
+            description=f'Yêu cầu cập nhật theo chính sách cho {translator_user.name} ({translator_user.email}). Lý do: {clean_reason}',
+            ip_address=ip_address,
+            user_agent=user_agent,
+            extra_data={'policy_name': p_name, 'reason': clean_reason, 'verification_id': verification.id}
+        )
+    except Exception as e:
+        print(f"[AUDIT LOG ERROR] {e}", file=sys.stderr)
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return False, f'Lỗi lưu dữ liệu: {str(e)}', None
+
+    if is_dup:
+        return True, 'Yêu cầu cập nhật chính sách đã được ghi nhận (thông báo tương tự đã được gửi trước đó).', notif
+    return True, f'Đã gửi yêu cầu cập nhật hồ sơ theo chính sách cho {translator_user.name}.', notif
+
+
+def get_translator_verification_notifications(user, status_filter='all', category_filter='all', page=1, per_page=20):
+    """
+    Lấy danh sách thông báo xác minh hồ sơ riêng cho phiên dịch viên.
+    Hỗ trợ lọc theo trạng thái (all, unread, read) và phân loại sự kiện.
+    Trả về dict chứa danh sách, phân trang, bộ đếm unread và tổng số.
+    """
+    if not user or user.role != 'translator':
+        return {
+            'notifications': [],
+            'unread_count': 0,
+            'total': 0,
+            'pages': 0,
+            'current_page': 1,
+            'categories': {}
+        }
+
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    from datetime import datetime as dt_cls
+    now_dt = dt_cls.utcnow()
+
+    # Query gốc
+    query = Notification.query.filter(
+        Notification.user_id == user.id,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES)
+    )
+
+    # Đếm unread tổng số của xác minh
+    unread_count = Notification.query.filter(
+        Notification.user_id == user.id,
+        Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+        Notification.is_read == False
+    ).count()
+
+    total_count = query.count()
+
+    # Lọc theo trạng thái đọc
+    if status_filter == 'unread':
+        query = query.filter(Notification.is_read == False)
+    elif status_filter == 'read':
+        query = query.filter(Notification.is_read == True)
+
+    # Lọc theo loại sự kiện
+    cat_mapping = {
+        'submitted': ['VERIFICATION_SUBMITTED', 'VERIFICATION_RESUBMITTED'],
+        'revision': ['VERIFICATION_NEEDS_REVISION'],
+        'approved': ['VERIFICATION_APPROVED'],
+        'rejected': ['VERIFICATION_REJECTED'],
+        'policy': ['VERIFICATION_POLICY_UPDATE_REQUIRED']
+    }
+    if category_filter in cat_mapping:
+        query = query.filter(Notification.type.in_(cat_mapping[category_filter]))
+
+    pagination = query.order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    formatted_items = []
+    for n in pagination.items:
+        cfg = VERIFICATION_NOTIF_CONFIG.get(n.type, {
+            'category': 'other',
+            'label': 'Xác minh hồ sơ',
+            'badge_class': 'bg-slate-100 text-slate-700 border-slate-200',
+            'icon_kind': 'bell',
+            'action_label': 'Xem chi tiết',
+            'severity': 'info'
+        })
+
+        # Định dạng thời gian
+        time_ago_str = ""
+        if n.created_at:
+            delta = int((now_dt - n.created_at).total_seconds())
+            if delta < 60:
+                time_ago_str = "Vừa xong"
+            elif delta < 3600:
+                time_ago_str = f"{max(1, delta // 60)} phút trước"
+            elif delta < 86400:
+                time_ago_str = f"{delta // 3600} giờ trước"
+            elif delta < 172800:
+                time_ago_str = "Hôm qua"
+            else:
+                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
+
+        formatted_items.append({
+            'id': n.id,
+            'type': n.type,
+            'category': cfg.get('category', 'other'),
+            'type_label': cfg.get('label', 'Xác minh hồ sơ'),
+            'badge_class': cfg.get('badge_class', 'bg-slate-100 text-slate-700 border-slate-200'),
+            'icon_kind': cfg.get('icon_kind', 'bell'),
+            'title': n.title,
+            'message': n.message,
+            'url': n.url or cfg.get('default_url', '/account/verification/status'),
+            'action_label': cfg.get('action_label', 'Xem chi tiết'),
+            'severity': cfg.get('severity', 'info'),
+            'is_read': n.is_read,
+            'created_at': n.created_at.isoformat() if n.created_at else None,
+            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
+            'time_ago': time_ago_str
+        })
+
+    return {
+        'notifications': formatted_items,
+        'unread_count': unread_count,
+        'total': total_count,
+        'filtered_total': pagination.total,
+        'pages': pagination.pages,
+        'current_page': page
+    }
+
+
+def mark_verification_notification_read(notification_id: int, user_id: int) -> tuple[bool, str]:
+    """Đánh dấu một thông báo xác minh là đã đọc."""
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    notif = Notification.query.get(notification_id)
+    if not notif:
+        return False, 'Không tìm thấy thông báo.'
+    if notif.user_id != user_id:
+        return False, 'Không có quyền truy cập thông báo này.'
+    if notif.type not in VERIFICATION_NOTIFICATION_TYPES:
+        return False, 'Thông báo không thuộc nhóm xác minh hồ sơ.'
+
+    notif.is_read = True
+    try:
+        db.session.commit()
+        return True, 'Đã đánh dấu đã đọc.'
+    except Exception as e:
+        db.session.rollback()
+        return False, f'Lỗi cơ sở dữ liệu: {str(e)}'
+
+
+def mark_all_verification_notifications_read(user_id: int) -> tuple[bool, int]:
+    """Đánh dấu tất cả thông báo xác minh của phiên dịch viên là đã đọc."""
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    try:
+        updated = Notification.query.filter(
+            Notification.user_id == user_id,
+            Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+            Notification.is_read == False
+        ).update({'is_read': True})
+        db.session.commit()
+        return True, updated
+    except Exception as e:
+        db.session.rollback()
+        return False, 0
+
+
 
 

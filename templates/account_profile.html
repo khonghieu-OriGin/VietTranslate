@@ -939,86 +939,288 @@ function resendVerificationEmail() {
                 <!-- Tab 2: Hồ sơ nghề nghiệp (chỉ translator) -->
                 {% if user.role == 'translator' %}
                 <div id="tab-translator" class="tab-panel {% if active_tab == 'translator' %}active{% endif %}">
-                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                        <h2 class="text-base font-bold text-slate-900 mb-6 flex items-center gap-2">
-                            <span class="w-2 h-2 rounded-full bg-brand-600"></span>
-                            {{ t('account_profile_page.heading_translator') }}
-                        </h2>
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 space-y-6">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                            <div>
+                                <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full bg-brand-600"></span>
+                                    {{ t('account_profile_page.heading_translator') }}
+                                </h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Quản lý hồ sơ nghề nghiệp chuyên sâu, cặp ngôn ngữ, chuyên môn và cài đặt quyền riêng tư</p>
+                            </div>
 
-                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-5" enctype="multipart/form-data">
+                            {% if user.profile %}
+                            <div class="flex items-center gap-2">
+                                <a href="{{ url_for('translator_profile', profile_id=user.profile.id) }}" target="_blank"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 text-xs font-bold rounded-xl transition border border-brand-200/60 shadow-2xs">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                                    </svg>
+                                    <span>Xem trang công khai</span>
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <form method="POST" action="{{ url_for('account_profile') }}" class="space-y-6" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="translator_profile">
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
-                                    t('account_profile_page.label_job_title') }}</label>
-                                <input type="text" name="title" value="{{ user.profile.title if user.profile else '' }}"
-                                    placeholder="{{ t('account_profile_page.job_title_placeholder') }}"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                            </div>
+                            <!-- Khối 1: Cài đặt công khai & Quyền riêng tư hồ sơ -->
+                            <div class="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-4">
+                                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 rounded-full bg-brand-600"></span>
+                                    Cài đặt hiển thị &amp; Quyền riêng tư
+                                </h3>
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{
-                                    t('account_profile_page.label_fluent_languages') }}</label>
-                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-2" id="lang-checkboxes">
-                                    {% set selected_langs = (user.profile.languages or '').split(',') | map('trim') |
-                                    list %}
-                                    {% for lang in LANGUAGES %}
-                                    <label
-                                        class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition text-xs font-medium
-                                    {% if lang.name_vi in selected_langs %}border-brand-500 bg-brand-50/80 text-brand-900 font-bold{% else %}border-slate-200 text-slate-700{% endif %}">
-                                        <input type="checkbox" name="lang_checks" value="{{ lang.name_vi }}" {% if
-                                            lang.name_vi in selected_langs %}checked{% endif %}
-                                            class="rounded text-brand-600 focus:ring-brand-500"
-                                            onchange="updateLangField()">
-                                        <span>{{ lang.flag }}</span>
-                                        <span>{{ lang.short_name }}</span>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <label class="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-brand-300 transition">
+                                        <input type="checkbox" name="is_public" value="1" {% if not user.profile or user.profile.is_public is not false %}checked{% endif %} class="mt-0.5 rounded text-brand-600 focus:ring-brand-500">
+                                        <div>
+                                            <span class="text-xs font-bold text-slate-800 block">Công khai hồ sơ trên VietTranslate</span>
+                                            <span class="text-[11px] text-slate-500 leading-relaxed block mt-0.5">Cho phép hồ sơ xuất hiện trên danh bạ phiên dịch viên và kết quả tìm kiếm của khách hàng.</span>
+                                        </div>
                                     </label>
-                                    {% endfor %}
+
+                                    <label class="flex items-start gap-3 p-3 bg-white rounded-xl border border-slate-200 cursor-pointer hover:border-brand-300 transition">
+                                        <input type="checkbox" name="is_cv_public" value="1" {% if user.profile and user.profile.is_cv_public %}checked{% endif %} class="mt-0.5 rounded text-brand-600 focus:ring-brand-500">
+                                        <div>
+                                            <span class="text-xs font-bold text-slate-800 block">Công khai CV chuyên môn</span>
+                                            <span class="text-[11px] text-slate-500 leading-relaxed block mt-0.5">Cho phép khách hàng xem và tải file CV từ trang hồ sơ nghề nghiệp của bạn.</span>
+                                        </div>
+                                    </label>
                                 </div>
-                                <input type="hidden" name="languages" id="languages-hidden"
-                                    value="{{ user.profile.languages if user.profile else '' }}">
-                                <p class="text-[11px] text-slate-400">{{ t('account_profile_page.fluent_languages_hint')
-                                    }}</p>
+
+                                {% if user.latest_verification %}
+                                <div class="pt-2 border-t border-slate-200/70 flex items-center justify-between">
+                                    <span class="text-[11px] text-slate-500">Bạn đã có thông tin từ hồ sơ xác minh trước đó?</span>
+                                    <button type="submit" name="sync_verification" value="1" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1 cursor-pointer">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                        </svg>
+                                        <span>Đồng bộ từ Hồ sơ xác minh</span>
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
-                                    t('account_profile_page.label_badges') }}</label>
-                                <input type="text" name="badges"
-                                    value="{{ user.profile.badges if user.profile else '' }}"
-                                    placeholder="{{ t('account_profile_page.badges_placeholder') }}"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.badges_hint') }}
-                                </p>
+                            <!-- Khối 2: Chức danh, Ngôn ngữ & Giới thiệu cơ bản -->
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_job_title') }}</label>
+                                    <input type="text" name="title" value="{{ user.profile.title if user.profile else '' }}"
+                                        placeholder="{{ t('account_profile_page.job_title_placeholder') }}"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">{{ t('account_profile_page.label_fluent_languages') }}</label>
+                                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-2" id="lang-checkboxes">
+                                        {% set selected_langs = (user.profile.languages or '').split(',') | map('trim') | list %}
+                                        {% for lang in LANGUAGES %}
+                                        <label class="flex items-center gap-2 p-2.5 border rounded-xl cursor-pointer hover:border-brand-500 hover:bg-brand-50/50 transition text-xs font-medium {% if lang.name_vi in selected_langs %}border-brand-500 bg-brand-50/80 text-brand-900 font-bold{% else %}border-slate-200 text-slate-700{% endif %}">
+                                            <input type="checkbox" name="lang_checks" value="{{ lang.name_vi }}" {% if lang.name_vi in selected_langs %}checked{% endif %}
+                                                class="rounded text-brand-600 focus:ring-brand-500"
+                                                onchange="updateLangField()">
+                                            <span>{{ lang.flag }}</span>
+                                            <span>{{ lang.short_name }}</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                    <input type="hidden" name="languages" id="languages-hidden"
+                                        value="{{ user.profile.languages if user.profile else '' }}">
+                                    <p class="text-[11px] text-slate-400">{{ t('account_profile_page.fluent_languages_hint') }}</p>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_badges') }}</label>
+                                        <input type="text" name="badges"
+                                            value="{{ user.profile.badges if user.profile else '' }}"
+                                            placeholder="{{ t('account_profile_page.badges_placeholder') }}"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                        <p class="text-[11px] text-slate-400 mt-1">{{ t('account_profile_page.badges_hint') }}</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_response_time') }}</label>
+                                        <select name="response_time"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                            {% set rt = user.profile.response_time if user.profile else '' %}
+                                            <option value="< 1 giờ" {% if rt=='< 1 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_1h') }}</option>
+                                            <option value="< 3 giờ" {% if rt=='< 3 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_3h') }}</option>
+                                            <option value="< 12 giờ" {% if rt=='< 12 giờ' %}selected{% endif %}>{{ t('account_profile_page.rt_under_12h') }}</option>
+                                            <option value="< 1 ngày" {% if rt=='< 1 ngày' %}selected{% endif %}>{{ t('account_profile_page.rt_under_1d') }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{ t('account_profile_page.label_bio') }}</label>
+                                    <textarea name="bio" rows="5"
+                                        placeholder="{{ t('account_profile_page.bio_placeholder') }}"
+                                        class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.profile.bio if user.profile else '' }}</textarea>
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
-                                    t('account_profile_page.label_response_time') }}</label>
-                                <select name="response_time"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
-                                    {% set rt = user.profile.response_time if user.profile else '' %}
-                                    <option value="< 1 giờ" {% if rt=='< 1 giờ' %}selected{% endif %}>{{
-                                        t('account_profile_page.rt_under_1h') }}</option>
-                                    <option value="< 3 giờ" {% if rt=='< 3 giờ' %}selected{% endif %}>{{
-                                        t('account_profile_page.rt_under_3h') }}</option>
-                                    <option value="< 12 giờ" {% if rt=='< 12 giờ' %}selected{% endif %}>{{
-                                        t('account_profile_page.rt_under_12h') }}</option>
-                                    <option value="< 1 ngày" {% if rt=='< 1 ngày' %}selected{% endif %}>{{
-                                        t('account_profile_page.rt_under_1d') }}</option>
-                                </select>
+                            <!-- Khối 3: Cặp ngôn ngữ chính & Chiều phiên dịch -->
+                            <div class="border-t border-slate-100 pt-5 space-y-4">
+                                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 rounded-full bg-indigo-600"></span>
+                                    Cặp ngôn ngữ &amp; Chiều phiên dịch
+                                </h3>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Ngôn ngữ nguồn chính</label>
+                                        <input type="text" name="source_language" value="{{ user.profile.source_language if user.profile and user.profile.source_language else (user.profile.display_source_language if user.profile else 'Tiếng Việt') }}"
+                                            placeholder="VD: Tiếng Việt"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Ngôn ngữ đích chính</label>
+                                        <input type="text" name="target_language" value="{{ user.profile.target_language if user.profile and user.profile.target_language else (user.profile.display_target_language if user.profile else 'Tiếng Anh') }}"
+                                            placeholder="VD: Tiếng Anh"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Chiều phiên dịch</label>
+                                        <input type="text" name="interpreting_direction" value="{{ user.profile.interpreting_direction if user.profile and user.profile.interpreting_direction else (user.profile.display_interpreting_direction if user.profile else 'Hai chiều (Song phương)') }}"
+                                            placeholder="VD: Hai chiều (Song phương), Xuôi, Ngược"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Mức độ thông thạo</label>
+                                        <input type="text" name="language_proficiency" value="{{ user.profile.language_proficiency if user.profile and user.profile.language_proficiency else (user.profile.display_language_proficiency if user.profile else 'Chuyên nghiệp (C2/C1)') }}"
+                                            placeholder="VD: Bản ngữ, Chuyên nghiệp (C2/C1)"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{{
-                                    t('account_profile_page.label_bio') }}</label>
-                                <textarea name="bio" rows="6"
-                                    placeholder="{{ t('account_profile_page.bio_placeholder') }}"
-                                    class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50 leading-relaxed">{{ user.profile.bio if user.profile else '' }}</textarea>
+                            <!-- Khối 4: Lĩnh vực chuyên môn & Hình thức làm việc -->
+                            <div class="border-t border-slate-100 pt-5 space-y-4">
+                                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 rounded-full bg-violet-600"></span>
+                                    Chuyên môn &amp; Hình thức làm việc
+                                </h3>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Lĩnh vực chuyên môn (ngăn cách bởi dấu phẩy)</label>
+                                    <input type="text" name="specializations" value="{{ user.profile.specializations if user.profile and user.profile.specializations else (user.profile.display_specializations | join(', ') if user.profile else 'Thương mại, Hợp đồng, Pháp lý') }}"
+                                        placeholder="VD: Pháp lý & Hợp đồng, Y tế & Dược phẩm, Tài chính, Hội nghị"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Hình thức làm việc (ngăn cách dấu phẩy)</label>
+                                        <input type="text" name="work_modes" value="{{ user.profile.work_modes if user.profile and user.profile.work_modes else (user.profile.display_work_modes | join(', ') if user.profile else 'Trực tiếp tại địa điểm (On-site), Từ xa / Trực tuyến (Online)') }}"
+                                            placeholder="VD: Trực tiếp tại địa điểm (On-site), Trực tuyến / Từ xa"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Loại hình phiên dịch</label>
+                                        <input type="text" name="interpreting_types" value="{{ user.profile.interpreting_types if user.profile and user.profile.interpreting_types else (user.profile.display_interpreting_types | join(', ') if user.profile else 'Phiên dịch nối tiếp (Consecutive), Phiên dịch tháp tùng (Escort)') }}"
+                                            placeholder="VD: Dịch nối tiếp, Dịch đồng thời (Cabin), Dịch tháp tùng"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
                             </div>
 
-                            <div>
-                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Chứng chỉ chuyên môn</label>
+                            <!-- Khối 5: Học vấn & Chứng chỉ công khai -->
+                            <div class="border-t border-slate-100 pt-5 space-y-4">
+                                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 rounded-full bg-emerald-600"></span>
+                                    Học vấn &amp; Chứng chỉ công khai
+                                </h3>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Trình độ học vấn</label>
+                                        <input type="text" name="education_level" value="{{ user.profile.education_level if user.profile and user.profile.education_level else (user.profile.display_education_level if user.profile else 'Cử nhân') }}"
+                                            placeholder="VD: Cử nhân, Thạc sĩ"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Trường đại học</label>
+                                        <input type="text" name="university" value="{{ user.profile.university if user.profile and user.profile.university else (user.profile.display_university or '') }}"
+                                            placeholder="VD: ĐH Ngoại ngữ"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Chuyên ngành</label>
+                                        <input type="text" name="major" value="{{ user.profile.major if user.profile and user.profile.major else (user.profile.display_major or '') }}"
+                                            placeholder="VD: Biên phiên dịch Tiếng Anh"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Chứng chỉ ngoại ngữ công khai</label>
+                                        <input type="text" name="cert_name" value="{{ user.profile.cert_name if user.profile and user.profile.cert_name else (user.profile.display_cert_name or '') }}"
+                                            placeholder="VD: IELTS 8.0, JLPT N1, HSK 6"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Năm cấp</label>
+                                        <input type="number" name="cert_year" value="{{ user.profile.cert_year if user.profile and user.profile.cert_year else (user.profile.display_cert_year or '') }}"
+                                            placeholder="VD: 2023"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Khối 6: Kinh nghiệm nghề nghiệp & Khách hàng -->
+                            <div class="border-t border-slate-100 pt-5 space-y-4">
+                                <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                                    <span class="w-1.5 h-3.5 rounded-full bg-amber-600"></span>
+                                    Kinh nghiệm nghề nghiệp &amp; Đối tác
+                                </h3>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Số năm kinh nghiệm</label>
+                                        <input type="number" name="experience_years" value="{{ user.profile.experience_years if user.profile and user.profile.experience_years else (user.profile.display_experience_years if user.profile else 3) }}"
+                                            placeholder="VD: 5"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Chức danh / Vị trí hiện tại</label>
+                                        <input type="text" name="current_position" value="{{ user.profile.current_position if user.profile and user.profile.current_position else (user.profile.display_current_position if user.profile else '') }}"
+                                            placeholder="VD: Phiên dịch viên Cabin cao cấp"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Khách hàng &amp; Đối tác tiêu biểu</label>
+                                    <input type="text" name="notable_clients" value="{{ user.profile.notable_clients if user.profile and user.profile.notable_clients else (user.profile.display_notable_clients or '') }}"
+                                        placeholder="VD: Samsung Vietnam, USAID, Bộ Kế hoạch & Đầu tư, Ngân hàng Vietcombank"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">Dự án &amp; Sự kiện tiêu biểu</label>
+                                    <textarea name="featured_projects" rows="3"
+                                        placeholder="VD: Hội nghị Thượng đỉnh Kinh tế ASEAN 2023, Diễn đàn Pháp lý Quốc tế..."
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-xs sm:text-sm bg-slate-50/50">{{ user.profile.featured_projects if user.profile and user.profile.featured_projects else (user.profile.display_featured_projects or '') }}</textarea>
+                                </div>
+                            </div>
+
+                            <!-- Khối 7: Tài liệu chứng chỉ công khai -->
+                            <div class="border-t border-slate-100 pt-5 space-y-3">
+                                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tải lên chứng chỉ công khai</label>
                                 
                                 {% if user.profile and user.profile.certificates %}
                                 <div class="mb-3 space-y-2">
@@ -1040,12 +1242,12 @@ function resendVerificationEmail() {
 
                                 <input type="file" name="certificate_files" multiple accept=".pdf,.png,.jpg,.jpeg"
                                     class="w-full text-xs sm:text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 transition border border-slate-200 rounded-xl bg-slate-50/50">
-                                <p class="text-[11px] text-slate-400 mt-1">Hỗ trợ PDF, PNG, JPG (Tối đa 10MB/file). Chọn nhiều file.</p>
+                                <p class="text-[11px] text-slate-400 mt-1">Hỗ trợ PDF, PNG, JPG (Tối đa 10MB/file). Lưu ý: Chỉ tải tài liệu chứng chỉ được phép công khai, không tải CCCD hay tài liệu riêng tư vào đây.</p>
                             </div>
 
                             <div class="flex justify-end pt-5 border-t border-slate-100">
                                 <button type="submit"
-                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5">
+                                    class="bg-brand-600 hover:bg-brand-700 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-sm text-xs sm:text-sm flex items-center gap-1.5 cursor-pointer">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                             d="M5 13l4 4L19 7" />

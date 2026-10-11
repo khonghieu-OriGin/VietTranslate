@@ -102,8 +102,15 @@ class User(db.Model):
     @property
     def latest_verification(self):
         """Trả về yêu cầu xác minh mới nhất của người dùng (nếu có)."""
-        if hasattr(self, 'verifications') and self.verifications:
-            return self.verifications[0]
+        try:
+            if hasattr(self, 'verifications') and self.verifications:
+                return self.verifications[0]
+        except Exception:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
+            return None
         return None
 
 
@@ -121,6 +128,34 @@ class TranslatorProfile(db.Model):
     is_verified = db.Column(db.Boolean, default=False)
     certificates = db.Column(db.Text)
 
+    # Cấu hình công khai & quyền riêng tư hồ sơ
+    is_public = db.Column(db.Boolean, default=True)
+    is_cv_public = db.Column(db.Boolean, default=False)
+
+    # Cặp ngôn ngữ & Chiều phiên dịch
+    source_language = db.Column(db.String(100), nullable=True)
+    target_language = db.Column(db.String(100), nullable=True)
+    interpreting_direction = db.Column(db.String(50), nullable=True)
+    language_proficiency = db.Column(db.String(50), nullable=True)
+
+    # Lĩnh vực chuyên môn & Hình thức làm việc
+    specializations = db.Column(db.Text, nullable=True)
+    interpreting_types = db.Column(db.Text, nullable=True)
+    work_modes = db.Column(db.String(255), nullable=True)
+
+    # Học vấn & Chứng chỉ công khai
+    education_level = db.Column(db.String(100), nullable=True)
+    university = db.Column(db.String(255), nullable=True)
+    major = db.Column(db.String(255), nullable=True)
+    cert_name = db.Column(db.String(255), nullable=True)
+    cert_year = db.Column(db.Integer, nullable=True)
+
+    # Kinh nghiệm nghề nghiệp
+    experience_years = db.Column(db.Integer, default=0)
+    current_position = db.Column(db.String(255), nullable=True)
+    notable_clients = db.Column(db.Text, nullable=True)
+    featured_projects = db.Column(db.Text, nullable=True)
+
     services = db.relationship('Service', backref='profile', lazy=True)
 
     @property
@@ -137,6 +172,234 @@ class TranslatorProfile(db.Model):
             return self.user.latest_verification if self.user else None
         except Exception:
             return None
+
+    @property
+    def display_source_language(self):
+        """Ngôn ngữ nguồn chính (ưu tiên trường riêng, fallback xác minh hoặc languages)."""
+        if self.source_language and self.source_language.strip():
+            return self.source_language.strip()
+        if self.latest_verification and self.latest_verification.source_language:
+            return self.latest_verification.source_language.strip()
+        if self.languages:
+            parts = [l.strip() for l in self.languages.split(',') if l.strip()]
+            if parts:
+                return parts[0]
+        return 'Tiếng Việt'
+
+    @property
+    def display_target_language(self):
+        """Ngôn ngữ đích chính (ưu tiên trường riêng, fallback xác minh hoặc languages)."""
+        if self.target_language and self.target_language.strip():
+            return self.target_language.strip()
+        if self.latest_verification and self.latest_verification.target_language:
+            return self.latest_verification.target_language.strip()
+        if self.languages:
+            parts = [l.strip() for l in self.languages.split(',') if l.strip()]
+            if len(parts) > 1:
+                return parts[1]
+            elif len(parts) == 1 and parts[0] != 'Tiếng Anh':
+                return 'Tiếng Anh'
+        return 'Tiếng Anh'
+
+    @property
+    def display_interpreting_direction(self):
+        """Chiều phiên dịch."""
+        if self.interpreting_direction and self.interpreting_direction.strip():
+            return self.interpreting_direction.strip()
+        if self.latest_verification and self.latest_verification.interpreting_direction:
+            return self.latest_verification.interpreting_direction.strip()
+        return 'Hai chiều (Song phương)'
+
+    @property
+    def display_language_proficiency(self):
+        """Mức độ thành thạo ngôn ngữ."""
+        if self.language_proficiency and self.language_proficiency.strip():
+            return self.language_proficiency.strip()
+        if self.latest_verification and self.latest_verification.language_proficiency:
+            return self.latest_verification.language_proficiency.strip()
+        return 'Chuyên nghiệp (C2/C1)'
+
+    @property
+    def display_specializations(self):
+        """Danh sách lĩnh vực chuyên môn dạng list."""
+        val = self.specializations
+        if not val and self.latest_verification and self.latest_verification.specializations:
+            val = self.latest_verification.specializations
+        if not val and self.badges:
+            val = self.badges
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Thương mại & Hợp đồng', 'Hội nghị & Sự kiện']
+
+    @property
+    def display_interpreting_types(self):
+        """Danh sách hình thức phiên dịch dạng list."""
+        val = self.interpreting_types
+        if not val and self.latest_verification and self.latest_verification.interpreting_types:
+            val = self.latest_verification.interpreting_types
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Phiên dịch nối tiếp (Consecutive)', 'Phiên dịch tháp tùng (Escort)']
+
+    @property
+    def display_work_modes(self):
+        """Danh sách phương thức làm việc (trực tiếp / từ xa...)."""
+        val = self.work_modes
+        if val:
+            if isinstance(val, list):
+                return val
+            return [s.strip() for s in val.split(',') if s.strip()]
+        return ['Trực tiếp tại địa điểm (On-site)', 'Trực tuyến / Từ xa (Online)']
+
+    @property
+    def display_experience_years(self):
+        """Số năm kinh nghiệm làm nghề thực tế."""
+        if self.experience_years is not None and self.experience_years > 0:
+            return self.experience_years
+        if self.latest_verification and self.latest_verification.experience_years:
+            return self.latest_verification.experience_years
+        return 3
+
+    @property
+    def display_current_position(self):
+        """Chức danh chuyên môn hiện tại."""
+        if self.current_position and self.current_position.strip():
+            return self.current_position.strip()
+        if self.latest_verification and self.latest_verification.current_position:
+            return self.latest_verification.current_position.strip()
+        return self.title or 'Phiên dịch viên chuyên nghiệp'
+
+    @property
+    def display_education_level(self):
+        """Trình độ học vấn."""
+        if self.education_level and self.education_level.strip():
+            return self.education_level.strip()
+        if self.latest_verification and self.latest_verification.education_level:
+            return self.latest_verification.education_level.strip()
+        return 'Cử nhân'
+
+    @property
+    def display_university(self):
+        """Trường đại học đào tạo."""
+        if self.university and self.university.strip():
+            return self.university.strip()
+        if self.latest_verification and self.latest_verification.university:
+            return self.latest_verification.university.strip()
+        return None
+
+    @property
+    def display_major(self):
+        """Chuyên ngành đào tạo."""
+        if self.major and self.major.strip():
+            return self.major.strip()
+        if self.latest_verification and self.latest_verification.major:
+            return self.latest_verification.major.strip()
+        return None
+
+    @property
+    def display_cert_name(self):
+        """Tên chứng chỉ ngoại ngữ."""
+        if self.cert_name and self.cert_name.strip():
+            return self.cert_name.strip()
+        if self.latest_verification and self.latest_verification.certificate_name:
+            return self.latest_verification.certificate_name.strip()
+        return None
+
+    @property
+    def display_cert_year(self):
+        """Năm cấp chứng chỉ."""
+        if self.cert_year:
+            return self.cert_year
+        if self.latest_verification and self.latest_verification.cert_year:
+            return self.latest_verification.cert_year
+        return None
+
+    @property
+    def display_notable_clients(self):
+        """Danh sách đối tác / khách hàng tiêu biểu."""
+        val = self.notable_clients
+        if not val and self.latest_verification and self.latest_verification.notable_clients:
+            val = self.latest_verification.notable_clients
+        return val
+
+    @property
+    def display_featured_projects(self):
+        """Danh sách dự án hoặc sự kiện tiêu biểu."""
+        val = self.featured_projects
+        if not val and self.latest_verification and self.latest_verification.featured_projects:
+            val = self.latest_verification.featured_projects
+        return val
+
+    @property
+    def public_cv_document(self):
+        """
+        Trả về đối tượng tài liệu CV hợp lệ khi người dùng CHỦ ĐỘNG chọn công khai (is_cv_public=True).
+        Chỉ tìm tài liệu loại 'cv', không bao giờ lấy tài liệu id_card hay các loại riêng tư.
+        """
+        if not self.is_cv_public:
+            return None
+        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
+            for doc in self.latest_verification.documents:
+                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                    return doc
+        return None
+
+    @property
+    def has_public_cv(self):
+        """Kiểm tra xem hồ sơ có CV được công khai và khả dụng hay không."""
+        return self.public_cv_document is not None
+
+    def is_eligible_for_public(self):
+        """
+        Kiểm tra xem hồ sơ có đáp ứng đủ điều kiện tối thiểu để xuất hiện công khai:
+        - Có thông tin tài khoản người dùng và tên hiển thị.
+        - Đã có thông tin chức danh, ngôn ngữ hoặc giới thiệu (không phải hồ sơ trống).
+        """
+        if not self.user:
+            return False, 'Không tìm thấy thông tin tài khoản liên kết.'
+        if not self.user.name or not self.user.name.strip():
+            return False, 'Chưa thiết lập tên hiển thị.'
+        if not self.title and not self.languages and not self.bio:
+            return False, 'Hồ sơ chưa có thông tin chức danh, ngôn ngữ hoặc lời giới thiệu.'
+        return True, None
+
+    def can_view_public(self, viewer=None, is_admin_session=False):
+        """
+        Kiểm tra quyền xem hồ sơ của một đối tượng người xem (viewer):
+        Trả về tuple: (can_view, is_preview, reason)
+        - can_view: True nếu được phép xem toàn bộ hồ sơ (dù là public hay preview).
+        - is_preview: True nếu đang xem ở chế độ Xem trước (Preview Mode).
+        - reason: Lý do hồ sơ không công khai (nếu có).
+        """
+        is_owner = bool(viewer and self.user_id == getattr(viewer, 'id', None))
+        is_admin = bool((viewer and getattr(viewer, 'is_admin', False)) or is_admin_session)
+
+        # 1. Tài khoản bị vô hiệu hóa hoặc giới hạn
+        if self.user and not getattr(self.user, 'is_active', True):
+            if is_admin:
+                return True, True, 'Tài khoản người dùng đang bị giới hạn hoặc vô hiệu hóa bởi Quản trị viên.'
+            return False, False, 'Tài khoản phiên dịch viên này hiện đang bị tạm khóa hoặc giới hạn quyền bởi hệ thống.'
+
+        # 2. Điều kiện tối thiểu để công khai
+        is_eligible, ineligibility_reason = self.is_eligible_for_public()
+        if not is_eligible:
+            if is_owner or is_admin:
+                return True, True, f'Hồ sơ chưa đủ điều kiện công khai: {ineligibility_reason}'
+            return False, False, 'Hồ sơ đang trong quá trình hoàn thiện thông tin và chưa được kích hoạt công khai.'
+
+        # 3. Chế độ riêng tư (is_public == False)
+        is_pub = getattr(self, 'is_public', True)
+        if is_pub is False:
+            if is_owner or is_admin:
+                return True, True, 'Hồ sơ đang ở chế độ Riêng tư (Ẩn trên danh bạ và tìm kiếm).'
+            return False, False, 'Phiên dịch viên hiện chưa công khai hồ sơ nghề nghiệp này.'
+
+        # 4. Hồ sơ công khai bình thường
+        return True, False, None
 
 
 class TranslatorPreference(db.Model):
@@ -595,9 +858,21 @@ NOTIFICATION_TYPES = {
     'CONTRACT_COMPLETED': 'CONTRACT_COMPLETED',
     'NEW_REVIEW': 'NEW_REVIEW',
     'VERIFICATION_SUBMITTED': 'VERIFICATION_SUBMITTED',
+    'VERIFICATION_RESUBMITTED': 'VERIFICATION_RESUBMITTED',
+    'VERIFICATION_NEEDS_REVISION': 'VERIFICATION_NEEDS_REVISION',
     'VERIFICATION_APPROVED': 'VERIFICATION_APPROVED',
-    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED'
+    'VERIFICATION_REJECTED': 'VERIFICATION_REJECTED',
+    'VERIFICATION_POLICY_UPDATE_REQUIRED': 'VERIFICATION_POLICY_UPDATE_REQUIRED'
 }
+
+VERIFICATION_NOTIFICATION_TYPES = (
+    'VERIFICATION_SUBMITTED',
+    'VERIFICATION_RESUBMITTED',
+    'VERIFICATION_NEEDS_REVISION',
+    'VERIFICATION_APPROVED',
+    'VERIFICATION_REJECTED',
+    'VERIFICATION_POLICY_UPDATE_REQUIRED'
+)
 
 
 SCHEDULE_STATUS = ('reserved', 'active', 'completed', 'cancelled')
@@ -748,6 +1023,7 @@ ADMIN_AUDIT_ACTIONS = {
     'ACCOUNT_LOCKED': 'ACCOUNT_LOCKED',
     'VERIFY_TRANSLATOR': 'VERIFY_TRANSLATOR',
     'REJECT_TRANSLATOR': 'REJECT_TRANSLATOR',
+    'REQUEST_POLICY_UPDATE': 'REQUEST_POLICY_UPDATE',
     'VERIFY_HIRER': 'VERIFY_HIRER',
     'REJECT_HIRER': 'REJECT_HIRER',
     'REQUEST_HIRER_REVISION': 'REQUEST_HIRER_REVISION',
