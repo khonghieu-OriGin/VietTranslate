@@ -236,10 +236,10 @@
     <header
         class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16 md:h-18">
+            <div class="flex items-center justify-between gap-4 h-16 md:h-18">
 
                 <!-- Brand Logo -->
-                <a href="{{ url_for('index') }}" class="flex items-center gap-2.5 group focus:outline-none">
+                <a href="{{ url_for('index') }}" class="flex items-center gap-2.5 group focus:outline-none shrink-0 whitespace-nowrap">
                     <div
                         class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
                         <span class="font-extrabold text-lg tracking-tight">V</span>
@@ -255,12 +255,10 @@
                             {% if current_user %}
                             {% if current_user.role == 'hirer' %}
                             <span
-                                class="px-1.5 py-0.5 rounded text-[8px] bg-brand-100 text-brand-700 font-bold border border-brand-200">KHÁCH
-                                THUÊ</span>
+                                class="px-1.5 py-0.5 rounded text-[8px] bg-brand-100 text-brand-700 font-bold border border-brand-200">KHÁCH THUÊ</span>
                             {% elif current_user.role == 'translator' %}
                             <span
-                                class="px-1.5 py-0.5 rounded text-[8px] bg-amber-100 text-amber-700 font-bold border border-amber-200">PHIÊN
-                                DỊCH VIÊN</span>
+                                class="px-1.5 py-0.5 rounded text-[8px] bg-amber-100 text-amber-700 font-bold border border-amber-200">PHIÊN DỊCH VIÊN</span>
                             {% endif %}
                             {% endif %}
                         </span>
@@ -268,7 +266,7 @@
                 </a>
 
                 <!-- Desktop Navigation Links -->
-                <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
+                <nav class="hidden md:flex flex-1 min-w-0 items-center justify-center gap-4 lg:gap-6 xl:gap-8 text-sm font-medium text-slate-600 whitespace-nowrap">
                     {% if current_user and current_user.role == 'hirer' %}
                     <a href="{{ url_for('client_dashboard') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'client_dashboard' %}active text-brand-600 font-bold{% endif %}">Tổng quan</a>
@@ -457,7 +455,7 @@
                 </nav>
 
                 <!-- Right Actions & User Account -->
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 lg:gap-3 shrink-0 whitespace-nowrap">
                     <!-- Clean "VI/EN" Switcher (No emoji flag) -->
                     <div class="inline-flex items-center bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80 text-xs font-bold"
                         title="{{ t('nav.switch_language') }}" aria-label="{{ t('nav.switch_language') }}">
