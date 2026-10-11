@@ -970,54 +970,44 @@
             }
         }
 
-        // Load unread message count badge
+        // Đồng bộ số chưa đọc (tin nhắn + thông báo) trên header với database.
+        // Tải khi vào trang, khi quay lại tab, và mỗi 60 giây khi tab đang hiển thị (không polling dày).
         if (document.body.dataset.userLoggedIn === 'true') {
             (function () {
-                const msgBadge = document.getElementById('msg-badge');
-                const commonMsgBadge = document.getElementById('nav-common-msg-badge');
-                if (msgBadge || commonMsgBadge) {
-                    fetch('/api/messages/unread-count')
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.count > 0) {
-                                const txt = data.count > 99 ? '99+' : data.count;
-                                if (msgBadge) {
-                                    msgBadge.textContent = txt;
-                                    msgBadge.classList.remove('hidden');
-                                    msgBadge.style.display = 'flex';
-                                }
-                                if (commonMsgBadge) {
-                                    commonMsgBadge.textContent = txt;
-                                    commonMsgBadge.classList.remove('hidden');
-                                    commonMsgBadge.style.display = 'flex';
-                                }
-                            }
-                        })
-                        .catch(() => { });
+                let lastAt = 0;
+                function setBadges(ids, count) {
+                    ids.forEach(function (id) {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        if (count > 0) {
+                            el.textContent = count > 99 ? '99+' : count;
+                            el.classList.remove('hidden');
+                            el.style.display = 'flex';
+                        } else {
+                            el.classList.add('hidden');
+                            el.style.display = 'none';
+                        }
+                    });
                 }
-
-                const notifBadge = document.getElementById('notif-badge');
-                const commonNotifBadge = document.getElementById('nav-common-notif-badge');
-                if (notifBadge || commonNotifBadge) {
-                    fetch('/api/notifications/unread-count')
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.count > 0) {
-                                const txt = data.count > 99 ? '99+' : data.count;
-                                if (notifBadge) {
-                                    notifBadge.textContent = txt;
-                                    notifBadge.classList.remove('hidden');
-                                    notifBadge.style.display = 'flex';
-                                }
-                                if (commonNotifBadge) {
-                                    commonNotifBadge.textContent = txt;
-                                    commonNotifBadge.classList.remove('hidden');
-                                    commonNotifBadge.style.display = 'flex';
-                                }
-                            }
-                        })
-                        .catch(() => { });
+                function refresh(force) {
+                    const now = Date.now();
+                    if (!force && now - lastAt < 15000) return;
+                    lastAt = now;
+                    fetch('/api/messages/unread-count', { credentials: 'same-origin' })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (d) { if (d) setBadges(['msg-badge', 'nav-common-msg-badge'], d.count); })
+                        .catch(function () { });
+                    fetch('/api/notifications/unread-count', { credentials: 'same-origin' })
+                        .then(function (r) { return r.ok ? r.json() : null; })
+                        .then(function (d) { if (d) setBadges(['notif-badge', 'nav-common-notif-badge'], d.count); })
+                        .catch(function () { });
                 }
+                window.vtRefreshBadges = refresh;
+                refresh(true);
+                document.addEventListener('visibilitychange', function () {
+                    if (document.visibilityState === 'visible') refresh(false);
+                });
+                setInterval(function () { if (document.visibilityState === 'visible') refresh(false); }, 60000);
             })();
         }
     </script>

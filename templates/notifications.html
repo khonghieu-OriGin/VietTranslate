@@ -45,8 +45,16 @@
         <p class="font-semibold text-slate-500 text-base">{{ t('notifications_page.empty') }}</p>
     </div>
 
+    <div id="notif-error" role="alert" class="hidden text-center py-10 px-4 bg-rose-50 rounded-2xl border border-rose-200 mb-4">
+        <p class="text-sm font-semibold text-rose-800 mb-3">Không tải được thông báo. Vui lòng thử lại.</p>
+        <button id="notif-retry" type="button" class="text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 px-4 py-2 rounded-lg">Thử lại</button>
+    </div>
+
     <div id="notif-list" class="hidden bg-white rounded-2xl shadow-soft border border-slate-200/80 divide-y divide-slate-100 overflow-hidden">
         <!-- Populated by JS -->
+    </div>
+    <div id="notif-more-wrap" class="hidden text-center mt-5">
+        <button id="notif-more" type="button" class="text-xs font-bold text-brand-700 bg-white border border-slate-200 hover:border-brand-300 hover:bg-brand-50 px-6 py-2.5 rounded-xl transition">Tải thêm</button>
     </div>
 
 </div>
@@ -63,23 +71,19 @@
     let notifications = [];
     let currentFilter = 'all';
 
-    const getIcon = (type) => {
-        if (type.startsWith('VERIFICATION_')) return '🛡️';
-        if (type.includes('JOB')) return '🔵';
-        if (type.includes('MESSAGE')) return '💬';
-        if (type.includes('REVIEW')) return '⭐';
-        if (type.includes('CONTRACT') || type === 'PAYMENT') return '📄';
-        return '🔔';
-    };
-
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const safeUrl = (u) => (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
     const getTypeCategory = (type) => {
         if (type.startsWith('VERIFICATION_')) return 'verification';
-        if (type.includes('JOB')) return 'job';
         if (type.includes('MESSAGE')) return 'message';
         if (type.includes('REVIEW')) return 'review';
-        if (type.includes('CONTRACT') || type === 'PAYMENT') return 'contract';
+        if (type.includes('JOB') || type.startsWith('PROPOSAL')) return 'job';
+        if (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION')) return 'contract';
         return 'other';
     };
+    const ICONS = {verification: '🛡️', job: '🔵', message: '💬', review: '⭐', contract: '📄', other: '🔔'};
+    const getIcon = (type) => ICONS[getTypeCategory(type)];
+    const syncBadges = () => { if (window.vtRefreshBadges) window.vtRefreshBadges(true); };
 
     function timeAgo(dateStr) {
         const date = new Date(dateStr + "Z"); // assumes UTC from backend
@@ -109,15 +113,15 @@
         list.classList.remove("hidden");
 
         list.innerHTML = filtered.map(n => `
-            <div data-id="${n.id}" data-url="${n.url || '#'}" data-is-read="${n.is_read}" class="notif-item block px-5 py-4 transition cursor-pointer ${n.is_read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/40 hover:bg-brand-50/70'}">
+            <div data-id="${n.id}" data-url="${esc(safeUrl(n.url))}" data-is-read="${n.is_read}" class="notif-item block px-5 py-4 transition cursor-pointer ${n.is_read ? 'bg-white hover:bg-slate-50' : 'bg-brand-50/40 hover:bg-brand-50/70'}">
                 <div class="flex gap-4">
                     <div class="text-2xl mt-0.5 shrink-0">${getIcon(n.type)}</div>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
-                            <h3 class="text-sm font-bold truncate ${n.is_read ? 'text-slate-700' : 'text-slate-900'}">${n.title}</h3>
+                            <h3 class="text-sm font-bold truncate ${n.is_read ? 'text-slate-700' : 'text-slate-900'}">${esc(n.title)}</h3>
                             ${!n.is_read ? '<span class="w-2 h-2 rounded-full bg-brand-500 shrink-0"></span>' : ''}
                         </div>
-                        <p class="text-sm break-words ${n.is_read ? 'text-slate-500' : 'text-slate-700 font-medium'} leading-snug mb-1.5">${n.message}</p>
+                        <p class="text-sm break-words ${n.is_read ? 'text-slate-500' : 'text-slate-700 font-medium'} leading-snug mb-1.5">${esc(n.message)}</p>
                         <span class="text-[11px] font-semibold text-slate-400">${timeAgo(n.created_at)}</span>
                     </div>
                 </div>
@@ -125,21 +129,31 @@
         `).join("");
     };
 
-    const loadNotifications = () => {
-        fetch("/api/notifications?page=1")
-            .then(r => r.json())
+    let page = 1, pages = 1;
+    const errBox = document.getElementById("notif-error");
+    const moreWrap = document.getElementById("notif-more-wrap");
+    const loadNotifications = (append) => {
+        errBox.classList.add("hidden");
+        if (!append) { loading.classList.remove("hidden"); list.classList.add("hidden"); empty.classList.add("hidden"); empty.style.display = "none"; }
+        fetch("/api/notifications?page=" + page, { credentials: 'same-origin' })
+            .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
             .then(data => {
                 loading.classList.add("hidden");
-                if (data.notifications) {
-                    notifications = data.notifications;
-                }
+                const items = data.notifications || [];
+                notifications = append ? notifications.concat(items) : items;
+                pages = data.pages || 1;
+                moreWrap.classList.toggle("hidden", page >= pages);
                 render();
             })
             .catch(err => {
                 console.error("Failed to load notifications", err);
                 loading.classList.add("hidden");
+                if (append) page = Math.max(1, page - 1);
+                errBox.classList.remove("hidden");
             });
     };
+    document.getElementById("notif-retry").addEventListener("click", () => loadNotifications(page > 1));
+    document.getElementById("notif-more").addEventListener("click", () => { page += 1; loadNotifications(true); });
 
     // Filters
     document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -182,43 +196,22 @@
             const dot = item.querySelector('.bg-brand-500');
             if (dot) dot.remove();
 
-            const badge = document.getElementById('notif-badge');
-            if (badge) {
-                let current = parseInt(badge.textContent);
-                if (!isNaN(current) && current > 0) {
-                    current--;
-                    if (current === 0) {
-                        badge.classList.add('hidden');
-                        badge.style.display = 'none';
-                    } else {
-                        badge.textContent = current;
-                    }
-                }
-            }
-
-            fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                .then(() => {
-                    if (url && url !== '#') window.location.href = url;
-                });
+            fetch(`/api/notifications/${id}/read`, { method: 'POST', credentials: 'same-origin' })
+                .then(() => { syncBadges(); })
+                .catch(() => { })
+                .finally(() => { if (url && url !== '#') window.location.href = url; });
         } else {
             if (url && url !== '#') window.location.href = url;
         }
     });
 
     markAllBtn.addEventListener('click', () => {
-        fetch('/api/notifications/read-all', { method: 'POST' })
-            .then(() => {
-                notifications.forEach(n => n.is_read = true);
-                render();
-                const badge = document.getElementById('notif-badge');
-                if (badge) {
-                    badge.classList.add('hidden');
-                    badge.style.display = 'none';
-                }
-            });
+        fetch('/api/notifications/read-all', { method: 'POST', credentials: 'same-origin' })
+            .then(r => { if (!r.ok) throw new Error(r.status); notifications.forEach(n => n.is_read = true); render(); syncBadges(); })
+            .catch(() => { errBox.classList.remove("hidden"); });
     });
 
-    loadNotifications();
+    loadNotifications(false);
 
 })();
 </script>

@@ -4198,94 +4198,135 @@ def get_direct_messages(other_user_id):
 @app.route('/api/direct-messages/<int:other_user_id>', methods=['POST'])
 @login_required
 def send_direct_message(other_user_id):
-    content = request.json.get('content', '').strip()
-    image_url = request.json.get('image_url', '').strip()
     me = session['user_id']
-    
-    if (not content and not image_url) or other_user_id == me:
-        return jsonify({'status': 'error'}), 400
-        
-    receiver = User.query.get(other_user_id)
-    if not receiver:
-        return jsonify({'status': 'error'}), 400
-        
-    msg = DirectMessage(
-        sender_id=me, receiver_id=other_user_id,
-        content=content or ('[Hình ảnh]' if image_url else ''),
-        image_url=image_url or None
-    )
-    db.session.add(msg)
+    data = request.get_json(silent=True) or {}
+    content = str(data.get('content') or '').strip()
+    image_url = str(data.get('image_url') or '').strip()
+    ok_msg, err = _validate_chat_payload(content, image_url, me)
+    if not ok_msg:
+        return jsonify({'status': 'error', 'message': err}), 400
+    if other_user_id == me:
+        return jsonify({'status': 'error', 'message': 'Không thể nhắn cho chính mình.'}), 400
+    receiver = db.session.get(User, other_user_id)
+    if not receiver or not receiver.is_active:
+        return jsonify({'status': 'error', 'message': 'Người nhận không tồn tại hoặc đã bị khóa.'}), 404
 
-    # Notify receiver
-    sender = User.query.get(me)
+    # sender luôn lấy từ phiên đăng nhập; không nhận sender_id từ client
+    msg = DirectMessage(sender_id=me, receiver_id=other_user_id,
+                        content=content or '[Hình ảnh]', image_url=image_url or None)
+    db.session.add(msg)
+    sender = db.session.get(User, me)
     if sender:
         from services.notifications import should_notify
         if should_notify(receiver, 'NEW_MESSAGE'):
             try:
                 create_notification(
-                    user_id=other_user_id,
-                    notification_type='NEW_MESSAGE',
-                    title='Bạn có tin nhắn mới',
+                    user_id=other_user_id, notification_type='NEW_MESSAGE', title='Bạn có tin nhắn mới',
                     message=f'{sender.name} đã gửi cho bạn một tin nhắn.',
-                    url=url_for('direct_chat', translator_user_id=me)
-                )
+                    url=url_for('messages_page', c=f'd:{me}'))
             except Exception as e:
                 print(f"Error creating notification: {e}")
-                pass
-
     db.session.commit()
-    return jsonify({'status': 'ok'})
+    return jsonify({'status': 'ok', 'id': msg.id})
 
 
 CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
+CHAT_TEXT_MAX = 2000
+CHAT_IMAGE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'chat_images')
+if os.environ.get('VERCEL') == '1' or _is_memory_db:
+    CHAT_IMAGE_FOLDER = '/tmp/chat_images'
+try:
+    os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
+except OSError:
+    CHAT_IMAGE_FOLDER = '/tmp/chat_images'
+    os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
+_CHAT_IMG_URL = re.compile(r'^/chat-image/(\d+)_[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$')
+_CHAT_IMG_LEGACY = re.compile(r'^/static/uploads/chat_images/[\w.\-]+$')
+_CHAT_IMG_DATA = re.compile(r'^data:image/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$')
+_IMG_MAGIC = {'png': (b'\x89PNG',), 'jpg': (b'\xff\xd8',), 'jpeg': (b'\xff\xd8',), 'gif': (b'GIF8',), 'webp': (b'RIFF',)}
+
 
 def allowed_chat_image(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in CHAT_IMAGE_EXTENSIONS
 
+
+def _validate_chat_payload(content, image_url, me):
+    """Kiểm tra nội dung/ảnh tin nhắn. Ảnh phải là ảnh do chính người gửi tải lên (hoặc dữ liệu cũ hợp lệ)."""
+    if not content and not image_url:
+        return False, 'Tin nhắn trống.'
+    if len(content) > CHAT_TEXT_MAX:
+        return False, f'Tin nhắn quá dài (tối đa {CHAT_TEXT_MAX} ký tự).'
+    if image_url:
+        m = _CHAT_IMG_URL.match(image_url)
+        if m:
+            if int(m.group(1)) != me:
+                return False, 'Ảnh không hợp lệ.'
+        elif _CHAT_IMG_LEGACY.match(image_url):
+            pass
+        elif _CHAT_IMG_DATA.match(image_url) and len(image_url) <= int(CHAT_IMAGE_MAX_BYTES * 1.4):
+            pass
+        else:
+            return False, 'Ảnh không hợp lệ.'
+    return True, ''
+
+
 @app.route('/api/chat/upload-image', methods=['POST'])
 @login_required
 def upload_chat_image():
-    """Upload ảnh cho chat. Trả về URL ảnh đã lưu."""
-    if 'image' not in request.files:
-        return jsonify({'status': 'error', 'message': 'No file provided'}), 400
-
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': 'No file selected'}), 400
-
+    """Tải ảnh cho chat. Kiểm tra loại + nội dung + dung lượng; lưu riêng tư, tên ngẫu nhiên."""
+    me = session['user_id']
+    if isinstance(me, str):
+        return jsonify({'status': 'error', 'message': 'Tài khoản không hỗ trợ tải ảnh.'}), 403
+    file = request.files.get('image')
+    if not file or file.filename == '':
+        return jsonify({'status': 'error', 'message': 'Chưa chọn tệp.'}), 400
     if not allowed_chat_image(file.filename):
-        return jsonify({'status': 'error', 'message': 'File type not allowed'}), 400
+        return jsonify({'status': 'error', 'message': 'Chỉ hỗ trợ ảnh PNG, JPG, GIF, WEBP.'}), 400
+    ext = file.filename.rsplit('.', 1)[1].lower()
+    data = file.read(CHAT_IMAGE_MAX_BYTES + 1)
+    if not data:
+        return jsonify({'status': 'error', 'message': 'Tệp rỗng.'}), 400
+    if len(data) > CHAT_IMAGE_MAX_BYTES:
+        return jsonify({'status': 'error', 'message': 'Ảnh vượt quá 5MB.'}), 400
+    if not data.startswith(_IMG_MAGIC[ext]):
+        return jsonify({'status': 'error', 'message': 'Nội dung tệp không phải ảnh hợp lệ.'}), 400
 
-    # Nếu đang chạy trên môi trường Vercel hoặc filesystem tạm / read-only:
-    # Trả về trực tiếp Base64 Data URI để lưu và hiển thị trực tiếp 100%,
-    # không phụ thuộc vào filesystem ephemeral của serverless.
     if os.environ.get('VERCEL') == '1' or app.config.get('UPLOAD_FOLDER') == '/tmp':
         import base64
-        ext = file.filename.rsplit('.', 1)[1].lower()
-        mime_map = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp'}
-        mime = mime_map.get(ext, 'image/jpeg')
-        file_bytes = file.read()
-        b64_str = base64.b64encode(file_bytes).decode('utf-8')
-        image_url = f"data:{mime};base64,{b64_str}"
-        return jsonify({'status': 'ok', 'image_url': image_url})
+        mime = {'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'gif': 'image/gif', 'webp': 'image/webp'}[ext]
+        return jsonify({'status': 'ok', 'image_url': f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"})
 
-    # Môi trường server thường / local: Lưu vào static/uploads/chat_images
-    chat_img_dir = os.path.join(basedir, 'static', 'uploads', 'chat_images')
-    try:
-        os.makedirs(chat_img_dir, exist_ok=True)
-    except OSError:
-        chat_img_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'chat_images')
-        os.makedirs(chat_img_dir, exist_ok=True)
+    name = f'{me}_{_uuid.uuid4().hex}.{ext}'
+    with open(os.path.join(CHAT_IMAGE_FOLDER, name), 'wb') as f:
+        f.write(data)
+    return jsonify({'status': 'ok', 'image_url': f'/chat-image/{name}'})
 
-    # Tạo tên file duy nhất
-    ext = file.filename.rsplit('.', 1)[1].lower()
-    unique_name = f"chat_{session['user_id']}_{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}.{ext}"
-    filename = secure_filename(unique_name)
-    filepath = os.path.join(chat_img_dir, filename)
-    file.save(filepath)
 
-    image_url = f'/static/uploads/chat_images/{filename}'
-    return jsonify({'status': 'ok', 'image_url': image_url})
+@app.route('/chat-image/<name>')
+@login_required
+def serve_private_chat_image(name):
+    """Ảnh chat riêng tư: chỉ người tải lên hoặc thành viên của hội thoại có ảnh đó mới xem được."""
+    m = re.match(r'^(\d+)_[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$', name)
+    me = session['user_id']
+    if not m or isinstance(me, str):
+        abort(404)
+    url = f'/chat-image/{name}'
+    allowed = int(m.group(1)) == me
+    if not allowed:
+        allowed = DirectMessage.query.filter(
+            DirectMessage.image_url == url,
+            db.or_(DirectMessage.sender_id == me, DirectMessage.receiver_id == me)).first() is not None
+    if not allowed:
+        cids = [c.id for c in Contract.query.filter(db.or_(Contract.hirer_id == me, Contract.translator_id == me)).all()]
+        allowed = bool(cids) and Message.query.filter(Message.image_url == url, Message.contract_id.in_(cids)).first() is not None
+    path = os.path.join(CHAT_IMAGE_FOLDER, name)
+    if not allowed or not os.path.exists(path):
+        abort(404)
+    resp = send_from_directory(CHAT_IMAGE_FOLDER, name)
+    resp.headers['X-Content-Type-Options'] = 'nosniff'
+    resp.headers['Cache-Control'] = 'private, max-age=3600'
+    return resp
 
 
 @app.route('/static/uploads/chat_images/<path:filename>')
@@ -4311,75 +4352,70 @@ def messages_page():
 @app.route('/api/messages/conversations')
 @login_required
 def api_conversations():
-    """Return all conversations (DirectMessage + Contract Message) for current user."""
+    """Danh sách hội thoại của người dùng: tin nhắn riêng (theo người) + tin nhắn dự án (theo hợp đồng).
+
+    Mỗi hội thoại là một mục riêng để tổng số chưa đọc luôn khớp với badge trên header.
+    Hỗ trợ ?q= để tìm theo tên, dự án hoặc nội dung tin nhắn cuối.
+    """
     me = session['user_id']
-    conversations = {}  # keyed by other_user_id
+    if isinstance(me, str):
+        return jsonify([])
+    q = (request.args.get('q') or '').strip().lower()
+    items = []
 
-    # ── 1. DirectMessage conversations ─────────────────────────────────────────
-    all_dm = DirectMessage.query.filter(
-        db.or_(DirectMessage.sender_id == me, DirectMessage.receiver_id == me)
-    ).order_by(DirectMessage.created_at.desc()).all()
+    def fmt(dt):
+        return dt.strftime('%H:%M %d/%m') if dt else ''
 
-    for dm in all_dm:
-        other_id = dm.receiver_id if dm.sender_id == me else dm.sender_id
-        if other_id not in conversations:
-            other = User.query.get(other_id)
-            if not other:
-                continue
-            conversations[other_id] = {
-                'type': 'direct',
-                'other_user_id': other_id,
-                'other_name': other.name,
-                'other_initial': other.name[0].upper(),
-                'last_message': dm.content,
-                'last_time': dm.created_at,
-                'last_time_str': dm.created_at.strftime('%H:%M %d/%m'),
-                'unread_count': 0,
-                'url': url_for('direct_chat', translator_user_id=other_id),
-            }
-        # Count unread DMs from that person
+    # ── 1. Tin nhắn riêng ──
+    dms = (DirectMessage.query.filter(db.or_(DirectMessage.sender_id == me, DirectMessage.receiver_id == me))
+           .order_by(DirectMessage.created_at.desc(), DirectMessage.id.desc()).all())
+    last_dm, unread_dm = {}, {}
+    for dm in dms:
+        other = dm.receiver_id if dm.sender_id == me else dm.sender_id
+        last_dm.setdefault(other, dm)
         if dm.receiver_id == me and not dm.is_read:
-            conversations[other_id]['unread_count'] = conversations[other_id].get('unread_count', 0) + 1
-
-    # ── 2. Contract Message conversations ──────────────────────────────────────
-    my_contracts = Contract.query.filter(
-        db.or_(Contract.hirer_id == me, Contract.translator_id == me)
-    ).all()
-
-    for contract in my_contracts:
-        other_id = contract.translator_id if contract.hirer_id == me else contract.hirer_id
-        last_msg = Message.query.filter_by(contract_id=contract.id).order_by(Message.created_at.desc()).first()
-        if not last_msg:
+            unread_dm[other] = unread_dm.get(other, 0) + 1
+    users = {u.id: u for u in User.query.filter(User.id.in_(list(last_dm))).all()} if last_dm else {}
+    for other, dm in last_dm.items():
+        u = users.get(other)
+        if not u:
             continue
+        items.append({'key': f'd:{other}', 'type': 'direct', 'other_user_id': other, 'other_name': u.name,
+                      'other_initial': (u.name[:1] or '?').upper(), 'project': '',
+                      'last_message': dm.content or '', 'last_time': dm.created_at, 'last_time_str': fmt(dm.created_at),
+                      'unread_count': unread_dm.get(other, 0), 'url': url_for('direct_chat', translator_user_id=other)})
 
-        other = User.query.get(other_id)
-        if not other:
-            continue
+    # ── 2. Tin nhắn theo dự án (hợp đồng) ──
+    contracts = Contract.query.filter(db.or_(Contract.hirer_id == me, Contract.translator_id == me)).all()
+    cmap = {c.id: c for c in contracts}
+    if cmap:
+        last_ids = dict(db.session.query(Message.contract_id, db.func.max(Message.id))
+                        .filter(Message.contract_id.in_(list(cmap))).group_by(Message.contract_id).all())
+        unread_c = dict(db.session.query(Message.contract_id, db.func.count(Message.id))
+                        .filter(Message.contract_id.in_(list(cmap)), Message.sender_id != me, Message.is_read == False)
+                        .group_by(Message.contract_id).all())
+        last_msgs = {m.id: m for m in Message.query.filter(Message.id.in_(list(last_ids.values()))).all()} if last_ids else {}
+        from services.projects import project_title
+        for cid, mid in last_ids.items():
+            c, m = cmap[cid], last_msgs.get(mid)
+            other = c.translator_id if c.hirer_id == me else c.hirer_id
+            u = db.session.get(User, other)
+            if not u or not m:
+                continue
+            url = url_for('project_detail', contract_id=cid) if c.hirer_id == me else url_for('transaction_detail', contract_id=cid)
+            items.append({'key': f'c:{cid}', 'type': 'contract', 'other_user_id': other, 'other_name': u.name,
+                          'other_initial': (u.name[:1] or '?').upper(), 'project': project_title(c), 'contract_id': cid,
+                          'last_message': m.content or '', 'last_time': m.created_at, 'last_time_str': fmt(m.created_at),
+                          'unread_count': unread_c.get(cid, 0), 'url': url})
 
-        # Use max(last_time) if this person already exists from DM
-        if other_id not in conversations or last_msg.created_at > conversations[other_id]['last_time']:
-            unread = Message.query.filter_by(contract_id=contract.id, is_read=False).filter(
-                Message.sender_id != me
-            ).count()
-            conversations[other_id] = {
-                'type': 'contract',
-                'other_user_id': other_id,
-                'other_name': other.name,
-                'other_initial': other.name[0].upper(),
-                'last_message': last_msg.content,
-                'last_time': last_msg.created_at,
-                'last_time_str': last_msg.created_at.strftime('%H:%M %d/%m'),
-                'unread_count': unread,
-                'url': url_for('transaction_detail', contract_id=contract.id),
-                'contract_id': contract.id,
-            }
-
-    # Sort by last_time descending, strip datetime object before json
-    sorted_convs = sorted(conversations.values(), key=lambda x: x['last_time'], reverse=True)
-    for c in sorted_convs:
-        del c['last_time']
-
-    return jsonify(sorted_convs)
+    if q:
+        items = [i for i in items if q in (i['other_name'] or '').lower() or q in (i['project'] or '').lower()
+                 or q in (i['last_message'] or '').lower()]
+    items.sort(key=lambda x: x['last_time'] or datetime.min, reverse=True)
+    for i in items:
+        i['updated_at'] = i['last_time'].isoformat() if i['last_time'] else None
+        del i['last_time']
+    return jsonify(items)
 
 @app.route('/api/messages/unread-count')
 @login_required
@@ -4820,6 +4856,13 @@ def post_job():
         return _render_job_form(hirer_verified=can_post)
 
     if not can_post:
+        try:
+            create_notification(user_id=user.id, notification_type='VERIFICATION_REQUIRED',
+                                title='Cần xác minh tài khoản để đăng yêu cầu', message=cannot_post_reason or 'Hoàn tất xác minh người đăng tuyển để đăng yêu cầu.',
+                                url=url_for('account_profile', tab='hirer_profile'))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         flash(cannot_post_reason, 'error')
         return redirect(url_for('account_profile', tab='hirer_profile'))
 
@@ -5496,6 +5539,11 @@ def payment_mockup(contract_id):
                 contract_id=contract.id, user_id=contract.hirer_id,
                 amount=contract.agreed_price, status='escrow_pending',
                 payment_method='mockup'))
+            create_notification(
+                user_id=contract.translator_id, notification_type='PAYMENT_RECEIVED',
+                title='Khách đã thanh toán vào Escrow',
+                message=f'{contract.hirer.name} đã thanh toán {contract.agreed_price:,} VND vào Escrow. Bạn có thể bắt đầu thực hiện.',
+                url=url_for('transaction_detail', contract_id=contract.id), related_contract_id=contract.id)
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -5587,17 +5635,15 @@ def transaction_detail(contract_id):
             record_delivery(contract, session['user_id'])
             db.session.flush()
 
-            from services.notifications import should_notify
-            hirer = User.query.get(contract.hirer_id)
-            if hirer and should_notify(hirer, 'NEW_MESSAGE'):
-                create_notification(
-                    user_id=contract.hirer_id,
-                    notification_type='NEW_MESSAGE',
-                    title='Bạn có tin nhắn mới',
-                    message=f'{contract.translator.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
-                    url=url_for('transaction_detail', contract_id=contract.id),
-                    related_contract_id=contract.id
-                )
+            from services.projects import project_title
+            create_notification(
+                user_id=contract.hirer_id,
+                notification_type='DELIVERABLE_UPLOADED',
+                title='Có tệp bàn giao mới — cần nghiệm thu',
+                message=f'{contract.translator.name} đã bàn giao tệp "{filename}" cho "{project_title(contract)}". Vui lòng kiểm tra và nghiệm thu.',
+                url=url_for('project_detail', contract_id=contract.id),
+                related_contract_id=contract.id
+            )
 
             db.session.commit()
             flash('Đã gửi tài liệu thành công.', 'success')
@@ -5861,55 +5907,40 @@ def send_message(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(sender_id, contract)
 
-    content = request.json.get('content', '').strip()
-    image_url = request.json.get('image_url', '').strip()
-    if content or image_url:
-        # TASK 8.3: QUÉT TIN NHẮN PHÁT HIỆN LIÊN HỆ NGOÀI / THANH TOÁN NGOÀI (C1/C2)
-        from services.job_moderation import scan_text_violations
-        viols = scan_text_violations(content)
-        has_warning = False
-        warning_msg = None
-        if viols:
-            has_warning = True
-            warning_msg = 'Lưu ý: Tin nhắn chứa thông tin liên hệ hoặc thanh toán ngoài nền tảng. VietTranslate khuyến cáo chỉ giao dịch qua hệ thống để đảm bảo an toàn Escrow.'
+    data = request.get_json(silent=True) or {}
+    content = str(data.get('content') or '').strip()
+    image_url = str(data.get('image_url') or '').strip()
+    ok_msg, err = _validate_chat_payload(content, image_url, sender_id)
+    if not ok_msg:
+        return jsonify({'status': 'error', 'message': err}), 400
 
-        db.session.add(Message(
-            contract_id=contract_id, sender_id=sender_id,
-            content=content or ('[Hình ảnh]' if image_url else ''),
-            image_url=image_url or None
-        ))
-        db.session.flush()
+    # TASK 8.3: QUÉT TIN NHẮN PHÁT HIỆN LIÊN HỆ NGOÀI / THANH TOÁN NGOÀI (C1/C2)
+    from services.job_moderation import scan_text_violations
+    viols = scan_text_violations(content)
+    has_warning = bool(viols)
+    warning_msg = ('Lưu ý: Tin nhắn chứa thông tin liên hệ hoặc thanh toán ngoài nền tảng. VietTranslate khuyến cáo '
+                   'chỉ giao dịch qua hệ thống để đảm bảo an toàn Escrow.') if viols else None
 
-        if sender_id == contract.hirer_id:
-            receiver_id = contract.translator_id
-        else:
-            receiver_id = contract.hirer_id
-            
-        receiver = User.query.get(receiver_id)
-        if receiver:
-            from services.notifications import should_notify
-            sender = User.query.get(sender_id)
-            if should_notify(receiver, 'NEW_MESSAGE'):
-                try:
-                    create_notification(
-                        user_id=receiver_id,
-                        notification_type='NEW_MESSAGE',
-                        title='Bạn có tin nhắn mới',
-                        message=f'{sender.name} đã gửi cho bạn một tin nhắn trong hợp đồng.',
-                        url=url_for('transaction_detail', contract_id=contract.id),
-                        related_contract_id=contract.id
-                    )
-                except Exception as e:
-                    print(f"Error creating notification: {e}")
-                    pass
+    msg = Message(contract_id=contract_id, sender_id=sender_id,
+                  content=content or '[Hình ảnh]', image_url=image_url or None)
+    db.session.add(msg)
+    db.session.flush()
 
-        db.session.commit()
-        return jsonify({
-            'status': 'ok',
-            'has_warning': has_warning,
-            'warning_message': warning_msg
-        })
-    return jsonify({'status': 'error'}), 400
+    receiver_id = contract.translator_id if sender_id == contract.hirer_id else contract.hirer_id
+    receiver = db.session.get(User, receiver_id)
+    sender = db.session.get(User, sender_id)
+    if receiver and sender:
+        from services.notifications import should_notify
+        if should_notify(receiver, 'NEW_MESSAGE'):
+            try:
+                create_notification(
+                    user_id=receiver_id, notification_type='NEW_MESSAGE', title='Bạn có tin nhắn mới',
+                    message=f'{sender.name} đã gửi cho bạn một tin nhắn trong dự án.',
+                    url=url_for('messages_page', c=f'c:{contract.id}'), related_contract_id=contract.id)
+            except Exception as e:
+                print(f"Error creating notification: {e}")
+    db.session.commit()
+    return jsonify({'status': 'ok', 'id': msg.id, 'has_warning': has_warning, 'warning_message': warning_msg})
 
 
 # ─── ADMIN AUTH ROUTES ───────────────────────────────────────────────────────
@@ -6863,6 +6894,11 @@ def admin_refund_payment(payment_id):
     p.status = 'refunded'
     if p.contract:
         p.contract.status = 'cancelled' # hoặc trạng thái tương ứng
+        for uid_, url_ in ((p.contract.hirer_id, url_for('project_detail', contract_id=p.contract.id)),
+                           (p.contract.translator_id, url_for('transaction_detail', contract_id=p.contract.id))):
+            create_notification(user_id=uid_, notification_type='PAYMENT_REFUNDED', title='Giao dịch được hoàn tiền',
+                                message=f'Giao dịch của hợp đồng #{p.contract.id} đã được hoàn tiền và hợp đồng bị hủy.',
+                                url=url_, related_contract_id=p.contract.id)
 
     _audit_log(
         action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
@@ -7263,7 +7299,18 @@ def admin_search():
 # ─── NOTIFICATION API ─────────────────────────────────────────────────────────
 
 def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None, related_proposal_id=None):
+    """Tạo thông báo. Nếu đã có thông báo CHƯA ĐỌC cùng người nhận/loại/liên kết thì làm mới thay vì tạo thêm
+    (một sự kiện xử lý nhiều lần, hoặc nhiều tin nhắn liên tiếp, chỉ cho một thông báo)."""
     from models import Notification
+    existing = Notification.query.filter_by(
+        user_id=user_id, type=notification_type, is_read=False, url=url,
+        related_job_id=related_job_id, related_contract_id=related_contract_id,
+        related_review_id=related_review_id, related_proposal_id=related_proposal_id).first()
+    if existing:
+        existing.title = title
+        existing.message = message
+        existing.created_at = datetime.utcnow()
+        return existing
     notification = Notification(
         user_id=user_id,
         type=notification_type,
