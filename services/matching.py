@@ -89,6 +89,7 @@ def calculate_job_match_score(translator, job, lang='vi'):
     reasons = []
     
     # 1. Language (35 points)
+    int_pref = getattr(translator, 'interpreter_preference', None)
     pref = translator.preference
     prof = translator.profile
     
@@ -97,7 +98,26 @@ def calculate_job_match_score(translator, job, lang='vi'):
     exact_pair = f"{source_norm}>{target_norm}".replace(' ', '')
     reverse_pair = f"{target_norm}>{source_norm}".replace(' ', '')
     
-    if pref and getattr(pref, 'language_pairs', None):
+    if int_pref and int_pref.get_languages_list():
+        int_pairs = [normalize_text(p.replace('->', '>').replace('➔', '>')).replace(' ', '') for p in int_pref.get_languages_list()]
+        if exact_pair in int_pairs:
+            score += 35
+            reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
+        elif reverse_pair in int_pairs:
+            score += 25
+            reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
+        else:
+            langs = set()
+            for p in int_pairs:
+                if '>' in p:
+                    for part in p.split('>'):
+                        langs.add(part)
+                else:
+                    langs.add(p)
+            if source_norm in langs or target_norm in langs:
+                score += 15
+                reasons.append(t_lookup('match_reasons.partial_language', lang))
+    elif pref and getattr(pref, 'language_pairs', None):
         pairs_str = pref.language_pairs
         pairs = [normalize_text(p).replace(' ', '') for p in pairs_str.split(',')]
         
@@ -203,6 +223,12 @@ def calculate_job_match_score(translator, job, lang='vi'):
     if job_loc_norm:
         if "online" in job_loc_norm or "tu xa" in job_loc_norm or "toan quoc" in job_loc_norm:
             reasons.append(t_lookup('match_reasons.remote_work', lang))
+        elif int_pref and int_pref.get_locations_list():
+            matched_loc = any(normalize_text(loc) in job_loc_norm or job_loc_norm in normalize_text(loc) or 'toan quoc' in normalize_text(loc) for loc in int_pref.get_locations_list())
+            if matched_loc:
+                reasons.append(t_lookup('match_reasons.location_match', lang))
+            elif int_pref.work_mode != 'online':
+                loc_score = 6
         elif pref and pref.city:
             if canonical_city(pref.city) and canonical_city(pref.city) == canonical_city(job_loc_norm):
                 reasons.append(t_lookup('match_reasons.location_match', lang))

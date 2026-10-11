@@ -169,8 +169,8 @@ function resendVerificationEmail() {
                             </div>
                             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">5.2</span>
                         </button>
-                        <button type="button" onclick="switchTab('preferences', this)"
-                            class="w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'preferences' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                        <button type="button" id="tab-btn-preferences" onclick="switchTab('preferences', this)"
+                            class="tab-btn w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'preferences' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
                             <div class="flex items-center gap-2.5">
                                 <svg class="w-4 h-4 {% if active_tab == 'preferences' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -1509,61 +1509,546 @@ function resendVerificationEmail() {
                     </div>
                 </div>
 
-                <!-- TAB 3 PLACEHOLDER: TIÊU CHÍ NHẬN VIỆC (MỤC 5.4) -->
+                <!-- TAB 3: TIÊU CHÍ NHẬN VIỆC & SMART MATCHING (MỤC 5.4) -->
+                {% set pref = user.interpreter_preference %}
+                {% set pref_langs = pref.get_languages_list() if pref else [] %}
+                {% set pref_specs = pref.get_specializations_list() if pref else [] %}
+                {% set pref_work_mode = pref.work_mode if pref else 'both' %}
+                {% set pref_min_rate = (pref.min_rate | int) if (pref and pref.min_rate) else '' %}
+                {% set pref_max_rate = (pref.max_rate | int) if (pref and pref.max_rate) else '' %}
+                {% set pref_allow_outside = pref.allow_outside_rate if pref else false %}
+                {% set pref_hours = pref.get_available_hours_list() if pref else [] %}
+                {% set pref_locations = pref.get_locations_list() if pref else [] %}
+
                 <div id="tab-preferences" class="tab-panel {% if active_tab == 'preferences' %}active{% endif %} space-y-6">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <!-- Header -->
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-500/20">
                                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h2 class="text-lg font-bold text-slate-900">Tiêu chí nhận việc & Cấu hình khớp việc</h2>
-                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Mục 5.4</span>
+                                        <h2 class="text-lg font-bold text-slate-900">Tiêu chí nhận việc & Smart Matching</h2>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Mục 5.4</span>
                                     </div>
-                                    <p class="text-xs text-slate-500 mt-0.5">Thiết lập điều kiện nhận việc thông minh: cặp ngôn ngữ ưu tiên, hình thức làm việc, khu vực địa lý và khoảng giá mong muốn (Model InterpreterPreference).</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">Thiết lập các điều kiện nhận việc để hệ thống tự động ghép nối và gợi ý các cơ hội việc làm chuẩn xác nhất.</p>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200/60 shrink-0">
-                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                                Sẵn sàng triển khai chi tiết
-                            </span>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200 shrink-0">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Smart Matching đang kích hoạt
+                                </span>
+                            </div>
                         </div>
 
-                        <!-- 3 Phân khu tiêu chí Mục 5.4 -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
-                            <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.4.1 Trạng thái sẵn sàng</span>
-                                <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs">
-                                    <span class="text-slate-500 block mb-1">Tình trạng nhận việc</span>
-                                    <span class="font-bold text-emerald-700 flex items-center gap-1.5">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Sẵn sàng nhận dự án mới
+                        <!-- RÀNG BUỘC NGHIỆP VỤ BANNER -->
+                        <div class="mt-6 p-4 rounded-xl bg-gradient-to-r from-amber-50 via-amber-50/60 to-yellow-50 border border-amber-200/90 text-xs text-amber-900 flex items-start gap-3 shadow-xs">
+                            <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300/80 mt-0.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="font-bold text-amber-950 text-sm">Ràng buộc nghiệp vụ quan trọng</div>
+                                <p class="text-amber-800 leading-relaxed">
+                                    Các tiêu chí thiết lập dưới đây chỉ được sử dụng để <strong>gợi ý công việc mới phù hợp (Smart Matching)</strong> và gửi thông báo tới bạn. 
+                                    Việc cập nhật tiêu chí <strong>tuyệt đối không tự động hủy hay thay đổi</strong> các lịch ca làm việc hoặc hợp đồng đã được xác nhận trước đó.
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- 4 Mini Stats Overview -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-6">
+                            <div class="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/70">
+                                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Cặp ngôn ngữ</span>
+                                <span class="text-lg font-black text-slate-800 mt-1 block" id="stat-lang-count">{{ pref_langs | length }} <span class="text-xs font-normal text-slate-500">cặp</span></span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/70">
+                                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Lĩnh vực sẵn sàng</span>
+                                <span class="text-lg font-black text-slate-800 mt-1 block" id="stat-spec-count">{{ pref_specs | length }} <span class="text-xs font-normal text-slate-500">lĩnh vực</span></span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/70">
+                                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Hình thức</span>
+                                <span class="text-sm font-black text-emerald-700 mt-1 block" id="stat-work-mode">
+                                    {% if pref_work_mode == 'both' %}Trực tiếp & Từ xa
+                                    {% elif pref_work_mode == 'offline' %}Trực tiếp (Onsite)
+                                    {% else %}Từ xa (Online){% endif %}
+                                </span>
+                            </div>
+                            <div class="p-3.5 bg-slate-50/80 rounded-xl border border-slate-200/70">
+                                <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Kỳ vọng thù lao</span>
+                                <span class="text-sm font-black text-brand-700 mt-1 block" id="stat-budget-range">
+                                    {% if pref_min_rate or pref_max_rate %}
+                                        {{ (pref_min_rate or 0) | string }} - {{ (pref_max_rate or '∞') | string }}
+                                    {% else %}Thỏa thuận{% endif %}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- FORM CÀI ĐẶT TIÊU CHÍ -->
+                        <form id="form-job-preferences" onsubmit="handleSavePreferences(event)" class="mt-8 space-y-8">
+                            <input type="hidden" name="action" value="save_preferences">
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- MỤC 1: CẶP NGÔN NGỮ MONG MUỐN NHẬN -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 sm:p-6 space-y-5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black">1</div>
+                                        <div>
+                                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Cặp ngôn ngữ mong muốn nhận việc</h3>
+                                            <p class="text-xs text-slate-500">Ưu tiên thông báo khi có yêu cầu phiên dịch thuộc các cặp ngôn ngữ này.</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-semibold text-slate-500">
+                                        Đã chọn: <strong class="text-brand-600" id="selected-langs-count">{{ pref_langs | length }}</strong> cặp
                                     </span>
                                 </div>
-                            </div>
-                            <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.4.2 Hình thức làm việc</span>
-                                <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs">
-                                    <span class="text-slate-500 block mb-1">Phương thức ưu tiên</span>
-                                    <span class="font-bold text-slate-800">Linh hoạt (Trực tiếp & Từ xa)</span>
-                                </div>
-                            </div>
-                            <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.4.3 Khoảng thù lao mong muốn</span>
-                                <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs">
-                                    <span class="text-slate-500 block mb-1">Ngân sách kỳ vọng</span>
-                                    <span class="font-bold text-brand-700">Tối thiểu: Thỏa thuận</span>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Placeholder alert -->
-                        <div class="mt-6 p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-3">
-                            <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Khung giao diện <strong>Tab 3: Tiêu chí nhận việc</strong> đã sẵn sàng. Biểu mẫu thiết lập tiêu chí chi tiết và thuật toán gợi ý khớp việc sẽ được triển khai đầy đủ ở prompt tiếp theo.</span>
-                        </div>
+                                <!-- 1.1 Tự động nạp danh sách từ Tab Năng lực (Chọn nhanh) -->
+                                <div class="space-y-2.5">
+                                    <div class="flex items-center justify-between">
+                                        <label class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            Cặp ngôn ngữ đã khai báo ở Tab Năng lực & Bảng giá (Nhấn để chọn nhanh):
+                                        </label>
+                                        <a href="javascript:void(0)" onclick="switchTab('services')" class="text-[11px] font-bold text-brand-600 hover:text-brand-800 underline">Quản lý biểu phí (Tab 5.2) →</a>
+                                    </div>
+
+                                    {% if declared_language_pairs %}
+                                    <div class="flex flex-wrap gap-2" id="declared-chips-container">
+                                        {% for item in declared_language_pairs %}
+                                        <button type="button" 
+                                            onclick="toggleLanguagePair('{{ item.pair }}')"
+                                            id="declared-chip-{{ loop.index }}"
+                                            data-pair="{{ item.pair }}"
+                                            class="declared-chip inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer {% if item.pair in pref_langs %}bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-200/60{% else %}bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50{% endif %}">
+                                            <span class="chip-status-icon">{% if item.pair in pref_langs %}✓{% else %}+{% endif %}</span>
+                                            <span>{{ item.pair }}</span>
+                                            {% if item.hourly_rate %}
+                                            <span class="text-[10px] font-normal px-1.5 py-0.2 rounded bg-slate-100 text-slate-600">{{ item.hourly_rate }}/h</span>
+                                            {% endif %}
+                                        </button>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <div class="p-3 rounded-xl bg-slate-100/80 border border-slate-200 text-xs text-slate-600 flex items-center justify-between">
+                                        <span>Bạn chưa khai báo gói dịch vụ nào tại <strong>Tab Năng lực & Bảng giá</strong>.</span>
+                                        <button type="button" onclick="switchTab('services')" class="text-xs font-bold text-brand-600 hover:underline">Thêm biểu phí ngay</button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+
+                                <!-- 1.2 Thêm cặp ngôn ngữ tùy chọn khác -->
+                                <div class="pt-2">
+                                    <label class="text-xs font-bold text-slate-700 block mb-2">Hoặc thêm cặp ngôn ngữ khác ngoài danh mục hiện tại:</label>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <select id="quick-add-source" class="text-xs rounded-xl border-slate-200 bg-white px-3 py-2 text-slate-800 font-medium focus:ring-brand-500 focus:border-brand-500">
+                                            <option value="">-- Ngôn ngữ nguồn --</option>
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}" {% if lang.name == 'Tiếng Việt' %}selected{% endif %}>{{ lang.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                        <select id="quick-add-target" class="text-xs rounded-xl border-slate-200 bg-white px-3 py-2 text-slate-800 font-medium focus:ring-brand-500 focus:border-brand-500">
+                                            <option value="">-- Ngôn ngữ đích --</option>
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}" {% if lang.name == 'Tiếng Anh' %}selected{% endif %}>{{ lang.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <button type="button" onclick="addCustomLanguagePair()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs">
+                                            + Thêm vào danh sách nhận việc
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- 1.3 Danh sách cặp ngôn ngữ đã chọn & CẢNH BÁO MÀU VÀNG NẾU THIẾU BIỂU PHÍ -->
+                                <div class="pt-3 border-t border-slate-200/60">
+                                    <div class="text-xs font-bold text-slate-700 mb-2">Danh sách cặp ngôn ngữ mong muốn đã chọn:</div>
+                                    <div id="selected-languages-list" class="space-y-2">
+                                        {% if pref_langs %}
+                                            {% set declared_pairs_raw = declared_language_pairs | map(attribute='pair') | list %}
+                                            {% for pair in pref_langs %}
+                                                {% set has_fee = pair in declared_pairs_raw %}
+                                                <div class="p-3 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-2 {% if has_fee %}bg-white border-slate-200 hover:border-slate-300{% else %}bg-amber-50/70 border-amber-300{% endif %}">
+                                                    <div class="flex items-center gap-2 flex-wrap">
+                                                        <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">{{ loop.index }}</span>
+                                                        <span class="font-bold text-xs sm:text-sm text-slate-900">{{ pair }}</span>
+                                                        {% if has_fee %}
+                                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                                ✓ Đã có biểu phí tại Tab Năng lực
+                                                            </span>
+                                                        {% else %}
+                                                            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                                                ⚠️ Bạn chưa khai báo biểu phí cho ngôn ngữ này tại mục Năng lực
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="flex items-center gap-2 self-end sm:self-center">
+                                                        {% if not has_fee %}
+                                                            <button type="button" onclick="switchTab('services')" class="text-[11px] font-bold text-amber-900 underline hover:text-brand-700">
+                                                                Bổ sung biểu phí ngay →
+                                                            </button>
+                                                        {% endif %}
+                                                        <button type="button" onclick="removeLanguagePair('{{ pair }}')" class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" title="Xóa cặp ngôn ngữ này">
+                                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <div class="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500 bg-white">
+                                                Chưa có cặp ngôn ngữ nào được chọn. Nhấn vào các cặp ngôn ngữ ở trên hoặc thêm mới để bắt đầu.
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Cảnh báo màu vàng tổng quát -->
+                                    <div id="missing-fee-global-warning" class="mt-3 p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 hidden flex items-start gap-2.5">
+                                        <svg class="w-4 h-4 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                        <div>
+                                            <span class="font-bold text-amber-950">Lưu ý về biểu phí:</span>
+                                            <span id="missing-fee-warning-text">Bạn đã chọn cặp ngôn ngữ chưa khai báo biểu phí tại mục Năng lực. Để khách hàng xem được mức giá tham khảo của bạn, hãy cập nhật biểu phí tương ứng.</span>
+                                            <button type="button" onclick="switchTab('services')" class="text-brand-700 font-bold underline ml-1 hover:text-brand-900">Mở Tab Năng lực & Bảng giá →</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- MỤC 2: LĨNH VỰC SẴN SÀNG NHẬN VIỆC (CHECKBOX TAGS) -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 sm:p-6 space-y-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-black">2</div>
+                                        <div>
+                                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Lĩnh vực sẵn sàng nhận việc</h3>
+                                            <p class="text-xs text-slate-500">Chọn các chuyên ngành và hình thức sự kiện mà bạn có kinh nghiệm và sẵn sàng đảm nhận.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <button type="button" onclick="selectAllSpecializations(true)" class="text-brand-600 font-bold hover:underline">Chọn tất cả</button>
+                                        <span class="text-slate-300">|</span>
+                                        <button type="button" onclick="selectAllSpecializations(false)" class="text-slate-500 hover:text-slate-700">Bỏ chọn</button>
+                                    </div>
+                                </div>
+
+                                <!-- Checkbox tags grid -->
+                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5" id="spec-tags-grid">
+                                    {% set standard_specs = [
+                                        'Đàm phán thương mại',
+                                        'Hội thảo & Hội nghị',
+                                        'Khảo sát Nhà máy & Kỹ thuật',
+                                        'Du lịch & Tháp tùng',
+                                        'Y tế & Chăm sóc sức khỏe',
+                                        'Pháp lý & Tòa án',
+                                        'Tài chính & Ngân hàng',
+                                        'Công nghệ thông tin (IT)',
+                                        'Giáo dục & Đào tạo',
+                                        'Triển lãm & Sự kiện',
+                                        'Hợp tác kinh doanh quốc tế',
+                                        'Xây dựng & Kiến trúc'
+                                    ] %}
+                                    {% for spec in standard_specs %}
+                                    <label class="spec-checkbox-label relative flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition {% if spec in pref_specs %}bg-brand-50/60 border-brand-300 text-brand-900 font-bold shadow-xs{% else %}bg-white border-slate-200 text-slate-700 font-medium hover:border-slate-300 hover:bg-slate-50{% endif %}">
+                                        <input type="checkbox" name="specializations" value="{{ spec }}" class="spec-checkbox rounded text-brand-600 focus:ring-brand-500 w-4 h-4" {% if spec in pref_specs %}checked{% endif %} onchange="updateSpecTagStyle(this)">
+                                        <span class="text-xs leading-tight">{{ spec }}</span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Thêm lĩnh vực tùy chỉnh khác -->
+                                <div class="pt-2 flex items-center gap-2">
+                                    <input type="text" id="custom-spec-input" placeholder="Nhập lĩnh vực khác (VD: Năng lượng tái tạo, Hàng không...)" class="text-xs rounded-xl border-slate-200 px-3.5 py-2 w-full max-w-sm text-slate-800 placeholder-slate-400 focus:ring-brand-500 focus:border-brand-500">
+                                    <button type="button" onclick="addCustomSpecialization()" class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer">
+                                        + Thêm tag
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- MỤC 3: HÌNH THỨC & KHU VỰC NHẬN VIỆC TRỰC TIẾP -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 sm:p-6 space-y-5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-black">3</div>
+                                        <div>
+                                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Hình thức làm việc & Khu vực nhận việc trực tiếp</h3>
+                                            <p class="text-xs text-slate-500">Lựa chọn hình thức phiên dịch và địa bàn bạn có thể di chuyển làm việc trực tiếp.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Checkboxes Trực tiếp (Offline) / Từ xa (Online) -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <!-- Option Trực tiếp -->
+                                    <label class="work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition {% if pref_work_mode in ('both', 'offline') %}bg-teal-50/50 border-teal-300 text-teal-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}" id="card-mode-offline">
+                                        <input type="checkbox" id="check-mode-offline" name="mode_offline" value="1" class="mt-0.5 rounded text-teal-600 focus:ring-teal-500 w-4 h-4" {% if pref_work_mode in ('both', 'offline') %}checked{% endif %} onchange="handleWorkModeChange()">
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-bold text-xs sm:text-sm text-slate-900">Trực tiếp (Offline / Onsite)</span>
+                                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-100 text-teal-800">Tại điểm hẹn</span>
+                                            </div>
+                                            <p class="text-xs text-slate-500 mt-1">Phiên dịch tại hội trường, văn phòng công ty, nhà máy, xưởng sản xuất hoặc tháp tùng trực tiếp.</p>
+                                        </div>
+                                    </label>
+
+                                    <!-- Option Từ xa -->
+                                    <label class="work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition {% if pref_work_mode in ('both', 'online') %}bg-blue-50/50 border-blue-300 text-blue-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}" id="card-mode-online">
+                                        <input type="checkbox" id="check-mode-online" name="mode_online" value="1" class="mt-0.5 rounded text-blue-600 focus:ring-blue-500 w-4 h-4" {% if pref_work_mode in ('both', 'online') %}checked{% endif %} onchange="handleWorkModeChange()">
+                                        <div>
+                                            <div class="flex items-center gap-2">
+                                                <span class="font-bold text-xs sm:text-sm text-slate-900">Từ xa (Online / Remote)</span>
+                                                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800">Trực tuyến</span>
+                                            </div>
+                                            <p class="text-xs text-slate-500 mt-1">Phiên dịch trực tuyến qua Zoom, Microsoft Teams, Google Meet, điện thoại hoặc nền tảng số.</p>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <!-- KHU VỰC NHẬN VIỆC TRỰC TIẾP -->
+                                <div id="offline-locations-section" class="p-4 rounded-xl bg-white border border-slate-200/80 space-y-3 transition-all duration-300">
+                                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                        <label class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                            <svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                            Khu vực nhận việc trực tiếp (Tỉnh / Thành phố sẵn sàng làm việc):
+                                        </label>
+                                        {% if user.city %}
+                                        <button type="button" onclick="addLocation('{{ user.city }}')" class="text-[11px] font-bold text-teal-700 hover:underline">
+                                            + Thêm nhanh khu vực của tôi ({{ user.city }})
+                                        </button>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Quick select cities -->
+                                    <div class="flex flex-wrap gap-1.5" id="popular-cities-container">
+                                        {% set popular_cities = ['Hà Nội', 'TP. Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Bình Dương', 'Đồng Nai', 'Bắc Ninh', 'Cần Thơ', 'Quảng Ninh', 'Khánh Hòa', 'Toàn quốc', 'Sẵn sàng công tác xa'] %}
+                                        {% for city in popular_cities %}
+                                        <button type="button" 
+                                            onclick="toggleLocation('{{ city }}')"
+                                            class="location-quick-btn px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer {% if city in pref_locations %}bg-teal-100 text-teal-900 border-teal-300 font-bold{% else %}bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100{% endif %}">
+                                            {{ city }}
+                                        </button>
+                                        {% endfor %}
+                                    </div>
+
+                                    <!-- Selected locations list -->
+                                    <div class="pt-2">
+                                        <div class="text-[11px] font-bold text-slate-500 mb-1.5">Các khu vực đã chọn:</div>
+                                        <div id="selected-locations-container" class="flex flex-wrap gap-2 min-h-[32px]">
+                                            {% if pref_locations %}
+                                                {% for loc in pref_locations %}
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                                    <span>{{ loc }}</span>
+                                                    <button type="button" onclick="removeLocation('{{ loc }}')" class="text-teal-500 hover:text-teal-900 font-black">×</button>
+                                                </span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-xs text-slate-400 italic py-1">Chưa chọn khu vực nào (Mặc định: Toàn quốc).</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <!-- Input thêm khu vực khác -->
+                                    <div class="flex items-center gap-2 pt-1">
+                                        <input type="text" id="custom-location-input" placeholder="Nhập thêm tỉnh/thành phố khác..." class="text-xs rounded-xl border-slate-200 px-3 py-1.5 w-full max-w-xs text-slate-800 placeholder-slate-400 focus:ring-teal-500 focus:border-teal-500">
+                                        <button type="button" onclick="addCustomLocation()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition">
+                                            + Thêm
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- MỤC 4: KHOẢNG GIÁ MONG MUỐN (THANH TRƯỢT MIN - MAX VNĐ) -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 sm:p-6 space-y-5">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-black">4</div>
+                                        <div>
+                                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Khoảng thù lao mong muốn (VNĐ)</h3>
+                                            <p class="text-xs text-slate-500">Thiết lập biên độ ngân sách kỳ vọng cho mỗi giờ hoặc ca làm việc.</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-bold text-brand-700 bg-brand-50 px-2.5 py-1 rounded-lg border border-brand-200/80">
+                                        Đơn vị chuẩn: VNĐ
+                                    </span>
+                                </div>
+
+                                <!-- Hiển thị Khoảng giá hiện tại -->
+                                <div class="p-4 bg-white rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                                    <div class="space-y-1 text-center sm:text-left w-full sm:w-auto">
+                                        <span class="text-xs text-slate-500 font-medium">Biên độ thù lao áp dụng lọc job:</span>
+                                        <div class="text-lg sm:text-xl font-black text-slate-900 flex items-center justify-center sm:justify-start gap-2" id="rate-display-summary">
+                                            <span class="text-brand-600" id="display-min-rate">{{ pref_min_rate or 'Thấp nhất' }}</span>
+                                            <span class="text-slate-400">➔</span>
+                                            <span class="text-slate-800" id="display-max-rate">{{ pref_max_rate or 'Tối đa' }}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick preset buttons -->
+                                    <div class="flex flex-wrap items-center gap-1.5 text-xs">
+                                        <button type="button" onclick="setRatePreset(500000, 2000000)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">500k - 2tr</button>
+                                        <button type="button" onclick="setRatePreset(1000000, 5000000)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">1tr - 5tr</button>
+                                        <button type="button" onclick="setRatePreset(3000000, 10000000)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition">3tr - 10tr</button>
+                                        <button type="button" onclick="setRatePreset('', '')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-lg font-medium transition">Xóa lọc</button>
+                                    </div>
+                                </div>
+
+                                <!-- Inputs & Sliders -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                    <!-- Min Rate -->
+                                    <div class="space-y-2 p-3.5 bg-white rounded-xl border border-slate-200/80">
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-xs font-bold text-slate-700">Mức giá tối thiểu (Min):</label>
+                                            <span class="text-xs font-black text-brand-600" id="slider-min-val-label">0 đ</span>
+                                        </div>
+                                        <div class="relative">
+                                            <input type="text" id="pref-min-rate-input" name="min_rate" value="{{ pref_min_rate }}" placeholder="Ví dụ: 500.000" class="w-full text-sm font-bold rounded-xl border-slate-200 pr-12 focus:ring-brand-500 focus:border-brand-500" oninput="syncRateFromInput('min')">
+                                            <span class="absolute right-3 top-2.5 text-xs font-bold text-slate-400">VNĐ</span>
+                                        </div>
+                                        <input type="range" id="pref-min-slider" min="0" max="15000000" step="100000" value="{{ pref_min_rate or 0 }}" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-brand-600" oninput="syncRateFromSlider('min')">
+                                        <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                                            <span>0 đ</span>
+                                            <span>5.000.000 đ</span>
+                                            <span>15.000.000 đ</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Max Rate -->
+                                    <div class="space-y-2 p-3.5 bg-white rounded-xl border border-slate-200/80">
+                                        <div class="flex items-center justify-between">
+                                            <label class="text-xs font-bold text-slate-700">Mức giá tối đa (Max):</label>
+                                            <span class="text-xs font-black text-slate-800" id="slider-max-val-label">Không giới hạn</span>
+                                        </div>
+                                        <div class="relative">
+                                            <input type="text" id="pref-max-rate-input" name="max_rate" value="{{ pref_max_rate }}" placeholder="Ví dụ: 5.000.000" class="w-full text-sm font-bold rounded-xl border-slate-200 pr-12 focus:ring-brand-500 focus:border-brand-500" oninput="syncRateFromInput('max')">
+                                            <span class="absolute right-3 top-2.5 text-xs font-bold text-slate-400">VNĐ</span>
+                                        </div>
+                                        <input type="range" id="pref-max-slider" min="0" max="30000000" step="200000" value="{{ pref_max_rate or 0 }}" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-800" oninput="syncRateFromSlider('max')">
+                                        <div class="flex justify-between text-[10px] text-slate-400 font-medium">
+                                            <span>0 đ</span>
+                                            <span>15.000.000 đ</span>
+                                            <span>30.000.000 đ</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Checkbox: Vẫn nhận thông báo nếu job ngoài khoảng giá này -->
+                                <div class="p-3.5 bg-brand-50/40 rounded-xl border border-brand-200/70">
+                                    <label class="flex items-start gap-3 cursor-pointer select-none">
+                                        <input type="checkbox" id="pref-allow-outside-rate" name="allow_outside_rate" value="1" class="mt-0.5 rounded text-brand-600 focus:ring-brand-500 w-4 h-4" {% if pref_allow_outside %}checked{% endif %}>
+                                        <div>
+                                            <span class="text-xs sm:text-sm font-bold text-brand-950">Vẫn nhận thông báo nếu job ngoài khoảng giá này</span>
+                                            <p class="text-xs text-brand-800/80 mt-0.5">
+                                                Khi bật tùy chọn này, thuật toán Smart Matching vẫn sẽ gửi gợi ý những cơ hội việc làm tốt ngay cả khi mức thù lao khách hàng đề xuất nằm ngoài khoảng giá đã chọn ở trên.
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- MỤC 5: KHUNG GIỜ SẴN SÀNG NHẬN CA TRONG TUẦN -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="bg-slate-50/50 rounded-2xl border border-slate-200/80 p-5 sm:p-6 space-y-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/60">
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-xs font-black">5</div>
+                                        <div>
+                                            <h3 class="text-sm sm:text-base font-bold text-slate-900">Khung giờ sẵn sàng nhận ca trong tuần</h3>
+                                            <p class="text-xs text-slate-500">Chọn các buổi hoặc khung thời gian bạn có thể thu xếp công việc.</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <button type="button" onclick="setShiftPreset('all')" class="text-brand-600 font-bold hover:underline">Tất cả các ca</button>
+                                        <span class="text-slate-300">|</span>
+                                        <button type="button" onclick="setShiftPreset('business')" class="text-slate-600 hover:text-slate-800">Giờ hành chính</button>
+                                        <span class="text-slate-300">|</span>
+                                        <button type="button" onclick="setShiftPreset('weekend')" class="text-slate-600 hover:text-slate-800">Cuối tuần</button>
+                                    </div>
+                                </div>
+
+                                <!-- 4 Shift cards -->
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                    <!-- Ca sáng -->
+                                    {% set morning_checked = ('Ca sáng' in pref_hours or 'morning' in pref_hours) %}
+                                    <label class="shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition {% if morning_checked %}bg-amber-50/70 border-amber-300 text-amber-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-2xl">🌅</span>
+                                            <input type="checkbox" name="available_hours" value="Ca sáng" class="shift-checkbox rounded text-amber-600 focus:ring-amber-500 w-4 h-4" {% if morning_checked %}checked{% endif %} onchange="updateShiftCardStyle(this)">
+                                        </div>
+                                        <div class="mt-3">
+                                            <span class="font-bold text-xs sm:text-sm block">Ca sáng</span>
+                                            <span class="text-[11px] text-slate-500 mt-0.5 block font-medium">08:00 — 12:00</span>
+                                        </div>
+                                    </label>
+
+                                    <!-- Ca chiều -->
+                                    {% set afternoon_checked = ('Ca chiều' in pref_hours or 'afternoon' in pref_hours) %}
+                                    <label class="shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition {% if afternoon_checked %}bg-sky-50/70 border-sky-300 text-sky-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-2xl">☀️</span>
+                                            <input type="checkbox" name="available_hours" value="Ca chiều" class="shift-checkbox rounded text-sky-600 focus:ring-sky-500 w-4 h-4" {% if afternoon_checked %}checked{% endif %} onchange="updateShiftCardStyle(this)">
+                                        </div>
+                                        <div class="mt-3">
+                                            <span class="font-bold text-xs sm:text-sm block">Ca chiều</span>
+                                            <span class="text-[11px] text-slate-500 mt-0.5 block font-medium">13:00 — 17:00</span>
+                                        </div>
+                                    </label>
+
+                                    <!-- Ca tối -->
+                                    {% set evening_checked = ('Ca tối' in pref_hours or 'evening' in pref_hours) %}
+                                    <label class="shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition {% if evening_checked %}bg-indigo-50/70 border-indigo-300 text-indigo-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-2xl">🌙</span>
+                                            <input type="checkbox" name="available_hours" value="Ca tối" class="shift-checkbox rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4" {% if evening_checked %}checked{% endif %} onchange="updateShiftCardStyle(this)">
+                                        </div>
+                                        <div class="mt-3">
+                                            <span class="font-bold text-xs sm:text-sm block">Ca tối</span>
+                                            <span class="text-[11px] text-slate-500 mt-0.5 block font-medium">18:00 — 22:00</span>
+                                        </div>
+                                    </label>
+
+                                    <!-- Cuối tuần -->
+                                    {% set weekend_checked = ('Cuối tuần' in pref_hours or 'weekend' in pref_hours) %}
+                                    <label class="shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition {% if weekend_checked %}bg-emerald-50/70 border-emerald-300 text-emerald-950 shadow-xs{% else %}bg-white border-slate-200 text-slate-700 hover:bg-slate-50{% endif %}">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-2xl">📅</span>
+                                            <input type="checkbox" name="available_hours" value="Cuối tuần" class="shift-checkbox rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4" {% if weekend_checked %}checked{% endif %} onchange="updateShiftCardStyle(this)">
+                                        </div>
+                                        <div class="mt-3">
+                                            <span class="font-bold text-xs sm:text-sm block">Cuối tuần</span>
+                                            <span class="text-[11px] text-slate-500 mt-0.5 block font-medium">Thứ 7 & Chủ Nhật</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <!-- ACTION BAR: LƯU TIÊU CHÍ -->
+                            <!-- ───────────────────────────────────────────────────────────── -->
+                            <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <div class="text-xs text-slate-500 flex items-center gap-1.5">
+                                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                    <span>Tự động cập nhật vào cơ sở dữ liệu (Bảng <code>InterpreterPreference</code>).</span>
+                                </div>
+                                <div class="flex items-center gap-3 w-full sm:w-auto">
+                                    <button type="button" onclick="resetPreferencesForm()" class="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs transition cursor-pointer">
+                                        Khôi phục ban đầu
+                                    </button>
+                                    <button type="submit" id="btn-save-preferences" class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs transition shadow-sm cursor-pointer disabled:opacity-50">
+                                        <span id="save-pref-spinner" class="hidden"><svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></span>
+                                        <span id="save-pref-btn-text">💾 Lưu tiêu chí</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -5138,5 +5623,556 @@ function resendVerificationEmail() {
             }
         }
     }
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // JAVASCRIPT CHO TAB 5.4: TIÊU CHÍ NHẬN VIỆC (JOB PREFERENCES & SMART MATCHING)
+    // ═════════════════════════════════════════════════════════════════════════
+
+    // Dữ liệu cặp ngôn ngữ đã khai báo ở Tab Năng lực (Tab 5.2)
+    const declaredPairsList = {{ (declared_language_pairs | map(attribute='pair') | list) | tojson | safe }};
+    const declaredPairsSet = new Set(
+        declaredPairsList.map(p => normalizePair(p))
+    );
+
+    // Danh sách cặp ngôn ngữ mong muốn hiện tại
+    let selectedLanguagePairs = {{ (pref_langs or []) | tojson | safe }};
+
+    // Danh sách khu vực nhận việc trực tiếp hiện tại
+    let selectedLocations = {{ (pref_locations or []) | tojson | safe }};
+
+    function normalizePair(str) {
+        if (!str) return '';
+        return str.replace(/\s+/g, '').toLowerCase().replace('->', '➔').replace('-', '➔');
+    }
+
+    function isPairInDeclaredServices(pair) {
+        return declaredPairsSet.has(normalizePair(pair));
+    }
+
+    function renderSelectedLanguages() {
+        const container = document.getElementById('selected-languages-list');
+        const countBadge = document.getElementById('selected-langs-count');
+        const statCount = document.getElementById('stat-lang-count');
+        const globalWarning = document.getElementById('missing-fee-global-warning');
+        if (!container) return;
+
+        container.innerHTML = '';
+        if (countBadge) countBadge.textContent = selectedLanguagePairs.length;
+        if (statCount) statCount.innerHTML = `${selectedLanguagePairs.length} <span class="text-xs font-normal text-slate-500">cặp</span>`;
+
+        let hasMissingFee = false;
+
+        if (selectedLanguagePairs.length === 0) {
+            container.innerHTML = `
+                <div class="p-4 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-500 bg-white">
+                    Chưa có cặp ngôn ngữ nào được chọn. Nhấn vào các cặp ngôn ngữ ở trên hoặc thêm mới để bắt đầu.
+                </div>
+            `;
+            if (globalWarning) globalWarning.classList.add('hidden');
+            updateDeclaredChipsStyles();
+            return;
+        }
+
+        selectedLanguagePairs.forEach((pair, idx) => {
+            const hasFee = isPairInDeclaredServices(pair);
+            if (!hasFee) hasMissingFee = true;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `p-3 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                hasFee ? 'bg-white border-slate-200 hover:border-slate-300' : 'bg-amber-50/70 border-amber-300'
+            }`;
+
+            itemDiv.innerHTML = `
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">${idx + 1}</span>
+                    <span class="font-bold text-xs sm:text-sm text-slate-900">${pair}</span>
+                    ${
+                        hasFee 
+                        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                             ✓ Đã có biểu phí tại Tab Năng lực
+                           </span>`
+                        : `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                             ⚠️ Bạn chưa khai báo biểu phí cho ngôn ngữ này tại mục Năng lực
+                           </span>`
+                    }
+                </div>
+                <div class="flex items-center gap-2 self-end sm:self-center">
+                    ${
+                        !hasFee 
+                        ? `<button type="button" onclick="switchTab('services')" class="text-[11px] font-bold text-amber-900 underline hover:text-brand-700">
+                             Bổ sung biểu phí ngay →
+                           </button>`
+                        : ''
+                    }
+                    <button type="button" onclick="removeLanguagePair('${pair}')" class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer" title="Xóa cặp ngôn ngữ này">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            `;
+            container.appendChild(itemDiv);
+        });
+
+        if (globalWarning) {
+            if (hasMissingFee) {
+                globalWarning.classList.remove('hidden');
+            } else {
+                globalWarning.classList.add('hidden');
+            }
+        }
+
+        updateDeclaredChipsStyles();
+    }
+
+    function updateDeclaredChipsStyles() {
+        document.querySelectorAll('.declared-chip').forEach(chip => {
+            const pair = chip.getAttribute('data-pair');
+            const iconSpan = chip.querySelector('.chip-status-icon');
+            if (selectedLanguagePairs.includes(pair)) {
+                chip.className = 'declared-chip inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-200/60';
+                if (iconSpan) iconSpan.textContent = '✓';
+            } else {
+                chip.className = 'declared-chip inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50';
+                if (iconSpan) iconSpan.textContent = '+';
+            }
+        });
+    }
+
+    function toggleLanguagePair(pair) {
+        if (!pair) return;
+        const idx = selectedLanguagePairs.indexOf(pair);
+        if (idx > -1) {
+            selectedLanguagePairs.splice(idx, 1);
+        } else {
+            selectedLanguagePairs.push(pair);
+        }
+        renderSelectedLanguages();
+    }
+
+    function removeLanguagePair(pair) {
+        const idx = selectedLanguagePairs.indexOf(pair);
+        if (idx > -1) {
+            selectedLanguagePairs.splice(idx, 1);
+            renderSelectedLanguages();
+        }
+    }
+
+    function addCustomLanguagePair() {
+        const srcSelect = document.getElementById('quick-add-source');
+        const tgtSelect = document.getElementById('quick-add-target');
+        if (!srcSelect || !tgtSelect) return;
+
+        const src = srcSelect.value.trim();
+        const tgt = tgtSelect.value.trim();
+
+        if (!src || !tgt) {
+            showServiceToast('Vui lòng chọn cả ngôn ngữ nguồn và đích.', 'warning');
+            return;
+        }
+        if (src.toLowerCase() === tgt.toLowerCase()) {
+            showServiceToast('Ngôn ngữ nguồn và đích không được trùng nhau.', 'warning');
+            return;
+        }
+
+        const newPair = `${src} ➔ ${tgt}`;
+        if (selectedLanguagePairs.includes(newPair)) {
+            showServiceToast('Cặp ngôn ngữ này đã có trong danh sách chọn.', 'info');
+            return;
+        }
+
+        selectedLanguagePairs.push(newPair);
+        renderSelectedLanguages();
+        showServiceToast(`Đã thêm cặp ngôn ngữ "${newPair}".`, 'success');
+    }
+
+    // Specializations
+    function updateSpecTagStyle(checkbox) {
+        const label = checkbox.closest('.spec-checkbox-label');
+        if (!label) return;
+        if (checkbox.checked) {
+            label.className = 'spec-checkbox-label relative flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition bg-brand-50/60 border-brand-300 text-brand-900 font-bold shadow-xs';
+        } else {
+            label.className = 'spec-checkbox-label relative flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition bg-white border-slate-200 text-slate-700 font-medium hover:border-slate-300 hover:bg-slate-50';
+        }
+        updateSpecCountStat();
+    }
+
+    function updateSpecCountStat() {
+        const count = document.querySelectorAll('.spec-checkbox:checked').length;
+        const stat = document.getElementById('stat-spec-count');
+        if (stat) stat.innerHTML = `${count} <span class="text-xs font-normal text-slate-500">lĩnh vực</span>`;
+    }
+
+    function selectAllSpecializations(checked) {
+        document.querySelectorAll('.spec-checkbox').forEach(cb => {
+            cb.checked = checked;
+            updateSpecTagStyle(cb);
+        });
+    }
+
+    function addCustomSpecialization() {
+        const input = document.getElementById('custom-spec-input');
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) return;
+
+        const grid = document.getElementById('spec-tags-grid');
+        if (!grid) return;
+
+        // Check duplicate
+        let existing = false;
+        document.querySelectorAll('.spec-checkbox').forEach(cb => {
+            if (cb.value.toLowerCase() === val.toLowerCase()) existing = true;
+        });
+
+        if (existing) {
+            showServiceToast('Lĩnh vực này đã tồn tại trong danh sách.', 'info');
+            input.value = '';
+            return;
+        }
+
+        const label = document.createElement('label');
+        label.className = 'spec-checkbox-label relative flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer select-none transition bg-brand-50/60 border-brand-300 text-brand-900 font-bold shadow-xs';
+        label.innerHTML = `
+            <input type="checkbox" name="specializations" value="${val}" class="spec-checkbox rounded text-brand-600 focus:ring-brand-500 w-4 h-4" checked onchange="updateSpecTagStyle(this)">
+            <span class="text-xs leading-tight">${val}</span>
+        `;
+        grid.appendChild(label);
+        input.value = '';
+        updateSpecCountStat();
+        showServiceToast(`Đã thêm lĩnh vực "${val}".`, 'success');
+    }
+
+    // Work Mode & Locations
+    function handleWorkModeChange() {
+        const offlineChecked = document.getElementById('check-mode-offline')?.checked;
+        const onlineChecked = document.getElementById('check-mode-online')?.checked;
+        const offlineSection = document.getElementById('offline-locations-section');
+        const statMode = document.getElementById('stat-work-mode');
+
+        const cardOffline = document.getElementById('card-mode-offline');
+        const cardOnline = document.getElementById('card-mode-online');
+
+        if (cardOffline) {
+            cardOffline.className = offlineChecked
+                ? 'work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition bg-teal-50/50 border-teal-300 text-teal-950 shadow-xs'
+                : 'work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50';
+        }
+
+        if (cardOnline) {
+            cardOnline.className = onlineChecked
+                ? 'work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition bg-blue-50/50 border-blue-300 text-blue-950 shadow-xs'
+                : 'work-mode-card flex items-start gap-3.5 p-4 rounded-xl border cursor-pointer select-none transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50';
+        }
+
+        if (offlineSection) {
+            if (offlineChecked) {
+                offlineSection.classList.remove('opacity-40', 'pointer-events-none');
+            } else {
+                offlineSection.classList.add('opacity-40', 'pointer-events-none');
+            }
+        }
+
+        if (statMode) {
+            if (offlineChecked && onlineChecked) statMode.textContent = 'Trực tiếp & Từ xa';
+            else if (offlineChecked) statMode.textContent = 'Trực tiếp (Onsite)';
+            else if (onlineChecked) statMode.textContent = 'Từ xa (Online)';
+            else statMode.textContent = 'Chưa chọn';
+        }
+    }
+
+    function renderSelectedLocations() {
+        const container = document.getElementById('selected-locations-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (selectedLocations.length === 0) {
+            container.innerHTML = '<span class="text-xs text-slate-400 italic">Chưa chọn khu vực nào (Mặc định: Toàn quốc hoặc theo thương lượng).</span>';
+            updateLocationQuickButtons();
+            return;
+        }
+
+        selectedLocations.forEach(loc => {
+            const tag = document.createElement('span');
+            tag.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-teal-50 text-teal-900 border border-teal-200 shadow-2xs';
+            tag.innerHTML = `
+                <span>${loc}</span>
+                <button type="button" onclick="removeLocation('${loc}')" class="text-teal-500 hover:text-rose-600 transition cursor-pointer" title="Xóa">×</button>
+            `;
+            container.appendChild(tag);
+        });
+
+        updateLocationQuickButtons();
+    }
+
+    function updateLocationQuickButtons() {
+        document.querySelectorAll('.location-quick-btn').forEach(btn => {
+            const city = btn.textContent.trim();
+            if (selectedLocations.includes(city)) {
+                btn.className = 'location-quick-btn px-2.5 py-1 rounded-lg text-xs font-bold border transition cursor-pointer bg-teal-100 text-teal-900 border-teal-300';
+            } else {
+                btn.className = 'location-quick-btn px-2.5 py-1 rounded-lg text-xs font-medium border transition cursor-pointer bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100';
+            }
+        });
+    }
+
+    function toggleLocation(city) {
+        if (!city) return;
+        const idx = selectedLocations.indexOf(city);
+        if (idx > -1) {
+            selectedLocations.splice(idx, 1);
+        } else {
+            selectedLocations.push(city);
+        }
+        renderSelectedLocations();
+    }
+
+    function addLocation(city) {
+        if (!city) return;
+        if (!selectedLocations.includes(city)) {
+            selectedLocations.push(city);
+            renderSelectedLocations();
+        }
+    }
+
+    function removeLocation(city) {
+        const idx = selectedLocations.indexOf(city);
+        if (idx > -1) {
+            selectedLocations.splice(idx, 1);
+            renderSelectedLocations();
+        }
+    }
+
+    function addCustomLocation() {
+        const input = document.getElementById('custom-location-input');
+        if (!input) return;
+        const val = input.value.trim();
+        if (!val) return;
+        addLocation(val);
+        input.value = '';
+    }
+
+    // Rate Sliders & Inputs
+    function formatMoneyVND(val) {
+        if (!val || isNaN(val) || val <= 0) return '';
+        return Number(val).toLocaleString('vi-VN');
+    }
+
+    function cleanNumber(str) {
+        if (!str) return 0;
+        const cleaned = String(str).replace(/[^\d]/g, '');
+        return cleaned ? parseInt(cleaned, 10) : 0;
+    }
+
+    function syncRateFromSlider(which) {
+        const minSlider = document.getElementById('pref-min-slider');
+        const maxSlider = document.getElementById('pref-max-slider');
+        const minInput = document.getElementById('pref-min-rate-input');
+        const maxInput = document.getElementById('pref-max-rate-input');
+
+        if (!minSlider || !maxSlider || !minInput || !maxInput) return;
+
+        let minVal = parseInt(minSlider.value, 10) || 0;
+        let maxVal = parseInt(maxSlider.value, 10) || 0;
+
+        if (which === 'min') {
+            minInput.value = minVal > 0 ? formatMoneyVND(minVal) : '';
+            if (maxVal > 0 && minVal > maxVal) {
+                maxVal = minVal;
+                maxSlider.value = maxVal;
+                maxInput.value = formatMoneyVND(maxVal);
+            }
+        } else if (which === 'max') {
+            maxInput.value = maxVal > 0 ? formatMoneyVND(maxVal) : '';
+            if (minVal > 0 && maxVal > 0 && maxVal < minVal) {
+                minVal = maxVal;
+                minSlider.value = minVal;
+                minInput.value = formatMoneyVND(minVal);
+            }
+        }
+
+        updateRateDisplayLabels();
+    }
+
+    function syncRateFromInput(which) {
+        const minSlider = document.getElementById('pref-min-slider');
+        const maxSlider = document.getElementById('pref-max-slider');
+        const minInput = document.getElementById('pref-min-rate-input');
+        const maxInput = document.getElementById('pref-max-rate-input');
+
+        if (!minSlider || !maxSlider || !minInput || !maxInput) return;
+
+        let minVal = cleanNumber(minInput.value);
+        let maxVal = cleanNumber(maxInput.value);
+
+        if (which === 'min' && minInput.value) {
+            minInput.value = formatMoneyVND(minVal);
+            minSlider.value = Math.min(minVal, 15000000);
+        } else if (which === 'max' && maxInput.value) {
+            maxInput.value = formatMoneyVND(maxVal);
+            maxSlider.value = Math.min(maxVal, 30000000);
+        }
+
+        updateRateDisplayLabels();
+    }
+
+    function setRatePreset(minV, maxV) {
+        const minInput = document.getElementById('pref-min-rate-input');
+        const maxInput = document.getElementById('pref-max-rate-input');
+        const minSlider = document.getElementById('pref-min-slider');
+        const maxSlider = document.getElementById('pref-max-slider');
+
+        if (minInput) minInput.value = minV ? formatMoneyVND(minV) : '';
+        if (maxInput) maxInput.value = maxV ? formatMoneyVND(maxV) : '';
+        if (minSlider) minSlider.value = minV || 0;
+        if (maxSlider) maxSlider.value = maxV || 0;
+
+        updateRateDisplayLabels();
+    }
+
+    function updateRateDisplayLabels() {
+        const minInput = document.getElementById('pref-min-rate-input');
+        const maxInput = document.getElementById('pref-max-rate-input');
+        const minLabel = document.getElementById('slider-min-val-label');
+        const maxLabel = document.getElementById('slider-max-val-label');
+        const displayMin = document.getElementById('display-min-rate');
+        const displayMax = document.getElementById('display-max-rate');
+        const statBudget = document.getElementById('stat-budget-range');
+
+        const minVal = cleanNumber(minInput?.value);
+        const maxVal = cleanNumber(maxInput?.value);
+
+        const minStr = minVal > 0 ? `${formatMoneyVND(minVal)} đ` : '0 đ';
+        const maxStr = maxVal > 0 ? `${formatMoneyVND(maxVal)} đ` : 'Không giới hạn';
+
+        if (minLabel) minLabel.textContent = minStr;
+        if (maxLabel) maxLabel.textContent = maxStr;
+        if (displayMin) displayMin.textContent = minVal > 0 ? `${formatMoneyVND(minVal)} VNĐ` : 'Thấp nhất';
+        if (displayMax) displayMax.textContent = maxVal > 0 ? `${formatMoneyVND(maxVal)} VNĐ` : 'Không giới hạn';
+
+        if (statBudget) {
+            if (minVal > 0 || maxVal > 0) {
+                statBudget.textContent = `${minVal > 0 ? formatMoneyVND(minVal) : '0'} - ${maxVal > 0 ? formatMoneyVND(maxVal) : '∞'}`;
+            } else {
+                statBudget.textContent = 'Thỏa thuận';
+            }
+        }
+    }
+
+    // Shift Cards
+    function updateShiftCardStyle(cb) {
+        const card = cb.closest('.shift-card');
+        if (!card) return;
+        const val = cb.value;
+
+        if (cb.checked) {
+            if (val === 'Ca sáng') card.className = 'shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition bg-amber-50/70 border-amber-300 text-amber-950 shadow-xs';
+            else if (val === 'Ca chiều') card.className = 'shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition bg-sky-50/70 border-sky-300 text-sky-950 shadow-xs';
+            else if (val === 'Ca tối') card.className = 'shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition bg-indigo-50/70 border-indigo-300 text-indigo-950 shadow-xs';
+            else card.className = 'shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition bg-emerald-50/70 border-emerald-300 text-emerald-950 shadow-xs';
+        } else {
+            card.className = 'shift-card flex flex-col justify-between p-4 rounded-xl border cursor-pointer select-none transition bg-white border-slate-200 text-slate-700 hover:bg-slate-50';
+        }
+    }
+
+    function setShiftPreset(preset) {
+        document.querySelectorAll('.shift-checkbox').forEach(cb => {
+            if (preset === 'all') {
+                cb.checked = true;
+            } else if (preset === 'business') {
+                cb.checked = (cb.value === 'Ca sáng' || cb.value === 'Ca chiều');
+            } else if (preset === 'weekend') {
+                cb.checked = (cb.value === 'Cuối tuần');
+            }
+            updateShiftCardStyle(cb);
+        });
+    }
+
+    // Reset Form
+    function resetPreferencesForm() {
+        if (!confirm('Khôi phục các cài đặt về trạng thái đã lưu trước đó?')) return;
+        window.location.reload();
+    }
+
+    // Save Preferences Handler
+    async function handleSavePreferences(e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('btn-save-preferences');
+        const spinner = document.getElementById('save-pref-spinner');
+        const btnText = document.getElementById('save-pref-btn-text');
+
+        // Lấy danh sách chuyên môn đã tích
+        const checkedSpecs = Array.from(document.querySelectorAll('.spec-checkbox:checked')).map(cb => cb.value);
+
+        // Lấy hình thức
+        const modeOffline = document.getElementById('check-mode-offline')?.checked;
+        const modeOnline = document.getElementById('check-mode-online')?.checked;
+
+        if (!modeOffline && !modeOnline) {
+            showServiceToast('Vui lòng chọn ít nhất một hình thức làm việc (Trực tiếp hoặc Từ xa).', 'warning');
+            return;
+        }
+
+        // Lấy khung giờ
+        const checkedShifts = Array.from(document.querySelectorAll('.shift-checkbox:checked')).map(cb => cb.value);
+
+        // Min & Max Rate
+        const minRate = cleanNumber(document.getElementById('pref-min-rate-input')?.value);
+        const maxRate = cleanNumber(document.getElementById('pref-max-rate-input')?.value);
+        const allowOutside = document.getElementById('pref-allow-outside-rate')?.checked;
+
+        const payload = {
+            languages: selectedLanguagePairs,
+            specializations: checkedSpecs,
+            mode_offline: modeOffline,
+            mode_online: modeOnline,
+            locations: selectedLocations,
+            min_rate: minRate || null,
+            max_rate: maxRate || null,
+            allow_outside_rate: allowOutside,
+            available_hours: checkedShifts
+        };
+
+        try {
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'Đang lưu tiêu chí...';
+
+            const resp = await fetch('/account/preferences/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const res = await resp.json();
+
+            if (res.success) {
+                if (res.warning) {
+                    showServiceToast(res.warning, 'warning');
+                } else {
+                    showServiceToast(res.message || 'Đã lưu tiêu chí nhận việc thành công!', 'success');
+                }
+            } else {
+                showServiceToast(res.message || 'Lỗi khi lưu tiêu chí.', 'error');
+            }
+        } catch (err) {
+            showServiceToast('Lỗi kết nối máy chủ khi lưu tiêu chí nhận việc.', 'error');
+        } finally {
+            if (btn) btn.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = '💾 Lưu tiêu chí';
+        }
+    }
+
+    // Auto init on DOM ready
+    document.addEventListener('DOMContentLoaded', function() {
+        renderSelectedLanguages();
+        renderSelectedLocations();
+        updateRateDisplayLabels();
+        handleWorkModeChange();
+    });
 </script>
 {% endblock %}

@@ -2884,6 +2884,13 @@ def account_profile():
             db.session.commit()
             flash(_t('flash.preferences_saved'), 'success')
 
+        elif action in ('save_preferences', 'save_interpreter_preferences', 'interpreter_preference') and user.role == 'translator':
+            data = request.get_json(silent=True) or request.form
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                       'application/json' in request.headers.get('Accept', '') or
+                       request.is_json)
+            return save_interpreter_preferences_data(user, data, is_ajax=is_ajax)
+
         elif action == 'hirer_profile' and user.role == 'hirer':
             profile = user.hirer_profile
             if not profile:
@@ -2945,6 +2952,7 @@ def account_profile():
     unread_notifs_count = 0
     verification_documents = []
     from services.verification import DOCUMENT_POLICIES
+    declared_language_pairs = []
     if getattr(user, 'role', '') == 'translator':
         from models import Notification
         try:
@@ -2962,6 +2970,24 @@ def account_profile():
                 pass
             profile_completion = None
 
+        try:
+            seen_pairs = set()
+            for svc in (user.interpreter_services or []):
+                if svc.source_lang and svc.target_lang:
+                    p = f"{svc.source_lang.strip()} ➔ {svc.target_lang.strip()}"
+                    if p not in seen_pairs:
+                        seen_pairs.add(p)
+                        declared_language_pairs.append({
+                            'pair': p,
+                            'source_lang': svc.source_lang.strip(),
+                            'target_lang': svc.target_lang.strip(),
+                            'hourly_rate': svc.formatted_hourly_rate if svc.hourly_rate else None,
+                            'session_rate': svc.formatted_session_rate if svc.session_rate else None,
+                            'is_verified': svc.is_kyc_verified()
+                        })
+        except Exception as e:
+            print(f"[declared_language_pairs error] {e}", file=sys.stderr)
+
     return render_template(
         'account_profile.html',
         user=user,
@@ -2971,6 +2997,7 @@ def account_profile():
         unread_notifs_count=unread_notifs_count,
         verification_documents=verification_documents,
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
+        declared_language_pairs=declared_language_pairs,
         today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
 
@@ -3368,6 +3395,209 @@ def account_service_sync_kyc():
         })
     flash(msg, 'success')
     return redirect(url_for('account_profile') + '?tab=services')
+
+
+# ─── TIÊU CHÍ NHẬN VIỆC & SMART MATCHING (MỤC 5.4) ───────────────────────────
+
+def save_interpreter_preferences_data(user, data, is_ajax=False):
+    """
+    Hàm xử lý lưu và cập nhật tiêu chí nhận việc của phiên dịch viên (Mục 5.4).
+    RÀNG BUỘC NGHIỆP VỤ BẮT BUỘC:
+    Cập nhật tiêu chí chỉ dùng để gợi ý các job mới phù hợp (Smart Matching),
+    tuyệt đối không được tự động hủy hoặc thay đổi các lịch ca đã xác nhận trước đó (TranslatorSchedule/Contract).
+    """
+    if not user or user.role != 'translator':
+        msg = 'Chỉ phiên dịch viên mới có quyền thiết lập tiêu chí nhận việc.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 403
+        flash(msg, 'error')
+        return redirect(url_for('account_profile'))
+
+    # 1. Cặp ngôn ngữ mong muốn
+    if isinstance(data.get('languages'), list):
+        languages = [str(l).strip() for l in data.get('languages') if str(l).strip()]
+    elif hasattr(data, 'getlist') and data.getlist('languages'):
+        languages = [str(l).strip() for l in data.getlist('languages') if str(l).strip()]
+    elif data.get('languages'):
+        raw_langs = data.get('languages')
+        if isinstance(raw_langs, list):
+            languages = [str(l).strip() for l in raw_langs if str(l).strip()]
+        else:
+            try:
+                parsed = json.loads(raw_langs)
+                languages = [str(l).strip() for l in parsed if str(l).strip()] if isinstance(parsed, list) else [l.strip() for l in str(raw_langs).split(',') if l.strip()]
+            except Exception:
+                languages = [l.strip() for l in str(raw_langs).split(',') if l.strip()]
+    else:
+        languages = []
+
+    # 2. Lĩnh vực sẵn sàng nhận việc
+    if isinstance(data.get('specializations'), list):
+        specializations = [str(s).strip() for s in data.get('specializations') if str(s).strip()]
+    elif hasattr(data, 'getlist') and data.getlist('specializations'):
+        specializations = [str(s).strip() for s in data.getlist('specializations') if str(s).strip()]
+    elif data.get('specializations'):
+        raw_specs = data.get('specializations')
+        if isinstance(raw_specs, list):
+            specializations = [str(s).strip() for s in raw_specs if str(s).strip()]
+        else:
+            try:
+                parsed = json.loads(raw_specs)
+                specializations = [str(s).strip() for s in parsed if str(s).strip()] if isinstance(parsed, list) else [s.strip() for s in str(raw_specs).split(',') if s.strip()]
+            except Exception:
+                specializations = [s.strip() for s in str(raw_specs).split(',') if s.strip()]
+    else:
+        specializations = []
+
+    # 3. Hình thức làm việc & Khu vực
+    mode_offline = data.get('mode_offline') in (True, 'true', 'True', '1', 'on', 1)
+    mode_online = data.get('mode_online') in (True, 'true', 'True', '1', 'on', 1)
+    raw_work_mode = (data.get('work_mode') or '').strip().lower()
+
+    if mode_offline and mode_online:
+        work_mode = 'both'
+    elif mode_offline:
+        work_mode = 'offline'
+    elif mode_online:
+        work_mode = 'online'
+    elif raw_work_mode in ('both', 'offline', 'online'):
+        work_mode = raw_work_mode
+    else:
+        work_mode = 'both'
+
+    # Khu vực nhận việc trực tiếp (locations)
+    if isinstance(data.get('locations'), list):
+        locations = [str(loc).strip() for loc in data.get('locations') if str(loc).strip()]
+    elif hasattr(data, 'getlist') and data.getlist('locations'):
+        locations = [str(l).strip() for l in data.getlist('locations') if str(l).strip()]
+    elif data.get('locations'):
+        raw_locs = data.get('locations')
+        if isinstance(raw_locs, list):
+            locations = [str(l).strip() for l in raw_locs if str(l).strip()]
+        else:
+            try:
+                parsed = json.loads(raw_locs)
+                locations = [str(l).strip() for l in parsed if str(l).strip()] if isinstance(parsed, list) else [l.strip() for l in str(raw_locs).split(',') if l.strip()]
+            except Exception:
+                locations = [l.strip() for l in str(raw_locs).split(',') if l.strip()]
+    else:
+        locations = []
+
+    # 4. Khoảng giá mong muốn (Min - Max VNĐ)
+    raw_min = data.get('min_rate')
+    raw_max = data.get('max_rate')
+    min_rate = parse_positive_rate(raw_min)
+    max_rate = parse_positive_rate(raw_max)
+
+    if min_rate and max_rate and min_rate > max_rate:
+        min_rate, max_rate = max_rate, min_rate
+
+    allow_outside_rate = data.get('allow_outside_rate') in (True, 'true', 'True', '1', 'on', 1)
+
+    # 5. Khung giờ sẵn sàng nhận ca trong tuần (Ca sáng, chiều, tối, cuối tuần)
+    if isinstance(data.get('available_hours'), list):
+        available_hours = [str(h).strip() for h in data.get('available_hours') if str(h).strip()]
+    elif hasattr(data, 'getlist') and data.getlist('available_hours'):
+        available_hours = [str(h).strip() for h in data.getlist('available_hours') if str(h).strip()]
+    elif data.get('available_hours'):
+        raw_hours = data.get('available_hours')
+        if isinstance(raw_hours, list):
+            available_hours = [str(h).strip() for h in raw_hours if str(h).strip()]
+        else:
+            try:
+                parsed = json.loads(raw_hours)
+                available_hours = [str(h).strip() for h in parsed if str(h).strip()] if isinstance(parsed, list) else [h.strip() for h in str(raw_hours).split(',') if h.strip()]
+            except Exception:
+                available_hours = [h.strip() for h in str(raw_hours).split(',') if h.strip()]
+    else:
+        available_hours = []
+
+    # Lưu dữ liệu vào InterpreterPreference
+    pref = user.interpreter_preference
+    if not pref:
+        pref = InterpreterPreference(user_id=user.id)
+        db.session.add(pref)
+
+    pref.set_languages_list(languages)
+    pref.set_specializations_list(specializations)
+    pref.work_mode = work_mode
+    pref.set_locations_list(locations)
+    pref.min_rate = float(min_rate) if min_rate else None
+    pref.max_rate = float(max_rate) if max_rate else None
+    pref.allow_outside_rate = allow_outside_rate
+    pref.set_available_hours_list(available_hours)
+    pref.updated_at = datetime.utcnow()
+
+    # Ràng buộc nghiệp vụ: Cập nhật tiêu chí nhận việc không làm ảnh hưởng hay hủy bất kỳ lịch ca đã xác nhận nào
+    # Toàn bộ TranslatorSchedule và Contract được giữ nguyên trọn vẹn 100%.
+
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        msg = 'Có lỗi xảy ra khi lưu tiêu chí nhận việc. Dữ liệu trước đó được bảo toàn.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 500
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=preferences')
+
+    # Kiểm tra các cặp ngôn ngữ thiếu biểu phí ở Tab Năng lực
+    declared_svc_pairs = set()
+    for s in (user.interpreter_services or []):
+        if s.source_lang and s.target_lang:
+            declared_svc_pairs.add(f"{s.source_lang.strip().lower()}➔{s.target_lang.strip().lower()}")
+            declared_svc_pairs.add(f"{s.source_lang.strip().lower()}->{s.target_lang.strip().lower()}")
+            declared_svc_pairs.add(f"{s.source_lang.strip().lower()}-{s.target_lang.strip().lower()}")
+
+    missing_fee_pairs = []
+    for p in languages:
+        clean = p.replace(' ', '').lower()
+        if clean not in declared_svc_pairs:
+            missing_fee_pairs.append(p)
+
+    msg = 'Đã lưu tiêu chí nhận việc thành công! Hệ thống Smart Matching sẽ áp dụng ngay cho các cơ hội việc làm mới.'
+    warning_msg = None
+    if missing_fee_pairs:
+        warning_msg = f'Bạn chưa khai báo biểu phí cho ngôn ngữ này tại mục Năng lực ({", ".join(missing_fee_pairs[:2])}).'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'warning': warning_msg,
+            'missing_fee_pairs': missing_fee_pairs,
+            'preference': pref.to_dict()
+        })
+    flash(msg, 'success')
+    if warning_msg:
+        flash(warning_msg, 'warning')
+    return redirect(url_for('account_profile') + '?tab=preferences')
+
+
+@app.route('/account/preferences/save', methods=['POST'])
+@login_required
+def account_preferences_save():
+    """Endpoint nhận dữ liệu form hoặc Ajax để cập nhật InterpreterPreference."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+    data = request.get_json(silent=True) or request.form
+    return save_interpreter_preferences_data(user, data, is_ajax=is_ajax)
+
+
+@app.route('/account/preferences/get', methods=['GET'])
+@login_required
+def account_preferences_get():
+    """Endpoint API lấy cấu hình tiêu chí hiện tại của phiên dịch viên."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        return jsonify({'success': False, 'message': 'Không có quyền truy cập.'}), 403
+    pref = user.interpreter_preference
+    return jsonify({
+        'success': True,
+        'preference': pref.to_dict() if pref else None
+    })
 
 
 @app.route('/account/verification/submit', methods=['POST'])
@@ -4353,6 +4583,52 @@ def translator_accepts_job(translator, job):
     if translator.role != 'translator' or not translator.is_active:
         return False
         
+    int_pref = getattr(translator, 'interpreter_preference', None)
+    if int_pref:
+        # 1. Kiểm tra cặp ngôn ngữ ưu tiên
+        int_langs = int_pref.get_languages_list()
+        if int_langs:
+            import unicodedata
+            def _clean(val):
+                if not val:
+                    return ''
+                return unicodedata.normalize('NFKD', str(val)).encode('ASCII', 'ignore').decode('utf-8').lower().replace(' ', '')
+
+            job_src = _clean(job.source_lang)
+            job_tgt = _clean(job.target_lang)
+            match_lang = False
+            for p in int_langs:
+                p_standard = p.replace('->', '➔')
+                if '➔' in p_standard:
+                    parts = p_standard.split('➔', 1)
+                    src_p, tgt_p = _clean(parts[0]), _clean(parts[1])
+                    if (src_p == job_src and tgt_p == job_tgt) or (src_p == job_tgt and tgt_p == job_src):
+                        match_lang = True
+                        break
+                else:
+                    p_clean = _clean(p_standard)
+                    if p_clean and (p_clean == job_src or p_clean == job_tgt):
+                        match_lang = True
+                        break
+            if not match_lang:
+                return False
+
+        # 2. Kiểm tra hình thức làm việc (work_mode)
+        job_loc = (job.event_location or '').lower()
+        is_remote_job = 'online' in job_loc or 'tu xa' in job_loc or 'remote' in job_loc
+        if int_pref.work_mode == 'online' and not is_remote_job:
+            return False
+        if int_pref.work_mode == 'offline' and is_remote_job:
+            return False
+
+        # 3. Kiểm tra khoảng thù lao nếu không cho phép nhận việc ngoài khoảng giá
+        if int_pref.min_rate and not int_pref.allow_outside_rate:
+            job_budget = job.budget_max or job.budget_min or 0
+            if job_budget > 0 and job_budget < (int_pref.min_rate * 0.7):
+                return False
+
+        return True
+
     pref = translator.preference
     if not pref:
         return True # Default to accepting if no preference set

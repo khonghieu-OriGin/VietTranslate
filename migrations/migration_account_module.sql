@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS interpreter_preference (
     max_rate DOUBLE PRECISION,
     allow_outside_rate BOOLEAN DEFAULT FALSE,
     available_hours TEXT,
+    locations TEXT,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

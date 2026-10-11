@@ -2157,6 +2157,7 @@ class InterpreterPreference(db.Model):
     max_rate = db.Column(db.Float, nullable=True)            # Mức giá tối đa mong muốn
     allow_outside_rate = db.Column(db.Boolean, default=False)# Chấp nhận việc ngoài khoảng giá
     available_hours = db.Column(db.Text, nullable=True)      # Khung giờ làm việc sẵn sàng (JSON/Text)
+    locations = db.Column(db.Text, nullable=True)            # Khu vực nhận việc trực tiếp (JSON/Text)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -2194,6 +2195,55 @@ class InterpreterPreference(db.Model):
             self.specializations = json.dumps(items, ensure_ascii=False)
         else:
             self.specializations = str(items or '')
+
+    def get_locations_list(self):
+        if not self.locations:
+            return []
+        try:
+            val = json.loads(self.locations)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [loc.strip() for loc in self.locations.split(',') if loc.strip()]
+
+    def set_locations_list(self, items):
+        if isinstance(items, list):
+            self.locations = json.dumps(items, ensure_ascii=False)
+        else:
+            self.locations = str(items or '')
+
+    def get_available_hours_list(self):
+        if not self.available_hours:
+            return []
+        try:
+            val = json.loads(self.available_hours)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [h.strip() for h in self.available_hours.split(',') if h.strip()]
+
+    def set_available_hours_list(self, items):
+        if isinstance(items, list):
+            self.available_hours = json.dumps(items, ensure_ascii=False)
+        else:
+            self.available_hours = str(items or '')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'languages': self.get_languages_list(),
+            'specializations': self.get_specializations_list(),
+            'work_mode': self.work_mode or 'both',
+            'min_rate': self.min_rate,
+            'max_rate': self.max_rate,
+            'allow_outside_rate': bool(self.allow_outside_rate),
+            'available_hours': self.get_available_hours_list(),
+            'locations': self.get_locations_list(),
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }
 
 
 class NotificationSetting(db.Model):

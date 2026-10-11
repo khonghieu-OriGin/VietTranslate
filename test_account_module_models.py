@@ -104,20 +104,28 @@ class TestAccountModuleModels(unittest.TestCase):
             min_rate=300000.0,
             max_rate=800000.0,
             allow_outside_rate=True,
-            available_hours='{"mon": ["08:00-12:00", "13:30-17:30"]}'
+            available_hours='["Ca sáng", "Ca chiều"]'
         )
-        pref.set_languages_list(['Tiếng Anh', 'Tiếng Nhật'])
+        pref.set_languages_list(['Tiếng Việt ➔ Tiếng Anh', 'Tiếng Việt ➔ Tiếng Nhật'])
         pref.set_specializations_list(['Công nghệ thông tin', 'Y tế'])
+        pref.set_locations_list(['Hà Nội', 'Đà Nẵng'])
         db.session.add(pref)
         db.session.commit()
 
         # Query lại và kiểm tra
         loaded = InterpreterPreference.query.filter_by(user_id=user.id).first()
         self.assertIsNotNone(loaded)
-        self.assertIn('Tiếng Anh', loaded.get_languages_list())
+        self.assertIn('Tiếng Việt ➔ Tiếng Anh', loaded.get_languages_list())
         self.assertIn('Y tế', loaded.get_specializations_list())
+        self.assertIn('Hà Nội', loaded.get_locations_list())
+        self.assertIn('Ca sáng', loaded.get_available_hours_list())
         self.assertTrue(loaded.allow_outside_rate)
         self.assertEqual(user.interpreter_preference.min_rate, 300000.0)
+        
+        pref_dict = loaded.to_dict()
+        self.assertEqual(pref_dict['work_mode'], 'both')
+        self.assertEqual(pref_dict['min_rate'], 300000.0)
+        self.assertIn('Đà Nẵng', pref_dict['locations'])
 
         # Cleanup
         db.session.delete(user)
