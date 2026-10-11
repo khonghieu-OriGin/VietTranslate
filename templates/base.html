@@ -274,8 +274,8 @@
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'translator_list' %}active text-brand-600 font-bold{% endif %}">{{
                         t('nav.find_translators') }}</a>
                     <a href="{{ url_for('account_history') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Việc
-                        làm của tôi</a>
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">{{
+                        t('nav.manage_hiring') }}</a>
                     {% elif current_user and current_user.role == 'translator' %}
                     <a href="{{ url_for('job_list') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'job_list' and not request.args.get('recommended') %}active text-brand-600 font-bold{% endif %}">Tìm
@@ -477,8 +477,8 @@
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'translator_list' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.find_translators') }}</a>
                 <a href="{{ url_for('account_history') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_history' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Việc
-                    làm của tôi</a>
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_history' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
+                    t('nav.manage_hiring') }}</a>
                 <a href="{{ url_for('post_job') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'post_job' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.mobile_post_job') }}</a>

@@ -11,6 +11,7 @@ TRANSLATIONS = {
         'nav': {
             'brand_subtitle': 'Mạng Lưới Ngôn Ngữ Toàn Cầu',
             'find_translators': 'Tìm Phiên Dịch',
+            'manage_hiring': 'Quản lý tuyển dụng',
             'jobs': 'Việc Làm',
             'about': 'Giới Thiệu',
             'payment_escrow': 'Thanh Toán & Escrow',
@@ -889,6 +890,7 @@ TRANSLATIONS = {
         'nav': {
             'brand_subtitle': 'Global Language Hub',
             'find_translators': 'Find Translators',
+            'manage_hiring': 'Hiring Management',
             'jobs': 'Jobs',
             'about': 'About Us',
             'payment_escrow': 'Payment & Escrow',
