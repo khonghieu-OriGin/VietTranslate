@@ -69,7 +69,7 @@ class User(db.Model):
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
 
     # Phân hệ Tài khoản & Tiêu chí chuyên sâu (Mục V)
-    interpreter_services = db.relationship('InterpreterService', backref='user', lazy=True, cascade='all, delete-orphan')
+    interpreter_services = db.relationship('InterpreterService', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(InterpreterService.id)')
     interpreter_preference = db.relationship('InterpreterPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notification_setting = db.relationship('NotificationSetting', backref='user', uselist=False, cascade='all, delete-orphan')
     user_sessions = db.relationship('UserSession', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(UserSession.last_active)')
@@ -1941,6 +1941,203 @@ class InterpreterService(db.Model):
     is_active = db.Column(db.Boolean, default=True, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def formatted_hourly_rate(self):
+        """Định dạng mức thù lao theo giờ chuẩn VNĐ (Ví dụ: 1.500.000 VNĐ)."""
+        if self.hourly_rate is not None and self.hourly_rate > 0:
+            return f"{int(round(self.hourly_rate)):,}".replace(',', '.') + ' VNĐ'
+        return None
+
+    @property
+    def formatted_session_rate(self):
+        """Định dạng mức thù lao theo ca/buổi chuẩn VNĐ (Ví dụ: 5.000.000 VNĐ)."""
+        if self.session_rate is not None and self.session_rate > 0:
+            return f"{int(round(self.session_rate)):,}".replace(',', '.') + ' VNĐ'
+        return None
+
+    @property
+    def display_rate_summary(self):
+        """Tóm tắt mức thù lao theo giờ và theo ca."""
+        parts = []
+        if self.formatted_hourly_rate:
+            parts.append(f"{self.formatted_hourly_rate}/giờ")
+        if self.formatted_session_rate:
+            parts.append(f"{self.formatted_session_rate}/buổi")
+        return " · ".join(parts) if parts else "Thỏa thuận"
+
+    @property
+    def display_interpreting_type(self):
+        """Tên hiển thị chuẩn của hình thức phiên dịch."""
+        type_map = {
+            'cabin': 'Dịch Cabin (Đồng thời)',
+            'nối tiếp': 'Dịch nối tiếp (Consecutive)',
+            'noi_tiep': 'Dịch nối tiếp (Consecutive)',
+            'tháp tùng': 'Dịch tháp tùng (Escort)',
+            'thap_tung': 'Dịch tháp tùng (Escort)',
+            'online': 'Dịch từ xa (Online / Remote)',
+            'từ xa': 'Dịch từ xa (Online / Remote)',
+        }
+        raw = (self.interpreting_type or '').strip().lower()
+        for k, v in type_map.items():
+            if k in raw:
+                return v
+        return self.interpreting_type or 'Chung'
+
+    @property
+    def interpreting_type_badge_class(self):
+        """Màu badge phù hợp với hình thức phiên dịch."""
+        raw = (self.interpreting_type or '').strip().lower()
+        if 'cabin' in raw:
+            return 'bg-purple-50 text-purple-700 border-purple-200'
+        elif 'nối tiếp' in raw or 'noi_tiep' in raw:
+            return 'bg-blue-50 text-blue-700 border-blue-200'
+        elif 'tháp tùng' in raw or 'thap_tung' in raw:
+            return 'bg-amber-50 text-amber-700 border-amber-200'
+        elif 'online' in raw or 'từ xa' in raw:
+            return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        return 'bg-slate-50 text-slate-700 border-slate-200'
+
+    def is_kyc_verified(self):
+        """
+        Kiểm tra cặp ngôn ngữ và chuyên ngành của dịch vụ này
+        đã được Ban quản trị DUYỆT trong hệ thống KYC hay chưa.
+        NẾU ngôn ngữ/chuyên ngành ĐÃ ĐƯỢC DUYỆT ở hệ thống KYC: True -> 'Đã xác minh năng lực ✓'
+        NẾU là dịch vụ tự khai thêm: False -> 'Chưa xác minh'
+        """
+        user = self.user
+        if not user:
+            return False
+
+        # 1. Tìm hồ sơ xác minh đã duyệt (status == 'approved')
+        approved_verif = None
+        if hasattr(user, 'verifications') and user.verifications:
+            for v in user.verifications:
+                if getattr(v, 'status', None) == 'approved':
+                    approved_verif = v
+                    break
+
+        user_is_verified = bool(
+            approved_verif or
+            getattr(user, 'is_verified', False) or
+            (user.profile and getattr(user.profile, 'is_verified', False))
+        )
+        if not user_is_verified:
+            return False
+
+        def clean_lang(l):
+            if not l:
+                return ''
+            s = l.strip().lower()
+            lang_map = {
+                'tiếng việt': 'vi', 'việt': 'vi', 'vietnamese': 'vi', 'vn': 'vi', 'vi': 'vi',
+                'tiếng anh': 'en', 'anh': 'en', 'english': 'en', 'en': 'en',
+                'tiếng nhật': 'ja', 'tiếng nhật bản': 'ja', 'nhật': 'ja', 'nhật bản': 'ja', 'japanese': 'ja', 'jp': 'ja', 'ja': 'ja',
+                'tiếng hàn': 'ko', 'tiếng hàn quốc': 'ko', 'hàn': 'ko', 'hàn quốc': 'ko', 'korean': 'ko', 'kr': 'ko', 'ko': 'ko',
+                'tiếng trung': 'zh', 'tiếng trung quốc': 'zh', 'trung': 'zh', 'trung quốc': 'zh', 'chinese': 'zh', 'cn': 'zh', 'zh': 'zh',
+                'tiếng pháp': 'fr', 'pháp': 'fr', 'french': 'fr', 'fr': 'fr',
+                'tiếng đức': 'de', 'đức': 'de', 'german': 'de', 'de': 'de',
+                'tiếng nga': 'ru', 'nga': 'ru', 'russian': 'ru', 'ru': 'ru',
+                'tiếng tây ban nha': 'es', 'tây ban nha': 'es', 'spanish': 'es', 'es': 'es',
+                'tiếng bồ đào nha': 'pt', 'bồ đào nha': 'pt', 'portuguese': 'pt', 'pt': 'pt',
+                'tiếng thái': 'th', 'thái': 'th', 'thái lan': 'th', 'thai': 'th', 'th': 'th',
+            }
+            return lang_map.get(s, s)
+
+        approved_langs = set()
+        if approved_verif:
+            if approved_verif.source_language:
+                approved_langs.add(clean_lang(approved_verif.source_language))
+            if approved_verif.target_language:
+                approved_langs.add(clean_lang(approved_verif.target_language))
+            if approved_verif.primary_language:
+                approved_langs.add(clean_lang(approved_verif.primary_language))
+        if user.profile:
+            if user.profile.source_language:
+                approved_langs.add(clean_lang(user.profile.source_language))
+            if user.profile.target_language:
+                approved_langs.add(clean_lang(user.profile.target_language))
+            if user.profile.languages:
+                for l in user.profile.languages.split(','):
+                    approved_langs.add(clean_lang(l))
+
+        src_clean = clean_lang(self.source_lang)
+        tgt_clean = clean_lang(self.target_lang)
+
+        lang_matched = False
+        if approved_langs:
+            if src_clean in approved_langs and tgt_clean in approved_langs:
+                lang_matched = True
+            elif (src_clean in ('vi', '') and tgt_clean in approved_langs) or (tgt_clean in ('vi', '') and src_clean in approved_langs):
+                lang_matched = True
+        else:
+            lang_matched = True
+
+        # Thu thập lĩnh vực chuyên môn đã được duyệt
+        approved_specs = set()
+        def extract_specs(raw):
+            if not raw:
+                return
+            if isinstance(raw, str):
+                import json
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        for x in parsed:
+                            approved_specs.add(str(x).strip().lower())
+                        return
+                except Exception:
+                    pass
+                for part in raw.replace(';', ',').split(','):
+                    if part.strip():
+                        approved_specs.add(part.strip().lower())
+            elif isinstance(raw, list):
+                for x in raw:
+                    approved_specs.add(str(x).strip().lower())
+
+        if approved_verif and approved_verif.specializations:
+            extract_specs(approved_verif.specializations)
+        if user.profile and user.profile.specializations:
+            extract_specs(user.profile.specializations)
+
+        svc_spec = (self.specialization or '').strip().lower()
+        spec_matched = False
+        if not svc_spec or not approved_specs:
+            spec_matched = True
+        else:
+            for app_sp in approved_specs:
+                if app_sp in svc_spec or svc_spec in app_sp:
+                    spec_matched = True
+                    break
+                words_app = set(app_sp.replace('&', ' ').replace('-', ' ').split())
+                words_svc = set(svc_spec.replace('&', ' ').replace('-', ' ').split())
+                if words_app & words_svc:
+                    spec_matched = True
+                    break
+
+        return bool(lang_matched and spec_matched)
+
+    def to_dict(self):
+        """Chuyển đổi thành Dictionary phục vụ JSON API."""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'source_lang': self.source_lang,
+            'target_lang': self.target_lang,
+            'interpreting_type': self.interpreting_type,
+            'display_interpreting_type': self.display_interpreting_type,
+            'interpreting_type_badge_class': self.interpreting_type_badge_class,
+            'specialization': self.specialization or '',
+            'hourly_rate': self.hourly_rate,
+            'formatted_hourly_rate': self.formatted_hourly_rate,
+            'session_rate': self.session_rate,
+            'formatted_session_rate': self.formatted_session_rate,
+            'display_rate_summary': self.display_rate_summary,
+            'currency': self.currency or 'VND',
+            'is_active': self.is_active,
+            'is_kyc_verified': self.is_kyc_verified(),
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None
+        }
 
 
 class InterpreterPreference(db.Model):
