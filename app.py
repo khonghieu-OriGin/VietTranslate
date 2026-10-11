@@ -1,6 +1,15 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, SavedJob, Contract, Message, DirectMessage, Deliverable, Review, Notification, NOTIFICATION_TYPES, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment, FavoriteTranslator, ContractEvent
+from models import (
+    db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal,
+    SavedJob, Contract, Message, DirectMessage, Deliverable, Review, Notification, NOTIFICATION_TYPES,
+    LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction,
+    AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries,
+    validate_schedule_entries, VerificationDocument, TranslatorVerification,
+    VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken, JobAttachment,
+    FavoriteTranslator, ContractEvent, InterpreterService, InterpreterPreference,
+    NotificationSetting, UserSession, SupportTicket
+)
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
