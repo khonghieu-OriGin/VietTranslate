@@ -766,8 +766,15 @@ class Proposal(db.Model):
     cover_letter = db.Column(db.Text, nullable=True)
     price = db.Column(db.Integer, nullable=False)
     time_estimate = db.Column(db.String(100))
-    status = db.Column(db.String(20), default='pending')
+    status = db.Column(db.String(20), default='pending')  # pending, accepted, rejected, not_selected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Quản lý báo giá (Task 04)
+    scope = db.Column(db.Text)              # phạm vi công việc
+    delivery_terms = db.Column(db.Text)     # điều kiện bàn giao
+    revision_terms = db.Column(db.Text)     # điều kiện chỉnh sửa
+    valid_until = db.Column(db.Date)        # báo giá có hiệu lực đến
+    responded_at = db.Column(db.DateTime)   # lúc khách phản hồi
+    response_note = db.Column(db.Text)      # ghi chú khi từ chối
 
 
 class Contract(db.Model):
