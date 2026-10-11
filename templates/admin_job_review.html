@@ -60,7 +60,7 @@
                     </button>
                 </div>
                 <div style="font-size: 13px; color: #94a3b8; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span>{{ job.display_category_text() if hasattr(job, 'display_category_text') else (job.category or 'Phiên dịch') }}</span>
+                    <span>{{ job.display_category_text() if job.display_category_text is defined else (job.category or 'Phiên dịch') }}</span>
                     <span>•</span>
                     <span style="color: #60a5fa; font-weight: 600;">{{ job.source_lang }} → {{ job.target_lang }}</span>
                 </div>
@@ -98,8 +98,8 @@
                 </div>
                 <div>
                     <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Khung thị trường</div>
-                    <div style="font-size: 13px; font-weight: 700; margin-top: 4px; color: {% if eval_result.groups.B.items[4].status == 'warning' %}#f59e0b{% else %}#22c55e{% endif %};">
-                        {{ eval_result.groups.B.items[4].note }}
+                    <div style="font-size: 13px; font-weight: 700; margin-top: 4px; color: {% if eval_result.groups.B['items'][4].status == 'warning' %}#f59e0b{% else %}#22c55e{% endif %};">
+                        {{ eval_result.groups.B['items'][4].note }}
                     </div>
                 </div>
             </div>
@@ -169,7 +169,7 @@
                         </div>
                     </div>
                     <div id="grpA-content" style="padding: 12px 18px; display: none; border-top: 1px solid #334155; font-size: 13px;">
-                        {% for it in eval_result.groups.A.items %}
+                        {% for it in eval_result.groups.A['items'] %}
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
                             <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
                             <span style="font-size: 11px; color: {% if it.status == 'passed' %}#4ade80{% else %}#fbbf24{% endif %}; font-weight: 600;">
@@ -194,7 +194,7 @@
                         </div>
                     </div>
                     <div id="grpB-content" style="padding: 12px 18px; display: {% if eval_result.groups.B.warnings > 0 %}block{% else %}none{% endif %}; border-top: 1px solid #334155; font-size: 13px;">
-                        {% for it in eval_result.groups.B.items %}
+                        {% for it in eval_result.groups.B['items'] %}
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
                             <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
                             <span style="font-size: 11px; color: {% if it.status == 'passed' %}#4ade80{% else %}#fbbf24{% endif %}; font-weight: 600;">
@@ -227,7 +227,7 @@
                                 <span style="color: #f1f5f9; font-weight: 600;">C1 · Liên lạc ngoài nền tảng</span>
                             </div>
                             <span style="background: rgba(239,68,68,0.2); color: #f87171; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px;">
-                                {% if eval_result.groups.C.items[0].status == 'critical' %}Nghiêm trọng{% else %}Đạt{% endif %}
+                                {% if eval_result.groups.C['items'][0].status == 'critical' %}Nghiêm trọng{% else %}Đạt{% endif %}
                             </span>
                         </div>
 
@@ -243,7 +243,7 @@
                         <!-- C7: Không yêu cầu nhân thân (Thủ công Admin xem với Checkbox) -->
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
                             <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin: 0;">
-                                <input type="checkbox" name="chk_C7" value="1" {% if eval_result.groups.C.items[6].status == 'passed' %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #3b82f6;">
+                                <input type="checkbox" name="chk_C7" value="1" {% if eval_result.groups.C['items'][6].status == 'passed' %}checked{% endif %} style="width: 16px; height: 16px; accent-color: #3b82f6;">
                                 <span style="color: #cbd5e1; font-weight: 500;">C7 · Không yêu cầu nhân thân</span>
                             </label>
                             <span style="color: #60a5fa; font-size: 11px; font-weight: 600;">Admin xem</span>
@@ -255,7 +255,7 @@
                                 <span id="sub-arrow">+</span> 9 tiêu chí khác đã đạt (click xem chi tiết)
                             </button>
                             <div id="subCriteriaBlock" style="display: none; margin-top: 8px; padding-left: 12px; border-left: 2px solid #334155;">
-                                {% for it in eval_result.groups.C.items %}
+                                {% for it in eval_result.groups.C['items'] %}
                                     {% if it.code not in ('C1', 'C2', 'C7') %}
                                     <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 12px; color: #94a3b8;">
                                         <span>{{ it.code }} · {{ it.title }}</span>
@@ -283,7 +283,7 @@
                         </div>
                     </div>
                     <div id="grpD-content" style="padding: 12px 18px; display: none; border-top: 1px solid #334155; font-size: 13px;">
-                        {% for it in eval_result.groups.D.items %}
+                        {% for it in eval_result.groups.D['items'] %}
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(51,65,85,0.4);">
                             <span style="color: #cbd5e1;">{{ it.code }} • {{ it.title }}</span>
                             <span style="font-size: 11px; color: #4ade80; font-weight: 600;">✓ Đạt</span>

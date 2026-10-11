@@ -943,6 +943,10 @@ def csrf_token():
     """Trả về CSRF token hiện tại cho Admin templates."""
     return get_csrf_token()
 
+# Defensive fallback cho templates: đăng ký hasattr và getattr vào Jinja globals
+app.jinja_env.globals['hasattr'] = hasattr
+app.jinja_env.globals['getattr'] = getattr
+
 
 # Context processor: Badge counts và helpers cho Admin sidebar
 @app.context_processor
