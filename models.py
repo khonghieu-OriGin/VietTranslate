@@ -52,6 +52,11 @@ class User(db.Model):
     email_verified = db.Column(db.Boolean, default=False)
     verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
+    # Phân hệ Tài khoản Phiên dịch viên (Mục V)
+    bio = db.Column(db.Text, nullable=True)
+    date_of_birth = db.Column(db.String(20), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    is_public_profile = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -61,6 +66,13 @@ class User(db.Model):
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
+
+    # Phân hệ Tài khoản & Tiêu chí chuyên sâu (Mục V)
+    interpreter_services = db.relationship('InterpreterService', backref='user', lazy=True, cascade='all, delete-orphan')
+    interpreter_preference = db.relationship('InterpreterPreference', backref='user', uselist=False, cascade='all, delete-orphan')
+    notification_setting = db.relationship('NotificationSetting', backref='user', uselist=False, cascade='all, delete-orphan')
+    user_sessions = db.relationship('UserSession', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(UserSession.last_active)')
+    support_tickets = db.relationship('SupportTicket', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(SupportTicket.created_at)')
 
     @property
     def avatar_url(self):
@@ -1353,4 +1365,142 @@ class EmailVerificationToken(db.Model):
 
     def is_valid(self):
         return not self.is_used and self.expires_at > datetime.utcnow()
+
+
+# ─── PHÂN HỆ TÀI KHOẢN PHIÊN DỊCH VIÊN (MỤC V) ───────────────────────────────
+
+class InterpreterService(db.Model):
+    """
+    Năng lực & Bảng giá của phiên dịch viên (Mục 5.2).
+    Lưu trữ cấu hình cặp ngôn ngữ, hình thức phiên dịch, chuyên môn và mức thù lao.
+    """
+    __tablename__ = 'interpreter_service'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Cặp ngôn ngữ & Hình thức phiên dịch
+    source_lang = db.Column(db.String(100), nullable=False)
+    target_lang = db.Column(db.String(100), nullable=False)
+    interpreting_type = db.Column(db.String(100), nullable=False)  # cabin, nối tiếp, tháp tùng, online
+    specialization = db.Column(db.String(255), nullable=True)     # kinh doanh, kỹ thuật, y tế, pháp lý
+
+    # Bảng giá
+    hourly_rate = db.Column(db.Float, nullable=True)               # Giá theo giờ (VND)
+    session_rate = db.Column(db.Float, nullable=True)              # Giá theo buổi/ca (VND)
+    currency = db.Column(db.String(10), default='VND')
+
+    is_active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class InterpreterPreference(db.Model):
+    """
+    Tiêu chí nhận việc của phiên dịch viên (Mục 5.4).
+    Lưu trữ các ràng buộc bộ lọc: ngôn ngữ, chuyên môn, phương thức làm việc và khoảng giá mong muốn.
+    """
+    __tablename__ = 'interpreter_preference'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+
+    languages = db.Column(db.Text, nullable=True)            # JSON string hoặc chuỗi phân tách các ngôn ngữ
+    specializations = db.Column(db.Text, nullable=True)      # JSON string hoặc chuỗi phân tách các chuyên môn
+    work_mode = db.Column(db.String(50), default='both')     # online, offline, both
+    min_rate = db.Column(db.Float, nullable=True)            # Mức giá tối thiểu mong muốn
+    max_rate = db.Column(db.Float, nullable=True)            # Mức giá tối đa mong muốn
+    allow_outside_rate = db.Column(db.Boolean, default=False)# Chấp nhận việc ngoài khoảng giá
+    available_hours = db.Column(db.Text, nullable=True)      # Khung giờ làm việc sẵn sàng (JSON/Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def get_languages_list(self):
+        if not self.languages:
+            return []
+        try:
+            val = json.loads(self.languages)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [l.strip() for l in self.languages.split(',') if l.strip()]
+
+    def set_languages_list(self, items):
+        if isinstance(items, list):
+            self.languages = json.dumps(items, ensure_ascii=False)
+        else:
+            self.languages = str(items or '')
+
+    def get_specializations_list(self):
+        if not self.specializations:
+            return []
+        try:
+            val = json.loads(self.specializations)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [s.strip() for s in self.specializations.split(',') if s.strip()]
+
+    def set_specializations_list(self, items):
+        if isinstance(items, list):
+            self.specializations = json.dumps(items, ensure_ascii=False)
+        else:
+            self.specializations = str(items or '')
+
+
+class NotificationSetting(db.Model):
+    """
+    Cài đặt nhận thông báo của người dùng (Mục 5.6.1).
+    """
+    __tablename__ = 'notification_setting'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+
+    notify_job_match = db.Column(db.Boolean, default=True)           # Công việc mới phù hợp tiêu chí
+    notify_schedule_reminder = db.Column(db.Boolean, default=True)   # Nhắc nhở lịch hẹn phiên dịch
+    notify_application_update = db.Column(db.Boolean, default=True)  # Cập nhật kết quả ứng tuyển / hợp đồng
+    notify_marketing = db.Column(db.Boolean, default=False)          # Tin khuyến mại, sự kiện nền tảng
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class UserSession(db.Model):
+    """
+    Quản lý phiên đăng nhập và bảo mật thiết bị (Mục 5.6.2).
+    """
+    __tablename__ = 'user_session'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    session_id = db.Column(db.String(255), nullable=True, index=True) # Token phiên
+    device_name = db.Column(db.String(255), nullable=True)            # Trình duyệt / Thiết bị
+    ip_address = db.Column(db.String(50), nullable=True)              # Địa chỉ IP
+    last_active = db.Column(db.DateTime, default=datetime.utcnow)    # Lần hoạt động cuối
+    is_current = db.Column(db.Boolean, default=False)                 # Đánh dấu phiên hiện tại
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class SupportTicket(db.Model):
+    """
+    Yêu cầu hỗ trợ kỹ thuật và khiếu nại (Mục 5.7.3).
+    """
+    __tablename__ = 'support_ticket'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_code = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    category = db.Column(db.String(100), nullable=False)     # Phân loại: tài khoản, thanh toán, bảo mật...
+    title = db.Column(db.String(255), nullable=False)        # Tiêu đề
+    description = db.Column(db.Text, nullable=False)         # Nội dung mô tả chi tiết
+    attachment_url = db.Column(db.String(500), nullable=True)# URL tệp đính kèm (ảnh lỗi, tài liệu...)
+    status = db.Column(db.String(30), default='open', index=True) # open, in_progress, resolved, closed
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

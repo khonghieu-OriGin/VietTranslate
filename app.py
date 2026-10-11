@@ -1,6 +1,13 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken
+from models import (
+    db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal,
+    Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog,
+    ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule,
+    JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument,
+    TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken,
+    InterpreterService, InterpreterPreference, NotificationSetting, UserSession, SupportTicket
+)
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -790,7 +797,7 @@ def _apply_hirer_profile_form(user, profile, form, files):
 def _ensure_new_columns():
     """db.create_all() không thêm cột vào bảng đã có -> tự thêm cột mới của hirer_profile."""
     from sqlalchemy import inspect, text
-    for model in (HirerProfile, TranslatorPreference, Job, User, TranslatorVerification, TranslatorProfile):
+    for model in (HirerProfile, TranslatorPreference, Job, User, TranslatorVerification, TranslatorProfile, InterpreterService, InterpreterPreference, NotificationSetting, UserSession, SupportTicket):
         table = model.__table__
         try:
             existing = {c['name'] for c in inspect(db.engine).get_columns(table.name)}
