@@ -808,10 +808,10 @@ def submit_verification_request(user, form_data, files):
     return ok, msg
 
 
-def review_verification_request(verification_id, admin_user, action, reason=None, ip_address=None, user_agent=None):
+def review_verification_request(verification_id, admin_user, action, reason=None, ip_address=None, user_agent=None, checklist_data=None):
     """
-    Ban quản trị duyệt (approve) hoặc từ chối (reject) yêu cầu xác minh.
-    Đồng bộ trạng thái TranslatorProfile.is_verified, gửi thông báo và ghi Audit Log.
+    Ban quản trị duyệt (approve), yêu cầu sửa đổi (needs_revision) hoặc từ chối (reject) yêu cầu xác minh.
+    Lưu trữ thông tin checklist đánh giá (checklist_data).
     """
     verification = TranslatorVerification.query.get(verification_id)
     if not verification:
@@ -826,6 +826,10 @@ def review_verification_request(verification_id, admin_user, action, reason=None
     now = datetime.utcnow()
     verification.reviewed_by = admin_user.id if admin_user else None
     verification.reviewed_at = now
+    
+    if checklist_data is not None:
+        import json
+        verification.checklist_data = json.dumps(checklist_data, ensure_ascii=False)
 
     if action == 'approve':
         verification.status = 'approved'
@@ -870,6 +874,48 @@ def review_verification_request(verification_id, admin_user, action, reason=None
 
         db.session.commit()
         return True, f'Đã phê duyệt xác minh cho {user.name}.'
+
+    elif action == 'needs_revision':
+        revision_reason = (reason or 'Hồ sơ thiếu thông tin hoặc tài liệu chưa hợp lệ. Vui lòng bổ sung.').strip()
+        verification.status = 'needs_revision'
+        verification.rejection_reason = revision_reason
+        if profile:
+            profile.is_verified = False
+
+        for doc in verification.documents:
+            if doc.is_active:
+                doc.status = 'needs_revision'
+                doc.review_notes = revision_reason
+                doc.reviewed_by = admin_user.id if admin_user else None
+                doc.reviewed_at = now
+
+        try:
+            notif = Notification(
+                user_id=user.id,
+                type='VERIFICATION_NEEDS_REVISION',
+                title='Hồ sơ xác minh cần bổ sung',
+                message=f'Hồ sơ của bạn cần bổ sung/chỉnh sửa với lý do: "{revision_reason}".',
+                url='/account/profile?tab=verification'
+            )
+            db.session.add(notif)
+        except Exception as e:
+            print(f"[NOTIF ERROR] {e}", file=sys.stderr)
+
+        try:
+            AdminAuditLog.log(
+                action=ADMIN_AUDIT_ACTIONS.get('REVISE_TRANSLATOR', 'REVISE_TRANSLATOR'),
+                admin_id=admin_user.id if admin_user else None,
+                target_type='translator',
+                target_id=profile.id if profile else user.id,
+                description=f'Yêu cầu bổ sung hồ sơ {user.name} ({user.email}). Lý do: {revision_reason}',
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+        except Exception as e:
+            pass
+
+        db.session.commit()
+        return True, f'Đã yêu cầu bổ sung hồ sơ cho {user.name}.'
 
     elif action == 'reject':
         rejection_reason = (reason or 'Hồ sơ chưa đạt yêu cầu xác minh. Vui lòng kiểm tra lại tài liệu đã tải lên.').strip()

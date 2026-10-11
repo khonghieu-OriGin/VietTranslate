@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -996,6 +996,25 @@ def login_required(f):
         if not user:
             flash("Tài khoản của bạn đã bị vô hiệu hóa hoặc phiên đăng nhập không hợp lệ.", "error")
             return redirect(url_for('login'))
+            
+        return f(*args, **kwargs)
+    return decorated
+
+def email_verified_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if 'user_id' not in session:
+            flash(_t('flash.login_required'), 'warning')
+            return redirect(url_for('login'))
+        
+        user = get_current_user()
+        if not user or not user.is_active:
+            flash("Tài khoản của bạn đã bị vô hiệu hóa.", "error")
+            return redirect(url_for('login'))
+            
+        if not user.email_verified:
+            flash("Bạn cần xác minh địa chỉ email để thực hiện chức năng này.", "warning")
+            return redirect(url_for('account_profile'))
             
         return f(*args, **kwargs)
     return decorated
@@ -2068,8 +2087,27 @@ def register():
                 hirer_profile = HirerProfile(user_id=new_user.id)
                 db.session.add(hirer_profile)
 
+            # Generate Email Verification Token
+            import secrets
+            token_str = secrets.token_urlsafe(32)
+            token_hash = generate_password_hash(token_str)
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+            
+            verif_token = EmailVerificationToken(
+                user_id=new_user.id,
+                token_hash=token_hash,
+                expires_at=expires_at
+            )
+            db.session.add(verif_token)
+
             db.session.commit()
-            flash(_t('flash.register_success'), 'success')
+            
+            # Gửi email xác minh
+            from services.email import send_verification_email
+            verify_url = url_for('verify_email', token=token_str, email=email, _external=True)
+            send_verification_email(new_user.email, verify_url)
+            
+            flash("Đăng ký thành công! Vui lòng kiểm tra hộp thư email của bạn để xác minh tài khoản trước khi tiếp tục.", 'success')
             return redirect(url_for('login'))
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -2082,6 +2120,77 @@ def register():
             flash(_t('flash.db_error'), 'error')
             return redirect(url_for('register'))
     return render_template('register.html')
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    email = request.args.get('email', '').strip().lower()
+    user = User.query.filter_by(email=email).first()
+    
+    if not user:
+        flash("Email không tồn tại.", "error")
+        return redirect(url_for('login'))
+        
+    if user.email_verified:
+        flash("Email này đã được xác minh từ trước.", "info")
+        return redirect(url_for('login'))
+        
+    tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+    valid_token = None
+    for t in tokens:
+        if check_password_hash(t.token_hash, token) and t.expires_at > datetime.utcnow():
+            valid_token = t
+            break
+            
+    if not valid_token:
+        flash("Liên kết xác minh không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu liên kết mới.", "error")
+        return redirect(url_for('login'))
+        
+    # Đánh dấu token đã dùng và email đã xác minh
+    valid_token.is_used = True
+    user.email_verified = True
+    db.session.commit()
+    
+    flash("Xác minh email thành công! Bạn có thể bắt đầu sử dụng đầy đủ các tính năng.", "success")
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification-email', methods=['POST'])
+def resend_verification_email():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Bạn cần đăng nhập để thực hiện.'}), 401
+        
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Tài khoản không hợp lệ.'}), 400
+        
+    if user.email_verified:
+        return jsonify({'success': False, 'message': 'Email đã được xác minh.'}), 400
+        
+    # Vô hiệu hóa token cũ
+    old_tokens = EmailVerificationToken.query.filter_by(user_id=user.id, is_used=False).all()
+    for t in old_tokens:
+        t.is_used = True
+        
+    import secrets
+    token_str = secrets.token_urlsafe(32)
+    token_hash = generate_password_hash(token_str)
+    expires_at = datetime.utcnow() + timedelta(hours=24)
+    
+    new_token = EmailVerificationToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires_at
+    )
+    db.session.add(new_token)
+    db.session.commit()
+    
+    from services.email import send_verification_email
+    verify_url = url_for('verify_email', token=token_str, email=user.email, _external=True)
+    success, err_msg = send_verification_email(user.email, verify_url)
+    
+    if success:
+        return jsonify({'success': True, 'message': 'Email xác minh mới đã được gửi.'})
+    else:
+        return jsonify({'success': False, 'message': 'Gửi email thất bại. Vui lòng thử lại sau.'}), 500
 
 @app.route('/logout')
 def logout():
@@ -2417,7 +2526,7 @@ def account_profile():
 
 
 @app.route('/account/verification/submit', methods=['POST'])
-@login_required
+@email_verified_required
 def submit_verification():
     """Nhận và xử lý gửi hồ sơ xác minh phiên dịch viên tới Ban quản trị."""
     uid = session.get('user_id')
@@ -2497,7 +2606,7 @@ def submit_verification():
 # ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
 
 @app.route('/account/verification/documents/upload', methods=['POST'])
-@login_required
+@email_verified_required
 def upload_verification_document():
     """
     Endpoint tải lên tài liệu minh chứng cho hồ sơ xác minh phiên dịch viên.
@@ -2638,7 +2747,7 @@ def view_verification_document(doc_id):
 
 
 @app.route('/account/verification/documents/<int:doc_id>/delete', methods=['POST'])
-@login_required
+@email_verified_required
 def delete_verification_document_endpoint(doc_id):
     """
     Endpoint xóa/hủy tài liệu minh chứng nháp.
@@ -2710,7 +2819,7 @@ def get_verification_documents_api():
 
 @app.route('/account/verification/form', methods=['GET', 'POST'])
 @app.route('/verification/apply', methods=['GET', 'POST'])
-@login_required
+@email_verified_required
 def verification_form():
     """
     Biểu mẫu nhiều bước khai báo thông tin xác minh phiên dịch viên (VietTranslate).
@@ -4763,6 +4872,21 @@ def admin_verify_translator(profile_id):
     flash(f'{msg} hồ sơ {profile.user.name}.', 'success')
     return redirect(url_for('admin_translators'))
 
+@app.route('/admin/verifications/<int:verification_id>', methods=['GET'])
+@admin_login_required
+@require_permission('verify_translator')
+def admin_verification_detail(verification_id):
+    from models import TranslatorVerification
+    import json
+    verification = TranslatorVerification.query.get_or_404(verification_id)
+    checklist_data = {}
+    if verification.checklist_data:
+        try:
+            checklist_data = json.loads(verification.checklist_data)
+        except Exception:
+            pass
+    return render_template('admin_verification_detail.html', verification=verification, checklist_data=checklist_data)
+
 @app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
 @admin_login_required
 @csrf_protected
@@ -4774,6 +4898,9 @@ def admin_review_verification(verification_id, action):
 
     admin = getattr(g, 'current_admin', None) or User.query.get(session.get('admin_id'))
     reason = request.form.get('reason', '')
+    
+    checklist_keys = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1', 'D2']
+    checklist_data = {key: (request.form.get(f'chk_{key}') == 'on') for key in checklist_keys}
 
     ok, msg = review_verification_request(
         verification_id=verification_id,
@@ -4781,7 +4908,8 @@ def admin_review_verification(verification_id, action):
         action=action,
         reason=reason,
         ip_address=get_client_ip(),
-        user_agent=request.headers.get('User-Agent', '')[:512]
+        user_agent=request.headers.get('User-Agent', '')[:512],
+        checklist_data=checklist_data
     )
     if ok:
         flash(msg, 'success')

@@ -1,0 +1,14 @@
+﻿
+app.py:3738:@app.route('/post-job', methods=['GET', 'POST'])
+app.py:3835:@app.route('/jobs')
+app.py:3873:@app.route('/job/<int:job_id>', methods=['GET', 'POST'])
+app.py:3995:@app.route('/api/jobs/<int:job_id>/schedule-check', methods=['GET'])
+app.py:4582:@app.route('/admin/jobs')
+app.py:4599:@app.route('/admin/jobs/<int:job_id>/flag', methods=['POST'])
+app.py:4618:@app.route('/admin/jobs/<int:job_id>/approve', methods=['POST'])
+app.py:4638:@app.route('/admin/jobs/<int:job_id>/delete', methods=['POST'])
+app.py:5260:@app.route('/api/jobs/recommended', methods=['GET'])
+app.py:5269:@app.route('/api/jobs/<int:job_id>/recommended-translators', methods=['GET'])
+app.py:5287:@app.route('/api/jobs/<int:job_id>/invite/<int:translator_id>', methods=['POST'])
+
+

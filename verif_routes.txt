@@ -1,0 +1,179 @@
+﻿
+app.py:3:from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, 
+Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, 
+Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, 
+validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, 
+PasswordResetToken
+app.py:517:PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join(basedir, 'instance', 'storage', 
+'private_verifications'))
+app.py:519:    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+app.py:523:    PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
+app.py:841:        if 'translator_verification' in inspector.get_table_names():
+app.py:842:            tv_cols = [c['name'] for c in inspector.get_columns('translator_verification')]
+app.py:846:                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN submitted_at 
+TIMESTAMP'))
+app.py:852:                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN 
+submission_version INTEGER DEFAULT 0'))
+app.py:858:                        conn.execute(text('ALTER TABLE translator_verification ADD COLUMN 
+submitted_snapshot TEXT'))
+app.py:965:        from models import TranslatorVerification
+app.py:967:        badges['admin_badge_pending_verifications'] = 
+TranslatorVerification.query.filter_by(status='pending').count()
+app.py:974:            'admin_badge_pending_verifications': 0,
+app.py:1212:        verification_status = {
+app.py:1223:        verification_status = {
+app.py:1234:        verification_status = {
+app.py:1245:        verification_status = {
+app.py:1651:    if verification_status and verification_status.get('code') in ('unverified', 'no_profile'):
+app.py:1653:            'id': 'profile_verification',
+app.py:1654:            'type': 'verification',
+app.py:1660:            'icon_type': 'verification',
+app.py:1661:            'url': url_for('account_verification'),
+app.py:1814:        verification_status=verification_status,
+app.py:1828:@app.route('/account/verification')
+app.py:1830:def account_verification():
+app.py:2100:    verif = getattr(user, 'latest_verification', None)
+app.py:2153:            'key': 'verification',
+app.py:2156:            'action_tab': 'verification',
+app.py:2167:        verification_state = 'verified'
+app.py:2170:            verification_state = 'verified'
+app.py:2172:            verification_state = 'pending'
+app.py:2174:            verification_state = 'needs_revision'
+app.py:2176:            verification_state = 'draft'
+app.py:2178:            verification_state = 'rejected'
+app.py:2180:            verification_state = verif.status
+app.py:2182:        verification_state = 'not_started'
+app.py:2190:        'verification_state': verification_state,
+app.py:2191:        'latest_verification': verif
+app.py:2395:    verification_documents = []
+app.py:2396:    from services.verification import DOCUMENT_POLICIES
+app.py:2404:        if user.latest_verification:
+app.py:2405:            verification_documents = [d for d in user.latest_verification.documents if d.is_active]
+app.py:2414:        verification_documents=verification_documents,
+app.py:2419:@app.route('/account/verification/submit', methods=['POST'])
+app.py:2421:def submit_verification():
+app.py:2440:    from services.verification import submit_verification_for_review, submit_verification_request
+app.py:2444:        ok, msg = submit_verification_request(user, request.form, request.files)
+app.py:2449:        return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2460:    ok, msg, meta = submit_verification_for_review(
+app.py:2481:        return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2489:            'redirect_url': url_for('account_profile') + '?tab=verification'
+app.py:2493:    return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2497:# ─── TRANSLATOR VERIFICATION DOCUMENTS (PRIVATE STORAGE & RBAC) ───────────────
+app.py:2499:@app.route('/account/verification/documents/upload', methods=['POST'])
+app.py:2501:def upload_verification_document():
+app.py:2525:    from services.verification import save_private_document
+app.py:2538:        return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2552:    return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2555:@app.route('/account/verification/documents/<int:doc_id>/download')
+app.py:2557:def download_verification_document(doc_id):
+app.py:2569:    doc = VerificationDocument.query.get_or_404(doc_id)
+app.py:2571:    from services.verification import can_user_access_document, get_private_verification_folder
+app.py:2578:        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+app.py:2581:        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+app.py:2599:@app.route('/account/verification/documents/<int:doc_id>/view')
+app.py:2601:def view_verification_document(doc_id):
+app.py:2611:    doc = VerificationDocument.query.get_or_404(doc_id)
+app.py:2613:    from services.verification import can_user_access_document, get_private_verification_folder
+app.py:2620:        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+app.py:2623:        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
+app.py:2640:@app.route('/account/verification/documents/<int:doc_id>/delete', methods=['POST'])
+app.py:2642:def delete_verification_document_endpoint(doc_id):
+app.py:2652:    from services.verification import delete_private_document
+app.py:2660:        return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2666:    return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2669:@app.route('/api/account/verification/documents', methods=['GET'])
+app.py:2671:def get_verification_documents_api():
+app.py:2681:    from services.verification import DOCUMENT_POLICIES
+app.py:2682:    verification = 
+TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+app.py:2685:    if verification:
+app.py:2686:        docs = [d.to_dict() for d in verification.documents if d.is_active]
+app.py:2699:    status = verification.status if verification else 'not_started'
+app.py:2704:        'verification_status': status,
+app.py:2711:@app.route('/account/verification/form', methods=['GET', 'POST'])
+app.py:2712:@app.route('/verification/apply', methods=['GET', 'POST'])
+app.py:2714:def verification_form():
+app.py:2735:    from services.verification import (
+app.py:2736:        get_or_create_verification_draft,
+app.py:2738:        save_verification_draft
+app.py:2741:    verification = get_or_create_verification_draft(user)
+app.py:2747:        step = request.form.get('step', type=int) or (request.json.get('step') if request.is_json else 
+verification.current_step or 1)
+app.py:2766:            ok, verif, err = save_verification_draft(user, form_data, target_step=target_step)
+app.py:2771:                return redirect(url_for('verification_form', step=step))
+app.py:2783:            return redirect(url_for('verification_form', step=step))
+app.py:2797:                return redirect(url_for('verification_form', step=step))
+app.py:2801:            ok, verif, err = save_verification_draft(user, form_data, target_step=next_step)
+app.py:2806:                return redirect(url_for('verification_form', step=step))
+app.py:2817:            return redirect(url_for('verification_form', step=next_step))
+app.py:2823:                save_verification_draft(user, form_data, target_step=target)
+app.py:2826:                return redirect(url_for('verification_form', step=target))
+app.py:2830:            ok, verif, err = save_verification_draft(user, form_data, target_step=6)
+app.py:2835:                return redirect(url_for('verification_form', step=step))
+app.py:2840:                    'redirect_url': url_for('account_profile') + '?tab=verification'
+app.py:2843:            return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2845:        elif action == 'submit_verification':
+app.py:2846:            from services.verification import submit_verification_for_review
+app.py:2848:            ok, msg, meta = submit_verification_for_review(
+app.py:2867:                return redirect(url_for('verification_form', step=6))
+app.py:2875:                    'redirect_url': url_for('account_profile') + '?tab=verification'
+app.py:2878:            return redirect(url_for('account_profile') + '?tab=verification')
+app.py:2881:    # Ưu tiên tham số URL ?step=X, nếu không thì lấy từ verification.current_step
+app.py:2883:    active_step = requested_step if requested_step and 1 <= requested_step <= 6 else 
+(verification.current_step or 1)
+app.py:2886:    draft_dict = verification.get_draft_dict()
+app.py:2887:    from services.verification import DOCUMENT_POLICIES
+app.py:2888:    verification_documents = [d for d in verification.documents if d.is_active] if verification else []
+app.py:2891:        'verification_form.html',
+app.py:2893:        verification=verification,
+app.py:2898:        verification_documents=verification_documents,
+app.py:2900:        is_pending=(getattr(verification, 'status', 'draft') == 'pending'),
+app.py:2901:        is_approved=(getattr(verification, 'status', 'draft') == 'approved')
+app.py:2905:@app.route('/api/account/verification/check-eligibility', methods=['GET'])
+app.py:2907:def check_verification_eligibility_api():
+app.py:2914:    from services.verification import validate_verification_eligibility, TranslatorVerification
+app.py:2915:    verification = 
+TranslatorVerification.query.filter_by(user_id=user.id).order_by(TranslatorVerification.created_at.desc()).first()
+app.py:2916:    if not verification:
+app.py:2921:            'errors': {'verification': 'Chưa khởi tạo hồ sơ.'},
+app.py:2926:    is_eligible, errors_dict, error_messages = validate_verification_eligibility(
+app.py:2927:        verification,
+app.py:2933:        'status': verification.status,
+app.py:2936:        'version': verification.submission_version or 0,
+app.py:2937:        'submitted_at': verification.submitted_at.strftime('%d/%m/%Y %H:%M') if verification.submitted_at 
+else None
+app.py:2941:# ─── TRANSLATOR VERIFICATION STATUS TRACKER ROUTES ────────────────────────────
+app.py:2943:@app.route('/account/verification/status', methods=['GET'])
+app.py:2944:@app.route('/verification/status', methods=['GET'])
+app.py:2946:def verification_status_page():
+app.py:2978:    from services.verification import get_translator_verification_status_details
+app.py:2979:    data = get_translator_verification_status_details(user)
+app.py:2981:    return render_template('verification_status.html', user=user, data=data)
+app.py:2984:@app.route('/api/account/verification/status', methods=['GET'])
+app.py:2986:def verification_status_api():
+app.py:2996:    from services.verification import get_translator_verification_status_details
+app.py:2997:    data = get_translator_verification_status_details(user)
+app.py:4712:    from models import TranslatorVerification
+app.py:4713:    verifications_query = TranslatorVerification.query.order_by(TranslatorVerification.created_at.desc())
+app.py:4714:    pending_verifications = 
+TranslatorVerification.query.filter_by(status='pending').order_by(TranslatorVerification.created_at.desc()).all()
+app.py:4718:        active_verifications = []
+app.py:4721:        active_verifications = verifications_query.all()
+app.py:4724:        active_verifications = 
+TranslatorVerification.query.filter_by(status='rejected').order_by(TranslatorVerification.created_at.desc()).all()
+app.py:4727:        active_verifications = pending_verifications
+app.py:4733:        verifications=active_verifications,
+app.py:4734:        pending_count=len(pending_verifications)
+app.py:4746:    # Đồng bộ với bản ghi TranslatorVerification nếu có
+app.py:4747:    from models import TranslatorVerification
+app.py:4748:    verif = TranslatorVerification.query.filter_by(user_id=profile.user_id).order_by(TranslatorVerification
+.created_at.desc()).first()
+app.py:4766:@app.route('/admin/verifications/<int:verification_id>/<action>', methods=['POST'])
+app.py:4770:def admin_review_verification(verification_id, action):
+app.py:4772:    from services.verification import review_verification_request
+app.py:4778:    ok, msg = review_verification_request(
+app.py:4779:        verification_id=verification_id,
+app.py:5338:    # Simple secret verification
+
+

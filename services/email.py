@@ -60,3 +60,31 @@ def send_reset_password_email(to_email, reset_url):
     """
     
     return send_email(to_email, subject, html_body)
+
+def send_verification_email(to_email, verification_url):
+    """
+    Gửi email chứa liên kết xác minh email đăng ký.
+    """
+    subject = "Xác minh địa chỉ email - VietTranslate"
+    
+    html_body = f"""
+    <html>
+      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 8px;">
+          <h2 style="color: #3b82f6;">Xác minh địa chỉ email</h2>
+          <p>Chào bạn,</p>
+          <p>Cảm ơn bạn đã đăng ký tài khoản tại VietTranslate.</p>
+          <p>Vui lòng click vào nút bên dưới để xác minh địa chỉ email của bạn. Liên kết này sẽ hết hạn sau 24 giờ.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="{verification_url}" style="background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">XÁC MINH EMAIL</a>
+          </div>
+          <p>Hoặc bạn có thể sao chép liên kết sau vào trình duyệt:</p>
+          <p style="word-break: break-all; color: #666; font-size: 13px;">{verification_url}</p>
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+          <p style="font-size: 12px; color: #999;">Nếu bạn không đăng ký tài khoản, xin vui lòng bỏ qua email này.</p>
+        </div>
+      </body>
+    </html>
+    """
+    
+    return send_email(to_email, subject, html_body)
