@@ -14,21 +14,11 @@
             <p class="text-xs text-slate-500 mt-1">{{ t('auth.login_sub') }}</p>
         </div>
         
-        <!-- Social Login -->
-        <div class="space-y-3 mb-6">
-            <button type="button" class="w-full border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2.5 transition text-xs sm:text-sm">
-                <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/></svg>
-                <span>{{ t('auth.google_login') }}</span>
-            </button>
-        </div>
-        
-        <div class="relative flex py-2 items-center mb-6">
-            <div class="flex-grow border-t border-slate-200"></div>
-            <span class="flex-shrink-0 mx-3 text-slate-400 text-xs uppercase tracking-wider font-medium">{{ t('auth.or_email') }}</span>
-            <div class="flex-grow border-t border-slate-200"></div>
         </div>
 
+
         <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
+            <input type="hidden" name="next" value="{{ next_url or request.args.get('next', '') }}">
             <div>
                 <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">{{ t('auth.email_label') }}</label>
                 <input type="email" name="email" required
@@ -39,7 +29,7 @@
             <div>
                 <div class="flex justify-between items-center mb-1.5">
                     <label class="block text-slate-700 font-bold text-xs uppercase tracking-wider">{{ t('auth.password_label') }}</label>
-                    <a href="#" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">{{ t('auth.forgot_password') }}</a>
+                    <a href="{{ url_for('forgot_password') }}" class="text-[11px] text-brand-600 hover:text-brand-700 font-semibold">{{ t('auth.forgot_password') }}</a>
                 </div>
                 <div class="relative">
                     <input type="password" id="password_input" name="password" required
