@@ -628,13 +628,6 @@ def delete_user_avatar(current_avatar):
 
 db.init_app(app)
 
-from sqlalchemy import event
-with app.app_context():
-    @event.listens_for(db.engine, "connect")
-    def set_psycopg_prepare_threshold(dbapi_connection, connection_record):
-        if hasattr(dbapi_connection, "prepare_threshold"):
-            dbapi_connection.prepare_threshold = None
-
 import sys
 
 HIRER_COMPANY_SIZES = ('<10', '10-50', '50-200', '200+')
