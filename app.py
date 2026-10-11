@@ -500,7 +500,6 @@ elif 'sqlite' in database_url:
     }
 else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-        'pool_pre_ping': True,
         'pool_recycle': 300,
         'connect_args': {
             'prepare_threshold': None,
@@ -789,9 +788,12 @@ def _apply_hirer_profile_form(user, profile, form, files):
         auth_file.save(os.path.join(doc_dir, sec_name))
         profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
 
-    # Chuyển hồ sơ vào trạng thái chờ thẩm định nếu chưa được xác minh
-    if not profile.is_verified:
-        profile.verification_status = 'pending'
+    # Điền đủ thông tin bắt buộc (đã qua validate ở trên) => tự động xác minh, không cần email/Admin
+    if profile.verification_status not in ('rejected', 'revoked', 'suspended'):
+        profile.is_verified = True
+        profile.verification_status = 'verified'
+        if not profile.verified_at:
+            profile.verified_at = datetime.utcnow()
     return []
 
 
@@ -935,32 +937,26 @@ def _init_db():
     else:
         print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
 
-# Chạy _init_db() một lần khi module được import
-try:
-    with app.app_context():
-        _init_db()
-except Exception as e:
-    print(f"[DB INIT ERROR] {e}", file=sys.stderr)
-
-# Trên Vercel, mỗi serverless invocation có thể là process mới;
-# _db_ready flag giúp tránh re-init trong cùng 1 process.
+# Trên Vercel (serverless) KHÔNG chạy create_all/seed ở mỗi cold start vì rất chậm
+# (hàng chục round-trip tới DB). Chạy thủ công bằng INIT_DB=1 hoặc script migration.
 _db_ready = False
+_SKIP_AUTO_INIT = os.environ.get('VERCEL') == '1' and os.environ.get('INIT_DB') != '1'
 
-@app.before_request
-def _ensure_db():
-    """Chạy _init_db() một lần duy nhất cho mỗi process.
-    Trên Vercel/serverless: mỗi cold-start là process mới,
-    nên sẽ chạy 1 lần đầu tiên của process đó.
-    KHAI BÁO này không gây re-seed nếu DB có dữ liệu (điều kiện user_count == 0).
-    """
-    global _db_ready
-    if not _db_ready:
-        try:
+if not _SKIP_AUTO_INIT:
+    try:
+        with app.app_context():
             _init_db()
-        except Exception as e:
-            db.session.rollback()
-            print(f"[DB before_request ERROR] {e}", file=sys.stderr)
         _db_ready = True
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB INIT ERROR] {e}", file=sys.stderr)
+
+
+@app.after_request
+def _static_cache(resp):
+    if request.path.startswith('/static/') and resp.status_code == 200:
+        resp.headers['Cache-Control'] = 'public, max-age=86400'
+    return resp
 
 
 @app.errorhandler(500)
@@ -2885,7 +2881,19 @@ def account_profile():
                 if profile.is_verified:
                     flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
                 else:
-                    flash('Hồ sơ đã được lưu và gửi yêu cầu xác minh tới Admin. Chức năng đăng job sẽ được kích hoạt sau khi Admin xét duyệt.', 'info')
+                    flash('Hồ sơ đã được lưu và gửi yêu cầu thẩm định tới Ban quản trị. Chức năng đăng tuyển sẽ được kích hoạt sau khi hồ sơ được duyệt.', 'info')
+                    try:
+                        from models import AdminNotification
+                        db.session.add(AdminNotification(
+                            type='HIRER_VERIFICATION',
+                            title=f'Hồ sơ người đăng tuyển chờ duyệt: #{user.id}',
+                            message=f'{user.name} ({user.email}) vừa nộp/cập nhật hồ sơ khách hàng.',
+                            related_id=user.id,
+                            url=url_for('admin_hirer_verify', hirer_id=user.id)
+                        ))
+                        db.session.commit()
+                    except Exception:
+                        pass
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -2911,6 +2919,8 @@ def account_profile():
     active_tab = request.args.get('tab', default_tab)
     if getattr(user, 'role', '') == 'translator' and active_tab in ('overview', 'basic'):
         active_tab = 'profile'
+    if active_tab == 'hirer_profile':
+        active_tab = 'hirer_verify'
 
     profile_completion = None
     unread_notifs_count = 0
@@ -3992,13 +4002,16 @@ def account_history():
     period_label = f"Tháng {today.month:02d}/{today.year}"
 
     if user.role == 'hirer':
-        query = Contract.query.filter_by(hirer_id=user.id)
-        if status_filter:
-            query = query.filter_by(status=status_filter)
-        if period_filter == 'current_month':
-            query = query.filter(Contract.created_at >= first_of_month)
-        contracts = query.order_by(Contract.created_at.desc()).all()
-        proposals = []
+        from services.transactions import list_hirer_transactions, STATUSES
+        q = request.args.get('q', '').strip()[:100]
+        status = status_filter if status_filter in STATUSES else ''
+        page = request.args.get('page', 1, type=int) or 1
+        rows, total, page, pages = list_hirer_transactions(user.id, q=q, status=status, page=page)
+        return render_template('account_history.html', user=user, contracts=[], proposals=[],
+                               status_filter=status, prop_filter=prop_filter,
+                               period_filter=period_filter, period_label=period_label,
+                               tx_rows=rows, tx_total=total, tx_page=page, tx_pages=pages,
+                               tx_q=q, tx_status=status, tx_statuses=STATUSES)
     else:
         query = Contract.query.filter_by(translator_id=user.id)
         if status_filter:
@@ -4036,6 +4049,17 @@ def account_history():
         period_label=period_label,
         filtered_income_total=filtered_income_total
     )
+
+@app.route('/account/history/<int:contract_id>')
+@login_required
+def account_transaction_detail(contract_id):
+    user = get_current_user()
+    if not user or user.role != 'hirer':
+        abort(403)
+    from services.transactions import get_hirer_transaction
+    row, payments = get_hirer_transaction(user.id, contract_id)
+    return render_template('account_transaction.html', user=user, row=row, payments=payments)
+
 
 def _format_event_payload(
     event_id,
@@ -4947,8 +4971,8 @@ def translator_profile(profile_id):
             is_private=(getattr(profile, 'is_public', True) is False),
             access_reason=access_reason
         ), status_code
-    # Reviews received by this translator
-    reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
+    # Reviews received by this translator (lọc bỏ các đánh giá đã bị Admin ẩn)
+    reviews = Review.query.filter_by(reviewee_id=profile.user_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
     verification = profile.latest_verification
     is_verified = bool(profile.is_verified)
 
@@ -5783,12 +5807,12 @@ def post_job():
         try:
             create_notification(user_id=user.id, notification_type='VERIFICATION_REQUIRED',
                                 title='Cần xác minh tài khoản để đăng yêu cầu', message=cannot_post_reason or 'Hoàn tất xác minh người đăng tuyển để đăng yêu cầu.',
-                                url=url_for('account_profile', tab='hirer_profile'))
+                                url=url_for('account_profile', tab='hirer_verify'))
             db.session.commit()
         except Exception:
             db.session.rollback()
         flash(cannot_post_reason, 'error')
-        return redirect(url_for('account_profile', tab='hirer_profile'))
+        return redirect(url_for('account_profile', tab='hirer_verify'))
 
     token = request.form.get('form_token', '')
     tokens = session.get('job_form_tokens', [])
@@ -8373,7 +8397,7 @@ def admin_hirer_review_action(hirer_id):
                 notification_type='JOB_MATCH',
                 title='Yêu cầu bổ sung hồ sơ người đăng',
                 message=f'Hồ sơ của bạn cần bổ sung: {reason}',
-                url=url_for('account_profile', tab='hirer_profile')
+                url=url_for('account_profile', tab='hirer_verify')
             )
         except Exception:
             pass
@@ -8397,7 +8421,7 @@ def admin_hirer_review_action(hirer_id):
                 notification_type='JOB_MATCH',
                 title='Hồ sơ xác minh bị từ chối',
                 message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
-                url=url_for('account_profile', tab='hirer_profile')
+                url=url_for('account_profile', tab='hirer_verify')
             )
         except Exception:
             pass
@@ -8622,6 +8646,21 @@ def admin_update_report(report_id, action):
             description=f'Giải quyết khiếu nại #{report.id}',
             extra_data={'note': note}
         )
+        if report.reporter_id:
+            try:
+                from app import create_notification
+                notif_msg = f'Khiếu nại #{report.id} của bạn đã được giải quyết.'
+                if note:
+                    notif_msg += f' Nội dung phản hồi: {note}'
+                create_notification(
+                    user_id=report.reporter_id,
+                    notification_type='SYSTEM',
+                    title='Khiếu nại đã được xử lý',
+                    message=notif_msg,
+                    url=url_for('notifications_page')
+                )
+            except Exception:
+                pass
     elif action == 'reject':
         report.status = 'rejected'
         reason = request.form.get('rejection_reason')
@@ -8633,6 +8672,21 @@ def admin_update_report(report_id, action):
             description=f'Từ chối khiếu nại #{report.id}',
             extra_data={'reason': reason}
         )
+        if report.reporter_id:
+            try:
+                from app import create_notification
+                notif_msg = f'Khiếu nại #{report.id} của bạn đã được xem xét và không đủ căn cứ xử lý.'
+                if reason:
+                    notif_msg += f' Lý do: {reason}'
+                create_notification(
+                    user_id=report.reporter_id,
+                    notification_type='SYSTEM',
+                    title='Kết quả xử lý khiếu nại',
+                    message=notif_msg,
+                    url=url_for('notifications_page')
+                )
+            except Exception:
+                pass
     else:
         abort(400)
         
@@ -8715,6 +8769,17 @@ def admin_toggle_review(review_id):
         db.session.flush()
         from services.hirer import recalculate_hirer_rating
         recalculate_hirer_rating(r.reviewee_id)
+    elif r.reviewee and r.reviewee.role == 'translator':
+        db.session.flush()
+        t_prof = r.reviewee.profile
+        if t_prof:
+            valid_reviews = Review.query.filter_by(reviewee_id=r.reviewee_id, is_hidden=False).all()
+            if valid_reviews:
+                t_prof.rating = round(sum(rev.rating for rev in valid_reviews) / len(valid_reviews), 2)
+                t_prof.total_reviews = len(valid_reviews)
+            else:
+                t_prof.rating = 0.0
+                t_prof.total_reviews = 0
 
     db.session.commit()
     flash(msg, 'success')

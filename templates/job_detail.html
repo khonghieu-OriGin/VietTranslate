@@ -29,6 +29,50 @@
         <!-- ═══ CỘT TRÁI: NỘI DUNG CHÍNH CÔNG VIỆC ═══ -->
         <div class="w-full lg:w-2/3 space-y-6">
 
+            <!-- Banner phản hồi kiểm duyệt cho Chủ bài đăng / Admin -->
+            {% if (current_user and current_user.id == job.hirer_id) or is_admin %}
+                {% if job.moderation_status == 'needs_revision' %}
+                <div class="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 font-bold text-sm text-amber-950">
+                            <span class="text-lg">⚠️</span>
+                            <span>Ban quản trị yêu cầu chỉnh sửa bài đăng</span>
+                        </div>
+                        <p class="text-xs text-amber-800 leading-relaxed pl-6">
+                            <strong>Ghi chú từ Admin:</strong> {{ job.moderation_notes or 'Bài đăng cần điều chỉnh một số nội dung trước khi được mở công khai.' }}
+                        </p>
+                    </div>
+                    <a href="{{ url_for('edit_job', job_id=job.id) }}" class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                        <span>Chỉnh sửa bài đăng ngay</span>
+                    </a>
+                </div>
+                {% elif job.moderation_status == 'rejected' %}
+                <div class="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-soft">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 font-bold text-sm text-rose-950">
+                            <span class="text-lg">✕</span>
+                            <span>Bài đăng không được phê duyệt</span>
+                        </div>
+                        <p class="text-xs text-rose-800 leading-relaxed pl-6">
+                            <strong>Lý do từ chối:</strong> {{ job.moderation_notes or 'Nội dung công việc chưa đáp ứng quy định của nền tảng.' }}
+                        </p>
+                    </div>
+                    <a href="{{ url_for('edit_job', job_id=job.id) }}" class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-sm transition">
+                        <span>Chỉnh sửa & Nộp lại</span>
+                    </a>
+                </div>
+                {% elif job.status == 'pending' and job.moderation_status == 'pending' %}
+                <div class="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-3 shadow-soft">
+                    <span class="text-lg animate-spin">⏳</span>
+                    <div class="text-xs leading-relaxed">
+                        <strong class="block text-blue-950 font-bold mb-0.5">Yêu cầu đang chờ Ban quản trị kiểm duyệt</strong>
+                        <span>Bài đăng của bạn sẽ hiển thị công khai cho các phiên dịch viên gửi báo giá ngay sau khi được kiểm duyệt thành công.</span>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
+
             <!-- Card thông tin tổng quan -->
             <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
 
@@ -86,7 +130,23 @@
                 <p class="text-xs text-slate-400 mb-6 flex items-center gap-2">
                     <span>Đăng ngày: {{ job.created_at.strftime('%d/%m/%Y') }}</span>
                     <span>·</span>
-                    <span class="capitalize">Trạng thái: <strong class="{% if job.status == 'open' and not is_expired %}text-emerald-600{% else %}text-slate-500{% endif %} font-semibold">{{ 'Đang mở' if job.status == 'open' and not is_expired else ('Hết hạn' if is_expired else 'Đã đóng') }}</strong></span>
+                    <span class="capitalize">Trạng thái: 
+                        {% if job.status == 'open' and not is_expired %}
+                        <strong class="text-emerald-600 font-semibold">Đang mở</strong>
+                        {% elif job.status == 'pending' %}
+                            {% if job.moderation_status == 'needs_revision' %}
+                            <strong class="text-amber-600 font-semibold">Cần chỉnh sửa</strong>
+                            {% elif job.moderation_status == 'rejected' %}
+                            <strong class="text-rose-600 font-semibold">Bị từ chối</strong>
+                            {% else %}
+                            <strong class="text-blue-600 font-semibold">Chờ duyệt</strong>
+                            {% endif %}
+                        {% elif is_expired %}
+                        <strong class="text-slate-500 font-semibold">Hết hạn</strong>
+                        {% else %}
+                        <strong class="text-slate-500 font-semibold">Đã đóng</strong>
+                        {% endif %}
+                    </span>
                 </p>
 
                 <!-- Bảng tóm tắt thông tin thời gian & địa điểm -->
