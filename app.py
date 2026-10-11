@@ -2423,8 +2423,8 @@ def compute_profile_completion(user):
             {
                 'key': 'services',
                 'title': 'Gói dịch vụ & Bảng giá',
-                'completed': bool(prof and getattr(prof, 'services', None) and len(prof.services) > 0),
-                'action_tab': 'translator',
+                'completed': bool((user and getattr(user, 'interpreter_services', None) and len(user.interpreter_services) > 0) or (prof and getattr(prof, 'services', None) and len(prof.services) > 0)),
+                'action_tab': 'services',
                 'desc': 'Thiết lập bảng giá dịch vụ để khách hàng có thể đặt trực tiếp.'
             },
             {
@@ -2954,6 +2954,401 @@ def account_profile():
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
         today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
+
+
+# ─── QUẢN LÝ DỊCH VỤ & BIỂU PHÍ PHIÊN DỊCH (MỤC 5.2) ─────────────────────────
+
+def parse_positive_rate(val):
+    """
+    Chuyển đổi chuỗi giá tiền thành số nguyên dương (> 0).
+    Hỗ trợ format tiền tệ VNĐ (ví dụ: '1.500.000', '1,500,000', '1500000 VNĐ').
+    Trả về int nếu hợp lệ và > 0, ngược lại trả về None.
+    """
+    if val is None or val == '':
+        return None
+    cleaned = str(val).replace('.', '').replace(',', '').replace(' ', '').replace('VNĐ', '').replace('vnd', '').replace('đ', '').strip()
+    if not cleaned:
+        return None
+    try:
+        num = int(float(cleaned))
+        return num if num > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
+@app.route('/account/services/create', methods=['POST'])
+@login_required
+def account_service_create():
+    """Tạo mới gói dịch vụ & biểu phí phiên dịch (Mục 5.2)."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if not user or user.role != 'translator':
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Chỉ phiên dịch viên mới có quyền quản lý dịch vụ.'}), 403
+        flash('Chỉ phiên dịch viên mới có quyền quản lý dịch vụ.', 'error')
+        return redirect(url_for('account_profile'))
+
+    data = request.get_json(silent=True) or request.form
+
+    source_lang = (data.get('source_lang') or '').strip()
+    target_lang = (data.get('target_lang') or '').strip()
+    interpreting_type = (data.get('interpreting_type') or '').strip()
+    specialization = (data.get('specialization') or '').strip()
+    raw_hourly = data.get('hourly_rate')
+    raw_session = data.get('session_rate')
+    is_active = data.get('is_active') in (True, 'true', 'True', '1', 'on', 1) if 'is_active' in data else True
+
+    if not source_lang:
+        msg = 'Vui lòng chọn ngôn ngữ nguồn.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if not target_lang:
+        msg = 'Vui lòng chọn ngôn ngữ đích.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if source_lang.lower() == target_lang.lower():
+        msg = 'Ngôn ngữ nguồn và ngôn ngữ đích không được trùng nhau.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if not interpreting_type:
+        msg = 'Vui lòng chọn hình thức phiên dịch (Cabin, Nối tiếp, Tháp tùng hoặc Online).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    hourly_rate = parse_positive_rate(raw_hourly)
+    session_rate = parse_positive_rate(raw_session)
+
+    # Ràng buộc: Mức giá phải là số nguyên dương (> 0)
+    if raw_hourly and str(raw_hourly).strip() != '' and hourly_rate is None:
+        msg = 'Mức thù lao theo giờ phải là số nguyên dương lớn hơn 0 (ví dụ: 1.500.000 VNĐ).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if raw_session and str(raw_session).strip() != '' and session_rate is None:
+        msg = 'Mức thù lao theo ca/buổi phải là số nguyên dương lớn hơn 0 (ví dụ: 5.000.000 VNĐ).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if hourly_rate is None and session_rate is None:
+        msg = 'Vui lòng nhập ít nhất một mức thù lao tham khảo (theo giờ hoặc theo ca) là số nguyên dương (> 0).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    service = InterpreterService(
+        user_id=user.id,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        interpreting_type=interpreting_type,
+        specialization=specialization or 'Tổng quát / Đa ngành',
+        hourly_rate=float(hourly_rate) if hourly_rate else None,
+        session_rate=float(session_rate) if session_rate else None,
+        currency='VND',
+        is_active=is_active
+    )
+    db.session.add(service)
+    db.session.commit()
+
+    verif_status_label = 'Đã xác minh năng lực ✓' if service.is_kyc_verified() else 'Chưa xác minh'
+    msg = f'Đã thêm gói dịch vụ "{source_lang} ➔ {target_lang}" thành công! Trạng thái: {verif_status_label}.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'service': service.to_dict()
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=services')
+
+
+@app.route('/account/services/<int:service_id>/update', methods=['POST'])
+@login_required
+def account_service_update(service_id):
+    """Cập nhật thông tin gói dịch vụ & biểu phí phiên dịch (Mục 5.2)."""
+    uid = session.get('user_id')
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+        flash('Không có quyền thực hiện.', 'error')
+        return redirect(url_for('account_profile'))
+
+    service = InterpreterService.query.filter_by(id=service_id, user_id=user.id).first()
+    if not service:
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không tìm thấy gói dịch vụ.'}), 404
+        flash('Không tìm thấy gói dịch vụ.', 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    data = request.get_json(silent=True) or request.form
+
+    source_lang = (data.get('source_lang') or service.source_lang).strip()
+    target_lang = (data.get('target_lang') or service.target_lang).strip()
+    interpreting_type = (data.get('interpreting_type') or service.interpreting_type).strip()
+    specialization = (data.get('specialization') if 'specialization' in data else service.specialization or '').strip()
+    raw_hourly = data.get('hourly_rate') if 'hourly_rate' in data else service.hourly_rate
+    raw_session = data.get('session_rate') if 'session_rate' in data else service.session_rate
+
+    if not source_lang or not target_lang:
+        msg = 'Cặp ngôn ngữ nguồn và đích không được để trống.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if source_lang.lower() == target_lang.lower():
+        msg = 'Ngôn ngữ nguồn và ngôn ngữ đích không được trùng nhau.'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    hourly_rate = parse_positive_rate(raw_hourly)
+    session_rate = parse_positive_rate(raw_session)
+
+    if raw_hourly and str(raw_hourly).strip() != '' and hourly_rate is None:
+        msg = 'Mức thù lao theo giờ phải là số nguyên dương lớn hơn 0 (ví dụ: 1.500.000 VNĐ).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if raw_session and str(raw_session).strip() != '' and session_rate is None:
+        msg = 'Mức thù lao theo ca/buổi phải là số nguyên dương lớn hơn 0 (ví dụ: 5.000.000 VNĐ).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    if hourly_rate is None and session_rate is None:
+        msg = 'Vui lòng nhập ít nhất một mức thù lao tham khảo là số nguyên dương (> 0).'
+        if is_ajax:
+            return jsonify({'success': False, 'message': msg}), 400
+        flash(msg, 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    service.source_lang = source_lang
+    service.target_lang = target_lang
+    service.interpreting_type = interpreting_type
+    service.specialization = specialization or 'Tổng quát / Đa ngành'
+    service.hourly_rate = float(hourly_rate) if hourly_rate else None
+    service.session_rate = float(session_rate) if session_rate else None
+
+    if 'is_active' in data:
+        service.is_active = data.get('is_active') in (True, 'true', 'True', '1', 'on', 1)
+
+    db.session.commit()
+
+    verif_status_label = 'Đã xác minh năng lực ✓' if service.is_kyc_verified() else 'Chưa xác minh'
+    msg = f'Đã cập nhật gói dịch vụ thành công! Trạng thái: {verif_status_label}.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'service': service.to_dict()
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=services')
+
+
+@app.route('/account/services/<int:service_id>/delete', methods=['POST'])
+@login_required
+def account_service_delete(service_id):
+    """
+    Xóa gói dịch vụ cung cấp (Mục 5.2).
+    TUYỆT ĐỐI KHÔNG XÓA hay can thiệp vào bất kỳ tài liệu minh chứng,
+    bằng cấp hay bản ghi nào trong module KYC (TranslatorVerification, VerificationDocument).
+    """
+    uid = session.get('user_id')
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+        flash('Không có quyền thực hiện.', 'error')
+        return redirect(url_for('account_profile'))
+
+    service = InterpreterService.query.filter_by(id=service_id, user_id=user.id).first()
+    if not service:
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Gói dịch vụ không tồn tại hoặc đã bị xóa.'}), 404
+        flash('Gói dịch vụ không tồn tại hoặc đã bị xóa.', 'warning')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    # Xóa CHỈ bản ghi InterpreterService này, bảo toàn 100% hồ sơ KYC
+    service_name = f"{service.source_lang} ➔ {service.target_lang}"
+    db.session.delete(service)
+    db.session.commit()
+
+    msg = f'Đã xóa gói dịch vụ "{service_name}" khỏi danh mục biểu phí. Dữ liệu tài liệu KYC của bạn được bảo toàn nguyên vẹn.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'deleted_id': service_id
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=services')
+
+
+@app.route('/account/services/<int:service_id>/toggle', methods=['POST'])
+@login_required
+def account_service_toggle(service_id):
+    """Bật/Tắt trạng thái nhận việc của từng dịch vụ riêng biệt."""
+    uid = session.get('user_id')
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+        flash('Không có quyền thực hiện.', 'error')
+        return redirect(url_for('account_profile'))
+
+    service = InterpreterService.query.filter_by(id=service_id, user_id=user.id).first()
+    if not service:
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không tìm thấy gói dịch vụ.'}), 404
+        flash('Không tìm thấy gói dịch vụ.', 'error')
+        return redirect(url_for('account_profile') + '?tab=services')
+
+    data = request.get_json(silent=True) or request.form
+    if 'is_active' in data:
+        service.is_active = data.get('is_active') in (True, 'true', 'True', '1', 'on', 1)
+    else:
+        service.is_active = not service.is_active
+
+    db.session.commit()
+
+    status_str = 'sẵn sàng nhận việc' if service.is_active else 'tạm dừng nhận việc'
+    msg = f'Đã chuyển trạng thái dịch vụ sang "{status_str}".'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'is_active': service.is_active,
+            'message': msg
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=services')
+
+
+@app.route('/account/services/sync-kyc', methods=['POST'])
+@login_required
+def account_service_sync_kyc():
+    """Tự động đồng bộ các cặp ngôn ngữ và chuyên ngành đã được duyệt ở KYC vào danh sách dịch vụ."""
+    uid = session.get('user_id')
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    user = User.query.get(uid)
+    if not user or user.role != 'translator':
+        if is_ajax:
+            return jsonify({'success': False, 'message': 'Không có quyền thực hiện.'}), 403
+        flash('Không có quyền thực hiện.', 'error')
+        return redirect(url_for('account_profile'))
+
+    approved_verif = None
+    if hasattr(user, 'verifications') and user.verifications:
+        for v in user.verifications:
+            if getattr(v, 'status', None) == 'approved':
+                approved_verif = v
+                break
+
+    source_lang = None
+    target_lang = None
+    specs = []
+    types = []
+
+    if approved_verif:
+        source_lang = approved_verif.source_language or 'Tiếng Việt'
+        target_lang = approved_verif.target_language or approved_verif.primary_language or 'Tiếng Anh'
+        if approved_verif.specializations:
+            specs = [s.strip() for s in approved_verif.specializations.replace(';', ',').split(',') if s.strip()]
+        if approved_verif.interpreting_types:
+            types = [t.strip() for t in approved_verif.interpreting_types.replace(';', ',').split(',') if t.strip()]
+    elif user.profile:
+        source_lang = user.profile.source_language or 'Tiếng Việt'
+        target_lang = user.profile.target_language
+        if not target_lang and user.profile.languages:
+            parts = [l.strip() for l in user.profile.languages.split(',') if l.strip()]
+            target_lang = parts[0] if parts else 'Tiếng Anh'
+        if user.profile.specializations:
+            specs = [s.strip() for s in user.profile.specializations.replace(';', ',').split(',') if s.strip()]
+        if user.profile.interpreting_types:
+            types = [t.strip() for t in user.profile.interpreting_types.replace(';', ',').split(',') if t.strip()]
+
+    if not source_lang or not target_lang:
+        source_lang = 'Tiếng Việt'
+        target_lang = 'Tiếng Anh'
+
+    if not specs:
+        specs = ['Kinh doanh & Thương mại']
+    if not types:
+        types = ['Dịch nối tiếp (Consecutive)', 'Dịch Cabin (Đồng thời)']
+
+    created_count = 0
+    for idx, sp in enumerate(specs[:3]):
+        itype = types[idx % len(types)]
+        exists = InterpreterService.query.filter_by(
+            user_id=user.id,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            specialization=sp
+        ).first()
+        if not exists:
+            new_svc = InterpreterService(
+                user_id=user.id,
+                source_lang=source_lang,
+                target_lang=target_lang,
+                interpreting_type=itype,
+                specialization=sp,
+                hourly_rate=1200000.0 if 'cabin' in itype.lower() else 800000.0,
+                session_rate=4500000.0 if 'cabin' in itype.lower() else 3000000.0,
+                currency='VND',
+                is_active=True
+            )
+            db.session.add(new_svc)
+            created_count += 1
+
+    if created_count > 0:
+        db.session.commit()
+        msg = f'Đã tự động khởi tạo {created_count} gói dịch vụ phiên dịch từ hồ sơ đã thẩm định!'
+    else:
+        msg = 'Các gói dịch vụ từ hồ sơ thẩm định đã tồn tại trong danh mục của bạn.'
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg,
+            'count': created_count,
+            'services': [s.to_dict() for s in user.interpreter_services]
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=services')
 
 
 @app.route('/account/verification/submit', methods=['POST'])

@@ -159,8 +159,8 @@ function resendVerificationEmail() {
                             </div>
                             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">5.1</span>
                         </button>
-                        <button type="button" onclick="switchTab('services', this)"
-                            class="w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'services' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                        <button type="button" id="tab-btn-services" onclick="switchTab('services', this)"
+                            class="tab-btn w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'services' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
                             <div class="flex items-center gap-2.5">
                                 <svg class="w-4 h-4 {% if active_tab == 'services' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -860,67 +860,652 @@ function resendVerificationEmail() {
                     </div>
                 </div>
 
-                <!-- TAB 2 PLACEHOLDER: NĂNG LỰC & BẢNG GIÁ (MỤC 5.2) -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <!-- TAB 2: NĂNG LỰC PHIÊN DỊCH & BIỂU PHÍ (MỤC 5.2)                            -->
+                <!-- Quản lý danh mục gói dịch vụ, cặp ngôn ngữ, hình thức phiên dịch,           -->
+                <!-- chuyên ngành và biểu phí thù lao theo giờ/buổi. Tích hợp huy hiệu KYC.      -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
                 <div id="tab-services" class="tab-panel {% if active_tab == 'services' %}active{% endif %} space-y-6">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
-                            <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        <!-- Header & CTA Buttons -->
+                        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                            <div class="flex items-start sm:items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-brand-500/20">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                    </svg>
                                 </div>
                                 <div>
-                                    <div class="flex items-center gap-2">
-                                        <h2 class="text-lg font-bold text-slate-900">Danh mục năng lực & Bảng giá dịch vụ</h2>
-                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Mục 5.2</span>
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <h2 class="text-lg font-bold text-slate-900">Năng lực phiên dịch & Biểu phí</h2>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">Mục 5.2</span>
+                                        {% if user.is_verified or (user.latest_verification and user.latest_verification.status == 'approved') %}
+                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                                            <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                            KYC Xác thực
+                                        </span>
+                                        {% endif %}
                                     </div>
-                                    <p class="text-xs text-slate-500 mt-0.5">Cấu hình danh mục dịch vụ phiên dịch, cặp ngôn ngữ, hình thức dịch (Cabin, Nối tiếp, Tháp tùng...), chuyên ngành và biểu phí tham chiếu theo giờ/buổi (Model InterpreterService).</p>
+                                    <p class="text-xs text-slate-500 mt-1 max-w-2xl">
+                                        Thiết lập các gói dịch vụ, cặp ngôn ngữ, hình thức phiên dịch và mức thù lao tham khảo theo giờ/buổi. Các dịch vụ có bằng chứng thẩm định từ hệ thống KYC sẽ tự động được cấp huy hiệu uy tín.
+                                    </p>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200/60 shrink-0">
-                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                                Sẵn sàng triển khai chi tiết
-                            </span>
-                        </div>
-
-                        <!-- 3 Stat Cards tóm tắt năng lực -->
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6">
-                            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-                                <span class="text-xs text-slate-500 font-medium block">Số gói dịch vụ</span>
-                                <span class="text-xl font-black text-slate-900 mt-1 block">{{ user.interpreter_services | length if user.interpreter_services else 0 }} gói</span>
-                            </div>
-                            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-                                <span class="text-xs text-slate-500 font-medium block">Hình thức phiên dịch</span>
-                                <span class="text-sm font-bold text-slate-800 mt-1 block">Cabin, Nối tiếp, Tháp tùng, Online</span>
-                            </div>
-                            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/70">
-                                <span class="text-xs text-slate-500 font-medium block">Đơn vị tiền tệ chuẩn</span>
-                                <span class="text-xl font-black text-brand-600 mt-1 block">VND</span>
-                            </div>
-                        </div>
-
-                        <!-- Empty state / Bảng placeholder -->
-                        <div class="mt-6 border border-slate-200/80 rounded-2xl overflow-hidden">
-                            <div class="bg-slate-50/80 px-5 py-3 border-b border-slate-200/70 flex items-center justify-between">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider">Bảng giá dịch vụ của bạn</span>
-                                <button type="button" disabled class="opacity-60 cursor-not-allowed inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                                    <span>Thêm dịch vụ & bảng giá</span>
+                            <div class="flex items-center gap-2.5 w-full sm:w-auto shrink-0 flex-wrap">
+                                {% if user.is_verified or (user.latest_verification and user.latest_verification.status == 'approved') or (user.profile and user.profile.source_language) %}
+                                <button type="button" onclick="syncKycServices(this)"
+                                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer shadow-xs border border-slate-200/70"
+                                    title="Tự động khởi tạo dịch vụ từ các cặp ngôn ngữ và chuyên môn đã duyệt ở KYC">
+                                    <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    <span>Nạp từ KYC</span>
+                                </button>
+                                {% endif %}
+                                <button type="button" onclick="openAddServiceModal()"
+                                    class="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg transition cursor-pointer">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                    <span>Thêm gói dịch vụ & Biểu phí</span>
                                 </button>
                             </div>
-                            <div class="p-8 text-center bg-white space-y-3">
-                                <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        </div>
+
+                        <!-- 4 Stat Cards Tóm Tắt Năng Lực -->
+                        {% set total_svcs = user.interpreter_services | length if user.interpreter_services else 0 %}
+                        {% set verified_svcs = (user.interpreter_services | selectattr('is_kyc_verified') | list | length) if user.interpreter_services else 0 %}
+                        {% set active_svcs = (user.interpreter_services | selectattr('is_active') | list | length) if user.interpreter_services else 0 %}
+                        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 pt-6">
+                            <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 transition hover:border-slate-300">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500 font-medium">Tổng số gói dịch vụ</span>
+                                    <span class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold">∑</span>
                                 </div>
-                                <h4 class="text-sm font-bold text-slate-800">Chưa cấu hình dịch vụ phiên dịch</h4>
-                                <p class="text-xs text-slate-500 max-w-md mx-auto">Bạn có thể cấu hình chi tiết cặp ngôn ngữ nguồn - đích, hình thức dịch và đơn giá theo giờ/buổi ở bước kế tiếp.</p>
+                                <span class="text-xl sm:text-2xl font-black text-slate-900 mt-2 block" id="stat-total-svcs">{{ total_svcs }} <span class="text-xs font-semibold text-slate-500">gói</span></span>
+                            </div>
+                            <div class="bg-emerald-50/40 p-4 rounded-2xl border border-emerald-200/70 transition hover:border-emerald-300">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-emerald-800 font-medium">Đã xác minh năng lực ✓</span>
+                                    <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs">✓</span>
+                                </div>
+                                <span class="text-xl sm:text-2xl font-black text-emerald-700 mt-2 block" id="stat-verified-svcs">{{ verified_svcs }} <span class="text-xs font-semibold text-emerald-600">gói</span></span>
+                            </div>
+                            <div class="bg-blue-50/40 p-4 rounded-2xl border border-blue-200/70 transition hover:border-blue-300">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-blue-800 font-medium">Đang nhận việc</span>
+                                    <span class="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center text-xs">●</span>
+                                </div>
+                                <span class="text-xl sm:text-2xl font-black text-blue-700 mt-2 block" id="stat-active-svcs">{{ active_svcs }} <span class="text-xs font-semibold text-blue-600">gói</span></span>
+                            </div>
+                            <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70 transition hover:border-slate-300">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-slate-500 font-medium">Đơn vị tiền tệ chuẩn</span>
+                                    <span class="w-7 h-7 rounded-lg bg-slate-200/80 text-slate-700 flex items-center justify-center text-xs font-bold">₫</span>
+                                </div>
+                                <span class="text-xl sm:text-2xl font-black text-brand-600 mt-2 block">VNĐ <span class="text-xs font-normal text-slate-500">/ chuẩn</span></span>
                             </div>
                         </div>
 
-                        <!-- Placeholder alert -->
-                        <div class="mt-6 p-4 rounded-xl bg-indigo-50/70 border border-indigo-200 text-xs text-indigo-800 flex items-center gap-3">
-                            <svg class="w-5 h-5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Khung giao diện <strong>Tab 2: Năng lực & Bảng giá</strong> đã sẵn sàng. Modal thêm mới dịch vụ, bảng giá theo giờ/buổi và quản lý CRUD sẽ được triển khai đầy đủ ở prompt tiếp theo.</span>
+                        <!-- Banner Trạng Thái Xác Minh KYC -->
+                        <div class="mt-6">
+                            {% if user.is_verified or (user.latest_verification and user.latest_verification.status == 'approved') %}
+                            <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50/80 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-3 shadow-xs">
+                                <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-300/80 mt-0.5">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-bold text-emerald-950 text-sm">Hồ sơ xác minh năng lực KYC đã được Ban quản trị phê duyệt</span>
+                                        <span class="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 text-[10px] font-black">CHÍNH THỨC</span>
+                                    </div>
+                                    <p class="text-emerald-800 leading-relaxed">
+                                        Các gói dịch vụ có cặp ngôn ngữ & lĩnh vực chuyên môn trùng khớp với hồ sơ thẩm định của bạn sẽ tự động hiển thị huy hiệu 
+                                        <strong class="font-bold text-emerald-900 bg-emerald-100/90 px-1.5 py-0.5 rounded border border-emerald-300">"Đã xác minh năng lực ✓"</strong>.
+                                        Các dịch vụ tự khai thêm chưa qua nộp minh chứng bằng cấp sẽ mang nhãn 
+                                        <strong class="font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">"Chưa xác minh"</strong>.
+                                    </p>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start sm:items-center justify-between gap-3 shadow-xs">
+                                <div class="flex items-start gap-3">
+                                    <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-300/80 mt-0.5 sm:mt-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-amber-950 text-sm">Bạn chưa có hồ sơ xác minh năng lực KYC được phê duyệt</div>
+                                        <p class="text-amber-800 mt-0.5">
+                                            Các gói dịch vụ dưới đây hiện đang ở trạng thái <strong class="font-bold text-slate-800">"Chưa xác minh"</strong>. Để nhận huy hiệu bảo chứng uy tín <strong class="text-emerald-800 font-bold">"Đã xác minh năng lực ✓"</strong>, bạn có thể nộp bằng cấp/chứng chỉ tại phân hệ Xác minh hồ sơ.
+                                        </p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="switchTab('verification')" class="shrink-0 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow-xs">
+                                    Nộp hồ sơ KYC
+                                </button>
+                            </div>
+                            {% endif %}
                         </div>
+
+                        <!-- Danh Sách Gói Dịch Vụ Cung Cấp -->
+                        <div class="mt-6 border border-slate-200/90 rounded-2xl overflow-hidden shadow-xs">
+                            <div class="bg-slate-50/90 px-5 py-3.5 border-b border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Danh mục gói dịch vụ & Biểu phí của bạn</span>
+                                    <span class="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700" id="badge-table-count">{{ total_svcs }}</span>
+                                </div>
+                                <div class="text-[11px] text-slate-500 font-medium flex items-center gap-2">
+                                    <span>Đơn vị thù lao: <strong>VNĐ</strong></span>
+                                    <span>•</span>
+                                    <span class="text-emerald-700 font-semibold">Tự động lưu & bảo toàn hồ sơ KYC</span>
+                                </div>
+                            </div>
+
+                            {% if user.interpreter_services and (user.interpreter_services | length > 0) %}
+                            <!-- Desktop Table View -->
+                            <div class="overflow-x-auto hidden md:block">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="border-b border-slate-200/70 bg-slate-50/50 text-slate-500 font-bold text-[11px] uppercase tracking-wider">
+                                            <th class="py-3 px-4">Cặp ngôn ngữ</th>
+                                            <th class="py-3 px-4">Hình thức dịch</th>
+                                            <th class="py-3 px-4">Chuyên ngành</th>
+                                            <th class="py-3 px-4">Mức thù lao tham khảo</th>
+                                            <th class="py-3 px-4 text-center">Trạng thái KYC</th>
+                                            <th class="py-3 px-4 text-center">Nhận việc</th>
+                                            <th class="py-3 px-4 text-right">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 bg-white" id="service-table-body">
+                                        {% for service in user.interpreter_services %}
+                                        <tr class="hover:bg-slate-50/70 transition group" id="service-row-{{ service.id }}">
+                                            <!-- Cặp ngôn ngữ -->
+                                            <td class="py-3.5 px-4 font-semibold text-slate-900">
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 border border-slate-200/80 font-bold">{{ service.source_lang }}</span>
+                                                    <svg class="w-3.5 h-3.5 text-brand-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                                    <span class="px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 border border-brand-200/80 font-bold">{{ service.target_lang }}</span>
+                                                </div>
+                                            </td>
+
+                                            <!-- Hình thức phiên dịch -->
+                                            <td class="py-3.5 px-4">
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border {{ service.interpreting_type_badge_class }}">
+                                                    {{ service.display_interpreting_type }}
+                                                </span>
+                                            </td>
+
+                                            <!-- Chuyên ngành -->
+                                            <td class="py-3.5 px-4 text-slate-700 font-medium">
+                                                <div class="flex items-center gap-1.5">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                                    <span>{{ service.specialization or 'Tổng quát / Đa ngành' }}</span>
+                                                </div>
+                                            </td>
+
+                                            <!-- Biểu phí tham khảo -->
+                                            <td class="py-3.5 px-4">
+                                                <div class="space-y-0.5">
+                                                    {% if service.hourly_rate %}
+                                                    <div class="flex items-baseline gap-1">
+                                                        <span class="text-slate-500 text-[10px]">Theo giờ:</span>
+                                                        <span class="font-black text-brand-700 text-xs">{{ service.formatted_hourly_rate }}</span>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if service.session_rate %}
+                                                    <div class="flex items-baseline gap-1">
+                                                        <span class="text-slate-500 text-[10px]">Theo ca:</span>
+                                                        <span class="font-bold text-slate-800 text-xs">{{ service.formatted_session_rate }}</span>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if not service.hourly_rate and not service.session_rate %}
+                                                    <span class="text-slate-400 italic">Thỏa thuận</span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+
+                                            <!-- Trạng thái KYC -->
+                                            <td class="py-3.5 px-4 text-center">
+                                                {% if service.is_kyc_verified() %}
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 shadow-xs" title="Đã được thẩm định bằng cấp/chứng chỉ qua hệ thống KYC">
+                                                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                                    Đã xác minh năng lực ✓
+                                                </span>
+                                                {% else %}
+                                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200" title="Dịch vụ tự khai thêm, chưa qua đối soát tài liệu KYC">
+                                                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    Chưa xác minh
+                                                </span>
+                                                {% endif %}
+                                            </td>
+
+                                            <!-- Switch Toggle Bật/Tắt nhận việc -->
+                                            <td class="py-3.5 px-4 text-center">
+                                                <div class="inline-flex items-center gap-2">
+                                                    <label class="relative inline-flex items-center cursor-pointer">
+                                                        <input type="checkbox" id="toggle-svc-{{ service.id }}" class="sr-only peer" {% if service.is_active %}checked{% endif %} onchange="toggleServiceActive({{ service.id }}, this)">
+                                                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                                    </label>
+                                                    <span id="status-label-{{ service.id }}" class="text-[11px] font-bold w-16 text-left {% if service.is_active %}text-emerald-700{% else %}text-slate-400{% endif %}">
+                                                        {% if service.is_active %}Nhận việc{% else %}Tạm dừng{% endif %}
+                                                    </span>
+                                                </div>
+                                            </td>
+
+                                            <!-- Thao tác Sửa / Xóa -->
+                                            <td class="py-3.5 px-4 text-right">
+                                                <div class="flex items-center justify-end gap-1.5">
+                                                    <button type="button" onclick='openEditServiceModal({{ service.to_dict() | tojson | safe }})'
+                                                        class="p-1.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition cursor-pointer"
+                                                        title="Chỉnh sửa gói dịch vụ">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                    </button>
+                                                    <button type="button" onclick="openDeleteServiceModal({{ service.id }}, '{{ service.source_lang }} ➔ {{ service.target_lang }}')"
+                                                        class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
+                                                        title="Xóa gói dịch vụ (Bảo toàn 100% hồ sơ KYC)">
+                                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Mobile Card View -->
+                            <div class="md:hidden divide-y divide-slate-100 bg-white" id="service-card-list">
+                                {% for service in user.interpreter_services %}
+                                <div class="p-4 space-y-3" id="service-card-{{ service.id }}">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-xs">{{ service.source_lang }}</span>
+                                            <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                                            <span class="px-2 py-0.5 rounded-md bg-brand-50 text-brand-800 font-bold text-xs">{{ service.target_lang }}</span>
+                                        </div>
+                                        <div>
+                                            {% if service.is_kyc_verified() %}
+                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                                                ✓ Đã xác minh KYC
+                                            </span>
+                                            {% else %}
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                                Chưa xác minh
+                                            </span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center justify-between text-xs">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border {{ service.interpreting_type_badge_class }}">
+                                            {{ service.display_interpreting_type }}
+                                        </span>
+                                        <span class="text-slate-600 font-medium">{{ service.specialization or 'Tổng quát / Đa ngành' }}</span>
+                                    </div>
+
+                                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200/60 flex items-center justify-between text-xs">
+                                        <div>
+                                            {% if service.hourly_rate %}
+                                            <div><span class="text-slate-400 text-[10px]">Giờ:</span> <strong class="text-brand-600">{{ service.formatted_hourly_rate }}</strong></div>
+                                            {% endif %}
+                                            {% if service.session_rate %}
+                                            <div><span class="text-slate-400 text-[10px]">Buổi:</span> <strong class="text-slate-800">{{ service.formatted_session_rate }}</strong></div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="toggle-svc-mob-{{ service.id }}" class="sr-only peer" {% if service.is_active %}checked{% endif %} onchange="toggleServiceActive({{ service.id }}, this)">
+                                                <div class="w-9 h-5 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                                            </label>
+                                            <button type="button" onclick='openEditServiceModal({{ service.to_dict() | tojson | safe }})' class="p-1.5 text-slate-500 hover:text-brand-600">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            </button>
+                                            <button type="button" onclick="openDeleteServiceModal({{ service.id }}, '{{ service.source_lang }} ➔ {{ service.target_lang }}')" class="p-1.5 text-slate-500 hover:text-rose-600">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <!-- Empty State Card -->
+                            <div class="p-8 sm:p-12 text-center bg-white space-y-4" id="service-empty-state">
+                                <div class="w-16 h-16 mx-auto rounded-3xl bg-indigo-50 text-indigo-500 flex items-center justify-center border border-indigo-100 shadow-sm">
+                                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-base font-bold text-slate-900">Chưa cấu hình dịch vụ & biểu phí phiên dịch</h4>
+                                    <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
+                                        Hãy bổ sung các cặp ngôn ngữ và hình thức bạn có thể đảm nhận ca dịch. Khách hàng sẽ tìm kiếm và gửi yêu cầu đặt lịch dựa trên danh mục này.
+                                    </p>
+                                </div>
+                                <div class="flex items-center justify-center gap-3 pt-2 flex-wrap">
+                                    {% if user.is_verified or (user.latest_verification and user.latest_verification.status == 'approved') or (user.profile and user.profile.source_language) %}
+                                    <button type="button" onclick="syncKycServices(this)"
+                                        class="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer border border-slate-200">
+                                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                        <span>Nạp tự động từ KYC</span>
+                                    </button>
+                                    {% endif %}
+                                    <button type="button" onclick="openAddServiceModal()"
+                                        class="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-md">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        <span>Tạo gói dịch vụ đầu tiên</span>
+                                    </button>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Gợi Ý & Cam Kết Bảo Mật KYC -->
+                        <div class="mt-6 p-4 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 flex items-start sm:items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <svg class="w-5 h-5 text-indigo-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                <span><strong>Nguyên tắc bảo toàn dữ liệu:</strong> Mọi thao tác thêm, sửa hoặc xóa gói biểu phí tại tab này hoàn toàn tách biệt và <strong>không ảnh hưởng đến hồ sơ/bằng cấp</strong> lưu trữ trong hệ thống KYC.</span>
+                            </div>
+                            <span class="text-[11px] font-bold text-slate-400 shrink-0">Phiên bản 5.2</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <!-- MODAL: THÊM GÓI DỊCH VỤ & BIỂU PHÍ MỚI                                      -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <div id="modal-add-service" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div class="px-6 py-5 bg-gradient-to-r from-brand-600 to-indigo-600 text-white flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-white">Thêm gói dịch vụ & Biểu phí</h3>
+                                    <p class="text-[11px] text-white/80">Cấu hình ngôn ngữ, hình thức và đơn giá tham chiếu</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="closeAddServiceModal()" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <form id="form-add-service" onsubmit="submitAddService(event)" class="p-6 space-y-4">
+                            <!-- Cặp ngôn ngữ -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Cặp ngôn ngữ phiên dịch <span class="text-rose-500">*</span></label>
+                                <div class="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
+                                    <div>
+                                        <select id="add-source-lang" name="source_lang" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                            <option value="Tiếng Việt">Tiếng Việt</option>
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}">{{ lang.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="button" onclick="swapAddLanguages()" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition" title="Hoán đổi ngôn ngữ">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                    </button>
+                                    <div>
+                                        <select id="add-target-lang" name="target_lang" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}" {% if lang.name == 'Tiếng Anh' %}selected{% endif %}>{{ lang.name }}</option>
+                                            {% endfor %}
+                                            <option value="Tiếng Việt">Tiếng Việt</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hình thức phiên dịch -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hình thức phiên dịch <span class="text-rose-500">*</span></label>
+                                <select id="add-interpreting-type" name="interpreting_type" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                    <option value="Dịch nối tiếp (Consecutive)" selected>Dịch nối tiếp (Consecutive)</option>
+                                    <option value="Dịch Cabin (Đồng thời / Simultaneous)">Dịch Cabin (Đồng thời / Simultaneous)</option>
+                                    <option value="Dịch tháp tùng (Escort / Liason)">Dịch tháp tùng (Escort / Liason)</option>
+                                    <option value="Dịch từ xa (Online / Remote)">Dịch từ xa (Online / Remote)</option>
+                                </select>
+                            </div>
+
+                            <!-- Chuyên ngành -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Lĩnh vực chuyên môn thế mạnh</label>
+                                <input type="text" id="add-specialization" name="specialization" list="popular-specializations" placeholder="Ví dụ: Kinh doanh & Thương mại, Y tế, Kỹ thuật..."
+                                    class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                                <datalist id="popular-specializations">
+                                    <option value="Kinh doanh & Thương mại">
+                                    <option value="Y tế & Dược phẩm">
+                                    <option value="Kỹ thuật & Công nghệ">
+                                    <option value="Pháp lý & Hợp đồng">
+                                    <option value="Tài chính & Ngân hàng">
+                                    <option value="Hội nghị & Sự kiện">
+                                    <option value="Du lịch & Văn hóa">
+                                    <option value="Giáo dục & Đào tạo">
+                                </datalist>
+                                <div class="flex items-center gap-1.5 flex-wrap mt-1.5">
+                                    <span class="text-[10px] text-slate-400">Gợi ý nhanh:</span>
+                                    <button type="button" onclick="document.getElementById('add-specialization').value='Kinh doanh & Thương mại'" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Kinh doanh</button>
+                                    <button type="button" onclick="document.getElementById('add-specialization').value='Y tế & Dược phẩm'" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Y tế</button>
+                                    <button type="button" onclick="document.getElementById('add-specialization').value='Kỹ thuật & Công nghệ'" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Kỹ thuật</button>
+                                    <button type="button" onclick="document.getElementById('add-specialization').value='Pháp lý & Hợp đồng'" class="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition">Pháp lý</button>
+                                </div>
+                            </div>
+
+                            <!-- Mức thù lao tham khảo -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Mức giá theo giờ (VNĐ/giờ)</label>
+                                    <div class="relative">
+                                        <input type="text" id="add-hourly-rate" name="hourly_rate" placeholder="VD: 1.500.000"
+                                            oninput="formatLiveRate(this, 'add-hourly-preview', '/giờ')"
+                                            class="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 pr-12">
+                                        <span class="absolute right-3 top-2.5 text-[11px] font-bold text-slate-400">₫/h</span>
+                                    </div>
+                                    <div id="add-hourly-preview" class="text-[11px] font-bold text-brand-600 mt-1 min-h-[16px]"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Mức giá theo ca (VNĐ/buổi)</label>
+                                    <div class="relative">
+                                        <input type="text" id="add-session-rate" name="session_rate" placeholder="VD: 5.000.000"
+                                            oninput="formatLiveRate(this, 'add-session-preview', '/buổi')"
+                                            class="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 pr-12">
+                                        <span class="absolute right-3 top-2.5 text-[11px] font-bold text-slate-400">₫/ca</span>
+                                    </div>
+                                    <div id="add-session-preview" class="text-[11px] font-bold text-slate-800 mt-1 min-h-[16px]"></div>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-500 italic">
+                                * Lưu ý: Mức giá phải là số nguyên dương (> 0). Bạn có thể nhập một hoặc cả hai mức giá.
+                            </p>
+
+                            <!-- Switch Toggle Trạng thái nhận việc -->
+                            <div class="pt-2 flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-800 block">Trạng thái nhận việc ngay</span>
+                                    <span class="text-[11px] text-slate-500 block">Sẵn sàng nhận các dự án phiên dịch theo gói này</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="add-is-active" name="is_active" value="1" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+
+                            <!-- Footer Buttons -->
+                            <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                                <button type="button" onclick="closeAddServiceModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                                    Hủy bỏ
+                                </button>
+                                <button type="submit" id="btn-submit-add-service" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md transition cursor-pointer">
+                                    <span id="btn-text-add">Lưu gói dịch vụ</span>
+                                    <svg id="spinner-add" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <!-- MODAL: CHỈNH SỬA GÓI DỊCH VỤ                                                -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <div id="modal-edit-service" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div class="px-6 py-5 bg-gradient-to-r from-slate-900 to-indigo-900 text-white flex items-center justify-between">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-base font-bold text-white">Chỉnh sửa gói dịch vụ</h3>
+                                    <p class="text-[11px] text-white/80" id="edit-modal-subtitle">Cập nhật biểu phí và cặp ngôn ngữ</p>
+                                </div>
+                            </div>
+                            <button type="button" onclick="closeEditServiceModal()" class="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <form id="form-edit-service" onsubmit="submitEditService(event)" class="p-6 space-y-4">
+                            <input type="hidden" id="edit-service-id" name="service_id">
+
+                            <!-- Cặp ngôn ngữ -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Cặp ngôn ngữ phiên dịch <span class="text-rose-500">*</span></label>
+                                <div class="grid grid-cols-[1fr,auto,1fr] gap-2 items-center">
+                                    <div>
+                                        <select id="edit-source-lang" name="source_lang" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                            <option value="Tiếng Việt">Tiếng Việt</option>
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}">{{ lang.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <button type="button" onclick="swapEditLanguages()" class="p-2 text-slate-400 hover:text-brand-600 hover:bg-slate-100 rounded-lg transition" title="Hoán đổi ngôn ngữ">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                    </button>
+                                    <div>
+                                        <select id="edit-target-lang" name="target_lang" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                            {% for lang in LANGUAGES %}
+                                            <option value="{{ lang.name }}">{{ lang.name }}</option>
+                                            {% endfor %}
+                                            <option value="Tiếng Việt">Tiếng Việt</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hình thức phiên dịch -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Hình thức phiên dịch <span class="text-rose-500">*</span></label>
+                                <select id="edit-interpreting-type" name="interpreting_type" required class="w-full text-xs font-semibold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 bg-white">
+                                    <option value="Dịch nối tiếp (Consecutive)">Dịch nối tiếp (Consecutive)</option>
+                                    <option value="Dịch Cabin (Đồng thời / Simultaneous)">Dịch Cabin (Đồng thời / Simultaneous)</option>
+                                    <option value="Dịch tháp tùng (Escort / Liason)">Dịch tháp tùng (Escort / Liason)</option>
+                                    <option value="Dịch từ xa (Online / Remote)">Dịch từ xa (Online / Remote)</option>
+                                </select>
+                            </div>
+
+                            <!-- Chuyên ngành -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 mb-1.5">Lĩnh vực chuyên môn thế mạnh</label>
+                                <input type="text" id="edit-specialization" name="specialization" list="popular-specializations" placeholder="Ví dụ: Kinh doanh & Thương mại, Y tế, Kỹ thuật..."
+                                    class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500">
+                            </div>
+
+                            <!-- Mức thù lao tham khảo -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Mức giá theo giờ (VNĐ/giờ)</label>
+                                    <div class="relative">
+                                        <input type="text" id="edit-hourly-rate" name="hourly_rate" placeholder="VD: 1.500.000"
+                                            oninput="formatLiveRate(this, 'edit-hourly-preview', '/giờ')"
+                                            class="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 pr-12">
+                                        <span class="absolute right-3 top-2.5 text-[11px] font-bold text-slate-400">₫/h</span>
+                                    </div>
+                                    <div id="edit-hourly-preview" class="text-[11px] font-bold text-brand-600 mt-1 min-h-[16px]"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-slate-700 mb-1">Mức giá theo ca (VNĐ/buổi)</label>
+                                    <div class="relative">
+                                        <input type="text" id="edit-session-rate" name="session_rate" placeholder="VD: 5.000.000"
+                                            oninput="formatLiveRate(this, 'edit-session-preview', '/buổi')"
+                                            class="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 pr-12">
+                                        <span class="absolute right-3 top-2.5 text-[11px] font-bold text-slate-400">₫/ca</span>
+                                    </div>
+                                    <div id="edit-session-preview" class="text-[11px] font-bold text-slate-800 mt-1 min-h-[16px]"></div>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-slate-500 italic">
+                                * Lưu ý: Mức giá phải là số nguyên dương (> 0).
+                            </p>
+
+                            <!-- Switch Toggle Trạng thái nhận việc -->
+                            <div class="pt-2 flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                                <div>
+                                    <span class="text-xs font-bold text-slate-800 block">Trạng thái nhận việc</span>
+                                    <span class="text-[11px] text-slate-500 block">Bật hoặc tạm dừng nhận lịch hẹn mới</span>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="edit-is-active" name="is_active" value="1" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+
+                            <!-- Footer Buttons -->
+                            <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                                <button type="button" onclick="closeEditServiceModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                                    Hủy bỏ
+                                </button>
+                                <button type="submit" id="btn-submit-edit-service" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-900 hover:from-black hover:to-indigo-950 text-white text-xs font-bold shadow-md transition cursor-pointer">
+                                    <span id="btn-text-edit">Lưu thay đổi</span>
+                                    <svg id="spinner-edit" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <!-- MODAL: XÁC NHẬN XÓA GÓI DỊCH VỤ                                             -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <div id="modal-delete-service" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+                    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200 p-6 space-y-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="text-base font-bold text-slate-900">Xóa gói dịch vụ?</h3>
+                                <p class="text-xs text-slate-500" id="delete-service-name-label">Gói dịch vụ sẽ bị gỡ bỏ khỏi bảng giá</p>
+                            </div>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/80 text-xs text-amber-900 space-y-1">
+                            <div class="font-bold flex items-center gap-1.5 text-amber-950">
+                                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <span>Cam kết bảo toàn dữ liệu KYC:</span>
+                            </div>
+                            <p class="text-amber-800 leading-relaxed text-[11px]">
+                                Thao tác này chỉ xóa gói dịch vụ trong bảng giá tham khảo. <strong>Tuyệt đối không ảnh hưởng hay xóa bất kỳ tài liệu minh chứng, bằng cấp, chứng chỉ</strong> nào trong hồ sơ KYC của bạn.
+                            </p>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2.5 pt-3">
+                            <button type="button" onclick="closeDeleteServiceModal()" class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                                Hủy bỏ
+                            </button>
+                            <button type="button" id="btn-confirm-delete-service" onclick="confirmDeleteService()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-500/20 transition cursor-pointer">
+                                <span id="btn-text-delete">Xác nhận xóa</span>
+                                <svg id="spinner-delete" class="w-4 h-4 animate-spin hidden" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Floating Toast Feedback -->
+                <div id="service-toast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+                    <div class="flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold max-w-md" id="service-toast-body">
+                        <span id="service-toast-icon"></span>
+                        <span id="service-toast-msg"></span>
                     </div>
                 </div>
 
@@ -4161,5 +4746,397 @@ function resendVerificationEmail() {
             }
         });
     });
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // JAVASCRIPT CHO TAB 5.2: NĂNG LỰC PHIÊN DỊCH & BIỂU PHÍ
+    // ═════════════════════════════════════════════════════════════════════════
+    let serviceToDeleteId = null;
+
+    function showServiceToast(msg, type = 'success') {
+        const toast = document.getElementById('service-toast');
+        const body = document.getElementById('service-toast-body');
+        const icon = document.getElementById('service-toast-icon');
+        const text = document.getElementById('service-toast-msg');
+        if (!toast || !body) return;
+
+        text.textContent = msg;
+        if (type === 'success') {
+            body.className = 'flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold max-w-md bg-emerald-900 text-white border-emerald-700';
+            icon.innerHTML = '<svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>';
+        } else if (type === 'warning') {
+            body.className = 'flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold max-w-md bg-amber-900 text-white border-amber-700';
+            icon.innerHTML = '<svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+        } else {
+            body.className = 'flex items-center gap-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold max-w-md bg-rose-900 text-white border-rose-700';
+            icon.innerHTML = '<svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+        }
+
+        toast.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+        toast.classList.add('opacity-100', 'translate-y-0');
+
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => {
+            toast.classList.remove('opacity-100', 'translate-y-0');
+            toast.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+        }, 3500);
+    }
+
+    function formatNumberVND(num) {
+        if (!num || isNaN(num) || num <= 0) return '';
+        return Number(num).toLocaleString('vi-VN') + ' VNĐ';
+    }
+
+    function formatLiveRate(input, previewId, suffix) {
+        const preview = document.getElementById(previewId);
+        if (!preview) return;
+        const val = input.value.replace(/[^0-9]/g, '');
+        if (!val) {
+            preview.textContent = '';
+            return;
+        }
+        const num = parseInt(val, 10);
+        if (num <= 0) {
+            preview.textContent = 'Mức giá phải là số nguyên dương (> 0)';
+            preview.className = 'text-[11px] font-bold text-rose-600 mt-1 min-h-[16px]';
+            return;
+        }
+        preview.className = 'text-[11px] font-bold text-brand-600 mt-1 min-h-[16px]';
+        preview.textContent = '≈ ' + formatNumberVND(num) + ' ' + suffix;
+    }
+
+    function swapAddLanguages() {
+        const src = document.getElementById('add-source-lang');
+        const tgt = document.getElementById('add-target-lang');
+        if (src && tgt) {
+            const temp = src.value;
+            src.value = tgt.value;
+            tgt.value = temp;
+        }
+    }
+
+    function swapEditLanguages() {
+        const src = document.getElementById('edit-source-lang');
+        const tgt = document.getElementById('edit-target-lang');
+        if (src && tgt) {
+            const temp = src.value;
+            src.value = tgt.value;
+            tgt.value = temp;
+        }
+    }
+
+    function openAddServiceModal() {
+        const modal = document.getElementById('modal-add-service');
+        if (modal) {
+            modal.classList.remove('hidden');
+            const hInput = document.getElementById('add-hourly-rate');
+            const sInput = document.getElementById('add-session-rate');
+            if (hInput) formatLiveRate(hInput, 'add-hourly-preview', '/giờ');
+            if (sInput) formatLiveRate(sInput, 'add-session-preview', '/buổi');
+        }
+    }
+
+    function closeAddServiceModal() {
+        const modal = document.getElementById('modal-add-service');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function openEditServiceModal(service) {
+        const modal = document.getElementById('modal-edit-service');
+        if (!modal || !service) return;
+
+        document.getElementById('edit-service-id').value = service.id;
+        document.getElementById('edit-source-lang').value = service.source_lang;
+        document.getElementById('edit-target-lang').value = service.target_lang;
+        document.getElementById('edit-interpreting-type').value = service.interpreting_type;
+        document.getElementById('edit-specialization').value = service.specialization || '';
+
+        const hRate = service.hourly_rate ? Math.round(service.hourly_rate) : '';
+        const sRate = service.session_rate ? Math.round(service.session_rate) : '';
+
+        const hInput = document.getElementById('edit-hourly-rate');
+        const sInput = document.getElementById('edit-session-rate');
+        hInput.value = hRate;
+        sInput.value = sRate;
+
+        formatLiveRate(hInput, 'edit-hourly-preview', '/giờ');
+        formatLiveRate(sInput, 'edit-session-preview', '/buổi');
+
+        document.getElementById('edit-is-active').checked = !!service.is_active;
+        document.getElementById('edit-modal-subtitle').textContent = service.source_lang + ' ➔ ' + service.target_lang;
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeEditServiceModal() {
+        const modal = document.getElementById('modal-edit-service');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function openDeleteServiceModal(id, name) {
+        serviceToDeleteId = id;
+        const nameLabel = document.getElementById('delete-service-name-label');
+        if (nameLabel) nameLabel.textContent = 'Gói dịch vụ: ' + name;
+        const modal = document.getElementById('modal-delete-service');
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeDeleteServiceModal() {
+        serviceToDeleteId = null;
+        const modal = document.getElementById('modal-delete-service');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    async function submitAddService(e) {
+        e.preventDefault();
+        const form = e.target;
+        const submitBtn = document.getElementById('btn-submit-add-service');
+        const spinner = document.getElementById('spinner-add');
+        const btnText = document.getElementById('btn-text-add');
+
+        const src = form.source_lang.value.trim();
+        const tgt = form.target_lang.value.trim();
+        if (src.toLowerCase() === tgt.toLowerCase()) {
+            showServiceToast('Ngôn ngữ nguồn và ngôn ngữ đích không được trùng nhau.', 'error');
+            return;
+        }
+
+        const hourlyRaw = form.hourly_rate.value.replace(/[^0-9]/g, '');
+        const sessionRaw = form.session_rate.value.replace(/[^0-9]/g, '');
+
+        if (!hourlyRaw && !sessionRaw) {
+            showServiceToast('Vui lòng nhập ít nhất một mức thù lao tham khảo (> 0 VNĐ).', 'error');
+            return;
+        }
+
+        const data = {
+            source_lang: src,
+            target_lang: tgt,
+            interpreting_type: form.interpreting_type.value,
+            specialization: form.specialization.value.trim(),
+            hourly_rate: hourlyRaw ? parseInt(hourlyRaw, 10) : null,
+            session_rate: sessionRaw ? parseInt(sessionRaw, 10) : null,
+            is_active: form.is_active.checked
+        };
+
+        try {
+            if (submitBtn) submitBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'Đang lưu...';
+
+            const resp = await fetch('/account/services/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const res = await resp.json();
+            if (res.success) {
+                closeAddServiceModal();
+                showServiceToast(res.message || 'Thêm gói dịch vụ thành công!', 'success');
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=services';
+                }, 400);
+            } else {
+                showServiceToast(res.message || 'Thêm gói dịch vụ thất bại.', 'error');
+            }
+        } catch (err) {
+            showServiceToast('Lỗi kết nối khi gửi yêu cầu. Vui lòng thử lại.', 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = 'Lưu gói dịch vụ';
+        }
+    }
+
+    async function submitEditService(e) {
+        e.preventDefault();
+        const form = e.target;
+        const id = document.getElementById('edit-service-id').value;
+        const submitBtn = document.getElementById('btn-submit-edit-service');
+        const spinner = document.getElementById('spinner-edit');
+        const btnText = document.getElementById('btn-text-edit');
+
+        const src = form.source_lang.value.trim();
+        const tgt = form.target_lang.value.trim();
+        if (src.toLowerCase() === tgt.toLowerCase()) {
+            showServiceToast('Ngôn ngữ nguồn và ngôn ngữ đích không được trùng nhau.', 'error');
+            return;
+        }
+
+        const hourlyRaw = form.hourly_rate.value.replace(/[^0-9]/g, '');
+        const sessionRaw = form.session_rate.value.replace(/[^0-9]/g, '');
+
+        if (!hourlyRaw && !sessionRaw) {
+            showServiceToast('Vui lòng nhập ít nhất một mức thù lao tham khảo (> 0 VNĐ).', 'error');
+            return;
+        }
+
+        const data = {
+            source_lang: src,
+            target_lang: tgt,
+            interpreting_type: form.interpreting_type.value,
+            specialization: form.specialization.value.trim(),
+            hourly_rate: hourlyRaw ? parseInt(hourlyRaw, 10) : null,
+            session_rate: sessionRaw ? parseInt(sessionRaw, 10) : null,
+            is_active: form.is_active.checked
+        };
+
+        try {
+            if (submitBtn) submitBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'Đang lưu...';
+
+            const resp = await fetch(`/account/services/${id}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+
+            const res = await resp.json();
+            if (res.success) {
+                closeEditServiceModal();
+                showServiceToast(res.message || 'Cập nhật thành công!', 'success');
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=services';
+                }, 400);
+            } else {
+                showServiceToast(res.message || 'Cập nhật thất bại.', 'error');
+            }
+        } catch (err) {
+            showServiceToast('Lỗi kết nối khi gửi yêu cầu. Vui lòng thử lại.', 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = 'Lưu thay đổi';
+        }
+    }
+
+    async function confirmDeleteService() {
+        if (!serviceToDeleteId) return;
+        const id = serviceToDeleteId;
+        const submitBtn = document.getElementById('btn-confirm-delete-service');
+        const spinner = document.getElementById('spinner-delete');
+        const btnText = document.getElementById('btn-text-delete');
+
+        try {
+            if (submitBtn) submitBtn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.textContent = 'Đang xóa...';
+
+            const resp = await fetch(`/account/services/${id}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const res = await resp.json();
+            if (res.success) {
+                closeDeleteServiceModal();
+                showServiceToast(res.message || 'Đã xóa gói dịch vụ thành công. Hồ sơ KYC được bảo toàn.', 'success');
+                const row = document.getElementById(`service-row-${id}`);
+                const card = document.getElementById(`service-card-${id}`);
+                if (row) row.remove();
+                if (card) card.remove();
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=services';
+                }, 400);
+            } else {
+                showServiceToast(res.message || 'Xóa gói dịch vụ thất bại.', 'error');
+            }
+        } catch (err) {
+            showServiceToast('Lỗi kết nối khi xóa. Vui lòng thử lại.', 'error');
+        } finally {
+            if (submitBtn) submitBtn.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = 'Xác nhận xóa';
+        }
+    }
+
+    async function toggleServiceActive(serviceId, checkbox) {
+        const isChecked = checkbox.checked;
+        const statusLabel = document.getElementById(`status-label-${serviceId}`);
+
+        try {
+            const resp = await fetch(`/account/services/${serviceId}/toggle`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ is_active: isChecked })
+            });
+
+            const res = await resp.json();
+            if (res.success) {
+                if (statusLabel) {
+                    if (res.is_active) {
+                        statusLabel.textContent = 'Nhận việc';
+                        statusLabel.className = 'text-[11px] font-bold w-16 text-left text-emerald-700';
+                    } else {
+                        statusLabel.textContent = 'Tạm dừng';
+                        statusLabel.className = 'text-[11px] font-bold w-16 text-left text-slate-400';
+                    }
+                }
+                const mobCb = document.getElementById(`toggle-svc-mob-${serviceId}`);
+                if (mobCb && mobCb !== checkbox) mobCb.checked = res.is_active;
+                const deskCb = document.getElementById(`toggle-svc-${serviceId}`);
+                if (deskCb && deskCb !== checkbox) deskCb.checked = res.is_active;
+
+                showServiceToast(res.message || 'Cập nhật trạng thái thành công!', 'success');
+            } else {
+                checkbox.checked = !isChecked;
+                showServiceToast(res.message || 'Không thể đổi trạng thái.', 'error');
+            }
+        } catch (err) {
+            checkbox.checked = !isChecked;
+            showServiceToast('Lỗi kết nối khi cập nhật trạng thái.', 'error');
+        }
+    }
+
+    async function syncKycServices(btn) {
+        try {
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-75');
+            }
+            showServiceToast('Đang quét và đồng bộ hồ sơ KYC đã thẩm định...', 'warning');
+
+            const resp = await fetch('/account/services/sync-kyc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const res = await resp.json();
+            if (res.success) {
+                showServiceToast(res.message || 'Đồng bộ hồ sơ KYC thành công!', 'success');
+                setTimeout(() => {
+                    window.location.href = window.location.pathname + '?tab=services';
+                }, 500);
+            } else {
+                showServiceToast(res.message || 'Đồng bộ thất bại.', 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-75');
+                }
+            }
+        } catch (err) {
+            showServiceToast('Lỗi kết nối máy chủ khi nạp KYC.', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75');
+            }
+        }
+    }
 </script>
 {% endblock %}
