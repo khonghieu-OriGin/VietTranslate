@@ -5006,6 +5006,9 @@ def post_job():
 @app.route('/my-jobs')
 @login_required
 def my_jobs():
+    current = get_current_user()
+    if current and current.role == 'translator':
+        return applied_jobs()
     user = _require_hirer()
     if not user:
         flash(_t('flash.hirer_only_post'), 'error')
@@ -5155,7 +5158,6 @@ def job_attachment(attachment_id):
 
 
 @app.route('/applied-jobs', endpoint='applied_jobs')
-@app.route('/my-jobs', endpoint='my_jobs')
 @login_required
 def applied_jobs():
     user = get_current_user()
