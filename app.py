@@ -1,6 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
-from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken
+from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, Notification, NOTIFICATION_TYPES, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule, JobSchedule, get_job_schedule_entries, validate_schedule_entries, VerificationDocument, TranslatorVerification, VerificationSubmissionVersion, PasswordResetToken, EmailVerificationToken
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
@@ -1794,13 +1794,18 @@ def interpreter_dashboard():
         })
 
     # ── 7. Thông báo gần đây (5 thông báo mới nhất) ──────────────────────────
-    recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
-        Notification.created_at.desc()
-    ).limit(5).all()
+    recent_notifications_raw = []
+    unread_notifications_count = 0
+    try:
+        recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
+            Notification.created_at.desc()
+        ).limit(5).all()
 
-    unread_notifications_count = Notification.query.filter_by(
-        user_id=uid, is_read=False
-    ).count()
+        unread_notifications_count = Notification.query.filter_by(
+            user_id=uid, is_read=False
+        ).count()
+    except Exception as e:
+        print(f"[interpreter_dashboard] notification query error: {e}", file=sys.stderr)
 
     from datetime import datetime as dt_cls
     now_dt = dt_cls.utcnow()
