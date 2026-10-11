@@ -112,6 +112,29 @@ function resendVerificationEmail() {
                                 Chưa xác minh
                             </span>
                             {% endif %}
+                        {% elif user.role == 'hirer' and user.hirer_profile %}
+                            {% set hp_badge = user.hirer_profile %}
+                            {% if hp_badge.verification_status == 'verified' or hp_badge.is_verified %}
+                            <span class="mt-2.5 inline-block bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200/60">
+                                ✓ Đã xác minh
+                            </span>
+                            {% elif hp_badge.verification_status == 'needs_revision' %}
+                            <span class="mt-2.5 inline-block bg-amber-50 text-amber-700 text-[11px] font-bold px-3 py-1 rounded-full border border-amber-300">
+                                ⚠️ Cần bổ sung hồ sơ
+                            </span>
+                            {% elif hp_badge.verification_status == 'rejected' %}
+                            <span class="mt-2.5 inline-block bg-rose-50 text-rose-700 text-[11px] font-bold px-3 py-1 rounded-full border border-rose-200">
+                                ✕ Chưa đạt duyệt
+                            </span>
+                            {% elif hp_badge.verification_status == 'pending' %}
+                            <span class="mt-2.5 inline-block bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1 rounded-full border border-blue-200">
+                                ⏳ Đang chờ duyệt
+                            </span>
+                            {% else %}
+                            <span class="mt-2.5 inline-block bg-slate-50 text-slate-500 text-[11px] font-bold px-3 py-1 rounded-full border border-slate-200/60">
+                                Chưa xác minh
+                            </span>
+                            {% endif %}
                         {% endif %}
                     </div>
 
@@ -185,6 +208,29 @@ function resendVerificationEmail() {
                             </svg>
                             <span>{{ t('account_profile_page.nav_profile') }}</span>
                         </button>
+                        {% if user.role == 'hirer' %}
+                        <button type="button" onclick="switchTab('hirer')"
+                            class="w-full text-left flex items-center gap-2.5 px-3.5 py-2.5 {% if active_tab == 'hirer' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                            <svg class="w-4 h-4 {% if active_tab == 'hirer' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            </svg>
+                            <span>Hồ sơ khách hàng</span>
+                        </button>
+                        <button type="button" onclick="switchTab('hirer_verify')"
+                            class="w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'hirer_verify' or active_tab == 'hirer_profile' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                            <div class="flex items-center gap-2.5">
+                                <svg class="w-4 h-4 {% if active_tab == 'hirer_verify' or active_tab == 'hirer_profile' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                                <span>Xác minh hồ sơ</span>
+                            </div>
+                            {% if user.hirer_profile and (user.hirer_profile.verification_status == 'verified' or user.hirer_profile.is_verified) %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✓</span>
+                            {% elif user.hirer_profile and user.hirer_profile.verification_status == 'needs_revision' %}
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">!</span>
+                            {% endif %}
+                        </button>
+                        {% endif %}
                         {% endif %}
                         <a href="{{ url_for('account_history') }}"
                             class="flex items-center gap-2.5 px-3.5 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold rounded-xl text-xs sm:text-sm transition">
@@ -2598,7 +2644,7 @@ function resendVerificationEmail() {
                     </div>
                 </div>
 
-                <!-- Tab Xác minh hồ sơ khách hàng: tự động xác minh khi điền đủ thông tin, không cần admin duyệt -->
+                <!-- Tab Xác minh hồ sơ khách hàng -->
                 {% set v_biz = (atype == 'business') %}
                 {% set v_items = [
                     ('Tên công ty / tổ chức', hp and hp.company),
@@ -2616,7 +2662,8 @@ function resendVerificationEmail() {
                     ('Lĩnh vực thường thuê phiên dịch', hp and hp.hiring_field),
                 ] %}
                 {% set v_done = v_items | selectattr(1) | list | length %}
-                <div id="tab-hirer_verify" class="tab-panel {% if active_tab == 'hirer_verify' %}active{% endif %}">
+                {% set v_status = hp.verification_status if hp and hp.verification_status else ('verified' if (hp and hp.is_verified) else 'unverified') %}
+                <div id="tab-hirer_verify" class="tab-panel {% if active_tab == 'hirer_verify' or active_tab == 'hirer_profile' %}active{% endif %}">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8 space-y-6">
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
                             <div>
@@ -2624,14 +2671,69 @@ function resendVerificationEmail() {
                                     <span class="w-2 h-2 rounded-full bg-brand-600"></span>
                                     Xác minh hồ sơ khách hàng
                                 </h2>
-                                <p class="text-xs text-slate-500 mt-1">Điền đầy đủ thông tin bên dưới để nhận huy hiệu "✓ Đã xác minh". Hệ thống tự xác minh ngay, không cần chờ admin duyệt.</p>
+                                <p class="text-xs text-slate-500 mt-1">Hồ sơ người đăng tuyển được Ban quản trị thẩm định để đảm bảo an toàn giao dịch và quyền lợi đôi bên.</p>
                             </div>
-                            {% if hp and hp.is_verified %}
+                            {% if v_status == 'verified' or (hp and hp.is_verified) %}
                             <span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">✓ Đã xác minh</span>
+                            {% elif v_status == 'needs_revision' %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-300 px-3 py-1.5 rounded-full animate-pulse">⚠️ Cần bổ sung hồ sơ</span>
+                            {% elif v_status == 'rejected' %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-full">✕ Chưa đạt duyệt</span>
+                            {% elif v_status == 'pending' %}
+                            <span class="inline-flex items-center gap-1 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-full">⏳ Đang chờ thẩm định</span>
                             {% else %}
                             <span class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">Chưa xác minh</span>
                             {% endif %}
                         </div>
+
+                        <!-- Banner thông báo kết quả thẩm định từ Ban quản trị -->
+                        {% if v_status == 'needs_revision' %}
+                        <div class="p-4 sm:p-5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2 font-bold text-sm text-amber-950">
+                                    <svg class="w-5 h-5 text-amber-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    <span>Ban quản trị yêu cầu bổ sung hồ sơ</span>
+                                </div>
+                                <p class="text-xs text-amber-800 leading-relaxed pl-7">
+                                    <strong>Ghi chú từ Admin:</strong> {{ hp.rejection_reason or 'Hồ sơ thiếu thông tin hoặc giấy tờ chưa hợp lệ. Vui lòng cập nhật bổ sung.' }}
+                                </p>
+                            </div>
+                            <button type="button" onclick="switchTab('hirer')" class="shrink-0 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-sm">
+                                Bổ sung thông tin ngay →
+                            </button>
+                        </div>
+                        {% elif v_status == 'rejected' %}
+                        <div class="p-4 sm:p-5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2 font-bold text-sm text-rose-950">
+                                    <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <span>Hồ sơ người đăng tuyển chưa được duyệt</span>
+                                </div>
+                                <p class="text-xs text-rose-800 leading-relaxed pl-7">
+                                    <strong>Lý do từ chối:</strong> {{ hp.rejection_reason or 'Hồ sơ chưa đạt tiêu chuẩn quy định của nền tảng VietTranslate.' }}
+                                </p>
+                            </div>
+                            <button type="button" onclick="switchTab('hirer')" class="shrink-0 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-sm">
+                                Chỉnh sửa hồ sơ nộp lại →
+                            </button>
+                        </div>
+                        {% elif v_status == 'pending' %}
+                        <div class="p-4 sm:p-5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center gap-3">
+                            <svg class="w-5 h-5 text-blue-600 shrink-0 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            <div class="text-xs leading-relaxed">
+                                <span class="font-bold text-blue-950 block text-sm mb-0.5">Hồ sơ đang trong hàng đợi thẩm định</span>
+                                <span>Ban quản trị đang tiến hành xem xét hồ sơ của bạn. Quyền đăng tin tuyển dụng sẽ được tự động kích hoạt ngay khi hồ sơ được duyệt thành công.</span>
+                            </div>
+                        </div>
+                        {% elif v_status == 'verified' or (hp and hp.is_verified) %}
+                        <div class="p-4 sm:p-5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-3">
+                            <svg class="w-5 h-5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <div class="text-xs leading-relaxed">
+                                <span class="font-bold text-emerald-950 block text-sm mb-0.5">Tài khoản đã xác minh chính thức</span>
+                                <span>Bạn đã đủ điều kiện đăng tin yêu cầu tuyển dụng và giao dịch ký quỹ an toàn trên hệ thống VietTranslate.</span>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <div>
                             <div class="flex items-center justify-between text-xs font-semibold text-slate-600 mb-2">
@@ -2656,8 +2758,8 @@ function resendVerificationEmail() {
                             {% endfor %}
                         </ul>
 
-                        {% if not (hp and hp.is_verified) %}
-                        <button type="button" onclick="switchTab('hirer')" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-6 rounded-xl transition shadow-sm text-xs sm:text-sm">Hoàn thiện hồ sơ để xác minh</button>
+                        {% if not (hp and (hp.is_verified or v_status == 'verified')) %}
+                        <button type="button" onclick="switchTab('hirer')" class="bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 px-6 rounded-xl transition shadow-sm text-xs sm:text-sm">Hoàn thiện hồ sơ để gửi thẩm định</button>
                         {% else %}
                         <a href="{{ url_for('hirer_profile', hirer_id=user.id) }}" class="inline-block text-brand-600 hover:text-brand-700 font-bold text-xs sm:text-sm">Xem hồ sơ công khai →</a>
                         {% endif %}
@@ -2811,6 +2913,7 @@ function resendVerificationEmail() {
 {% block scripts %}
 <script>
     function switchTab(tab, btnElement) {
+        if (tab === 'hirer_profile') tab = 'hirer_verify';
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => {
             b.classList.remove('active');
@@ -2860,7 +2963,8 @@ function resendVerificationEmail() {
     // Auto-switch to tab based on query param ?tab=... or hash #...
     window.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab') || window.location.hash.replace('#', '');
+        let tabParam = urlParams.get('tab') || window.location.hash.replace('#', '');
+        if (tabParam === 'hirer_profile') tabParam = 'hirer_verify';
         if (tabParam && document.getElementById('tab-' + tabParam)) {
             switchTab(tabParam);
         }

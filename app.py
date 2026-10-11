@@ -2740,7 +2740,22 @@ def account_profile():
             else:
                 db.session.commit()
                 flash(_t('flash.hirer_profile_updated'), 'success')
-                flash('Hồ sơ đã đầy đủ, tài khoản đã được xác minh ✓ Bạn có thể đăng job ngay.', 'success')
+                if profile.is_verified:
+                    flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
+                else:
+                    flash('Hồ sơ đã được lưu và gửi yêu cầu thẩm định tới Ban quản trị. Chức năng đăng tuyển sẽ được kích hoạt sau khi hồ sơ được duyệt.', 'info')
+                    try:
+                        from models import AdminNotification
+                        db.session.add(AdminNotification(
+                            type='HIRER_VERIFICATION',
+                            title=f'Hồ sơ người đăng tuyển chờ duyệt: #{user.id}',
+                            message=f'{user.name} ({user.email}) vừa nộp/cập nhật hồ sơ khách hàng.',
+                            related_id=user.id,
+                            url=url_for('admin_hirer_verify', hirer_id=user.id)
+                        ))
+                        db.session.commit()
+                    except Exception:
+                        pass
 
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
@@ -2766,6 +2781,8 @@ def account_profile():
     active_tab = request.args.get('tab', default_tab)
     if getattr(user, 'role', '') == 'translator' and active_tab in ('overview', 'basic'):
         active_tab = 'profile'
+    if active_tab == 'hirer_profile':
+        active_tab = 'hirer_verify'
 
     profile_completion = None
     unread_notifs_count = 0
@@ -4815,8 +4832,8 @@ def translator_profile(profile_id):
             is_private=(getattr(profile, 'is_public', True) is False),
             access_reason=access_reason
         ), status_code
-    # Reviews received by this translator
-    reviews = Review.query.filter_by(reviewee_id=profile.user_id).order_by(Review.created_at.desc()).limit(10).all()
+    # Reviews received by this translator (lọc bỏ các đánh giá đã bị Admin ẩn)
+    reviews = Review.query.filter_by(reviewee_id=profile.user_id, is_hidden=False).order_by(Review.created_at.desc()).limit(10).all()
     verification = profile.latest_verification
     is_verified = bool(profile.is_verified)
 
@@ -5651,12 +5668,12 @@ def post_job():
         try:
             create_notification(user_id=user.id, notification_type='VERIFICATION_REQUIRED',
                                 title='Cần xác minh tài khoản để đăng yêu cầu', message=cannot_post_reason or 'Hoàn tất xác minh người đăng tuyển để đăng yêu cầu.',
-                                url=url_for('account_profile', tab='hirer_profile'))
+                                url=url_for('account_profile', tab='hirer_verify'))
             db.session.commit()
         except Exception:
             db.session.rollback()
         flash(cannot_post_reason, 'error')
-        return redirect(url_for('account_profile', tab='hirer_profile'))
+        return redirect(url_for('account_profile', tab='hirer_verify'))
 
     token = request.form.get('form_token', '')
     tokens = session.get('job_form_tokens', [])
@@ -8241,7 +8258,7 @@ def admin_hirer_review_action(hirer_id):
                 notification_type='JOB_MATCH',
                 title='Yêu cầu bổ sung hồ sơ người đăng',
                 message=f'Hồ sơ của bạn cần bổ sung: {reason}',
-                url=url_for('account_profile', tab='hirer_profile')
+                url=url_for('account_profile', tab='hirer_verify')
             )
         except Exception:
             pass
@@ -8265,7 +8282,7 @@ def admin_hirer_review_action(hirer_id):
                 notification_type='JOB_MATCH',
                 title='Hồ sơ xác minh bị từ chối',
                 message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
-                url=url_for('account_profile', tab='hirer_profile')
+                url=url_for('account_profile', tab='hirer_verify')
             )
         except Exception:
             pass
@@ -8490,6 +8507,21 @@ def admin_update_report(report_id, action):
             description=f'Giải quyết khiếu nại #{report.id}',
             extra_data={'note': note}
         )
+        if report.reporter_id:
+            try:
+                from app import create_notification
+                notif_msg = f'Khiếu nại #{report.id} của bạn đã được giải quyết.'
+                if note:
+                    notif_msg += f' Nội dung phản hồi: {note}'
+                create_notification(
+                    user_id=report.reporter_id,
+                    notification_type='SYSTEM',
+                    title='Khiếu nại đã được xử lý',
+                    message=notif_msg,
+                    url=url_for('notifications_page')
+                )
+            except Exception:
+                pass
     elif action == 'reject':
         report.status = 'rejected'
         reason = request.form.get('rejection_reason')
@@ -8501,6 +8533,21 @@ def admin_update_report(report_id, action):
             description=f'Từ chối khiếu nại #{report.id}',
             extra_data={'reason': reason}
         )
+        if report.reporter_id:
+            try:
+                from app import create_notification
+                notif_msg = f'Khiếu nại #{report.id} của bạn đã được xem xét và không đủ căn cứ xử lý.'
+                if reason:
+                    notif_msg += f' Lý do: {reason}'
+                create_notification(
+                    user_id=report.reporter_id,
+                    notification_type='SYSTEM',
+                    title='Kết quả xử lý khiếu nại',
+                    message=notif_msg,
+                    url=url_for('notifications_page')
+                )
+            except Exception:
+                pass
     else:
         abort(400)
         
@@ -8583,6 +8630,17 @@ def admin_toggle_review(review_id):
         db.session.flush()
         from services.hirer import recalculate_hirer_rating
         recalculate_hirer_rating(r.reviewee_id)
+    elif r.reviewee and r.reviewee.role == 'translator':
+        db.session.flush()
+        t_prof = r.reviewee.profile
+        if t_prof:
+            valid_reviews = Review.query.filter_by(reviewee_id=r.reviewee_id, is_hidden=False).all()
+            if valid_reviews:
+                t_prof.rating = round(sum(rev.rating for rev in valid_reviews) / len(valid_reviews), 2)
+                t_prof.total_reviews = len(valid_reviews)
+            else:
+                t_prof.rating = 0.0
+                t_prof.total_reviews = 0
 
     db.session.commit()
     flash(msg, 'success')
