@@ -59,12 +59,25 @@ CREATE TABLE IF NOT EXISTS notification_setting (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL UNIQUE REFERENCES "user"(id) ON DELETE CASCADE,
     notify_job_match BOOLEAN DEFAULT TRUE,
-    notify_schedule_reminder BOOLEAN DEFAULT TRUE,
     notify_application_update BOOLEAN DEFAULT TRUE,
+    notify_profile_view BOOLEAN DEFAULT TRUE,
+    notify_schedule_reminder BOOLEAN DEFAULT TRUE,
+    reminder_time_60m BOOLEAN DEFAULT TRUE,
+    reminder_time_30m BOOLEAN DEFAULT TRUE,
+    reminder_time_15m BOOLEAN DEFAULT FALSE,
+    notify_income_update BOOLEAN DEFAULT TRUE,
+    notify_security_alert BOOLEAN DEFAULT TRUE,
     notify_marketing BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_profile_view BOOLEAN DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_60m BOOLEAN DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_30m BOOLEAN DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_15m BOOLEAN DEFAULT FALSE;
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_income_update BOOLEAN DEFAULT TRUE;
+ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_security_alert BOOLEAN DEFAULT TRUE;
 
 CREATE INDEX IF NOT EXISTS ix_notification_setting_user_id ON notification_setting (user_id);
 

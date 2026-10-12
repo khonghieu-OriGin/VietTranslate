@@ -2453,25 +2453,25 @@ function resendVerificationEmail() {
                     </div>
                 </div>
 
-                <!-- TAB 4 PLACEHOLDER: CÀI ĐẶT THÔNG BÁO & BẢO MẬT (MỤC 5.6) -->
+                <!-- TAB 4: CÀI ĐẶT THÔNG BÁO & BẢO MẬT (MỤC 5.6) -->
                 <div id="tab-security" class="tab-panel {% if active_tab == 'security' %}active{% endif %} space-y-6">
                     <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
                         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
                             <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 shadow-xs">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
                                         <h2 class="text-lg font-bold text-slate-900">Cài đặt thông báo & Bảo mật tài khoản</h2>
                                         <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Mục 5.6</span>
                                     </div>
-                                    <p class="text-xs text-slate-500 mt-0.5">Cấu hình kênh nhận thông báo công việc (5.6.1), đổi mật khẩu tài khoản (5.6.2) và quản lý thiết bị/phiên làm việc (5.6.3).</p>
+                                    <p class="text-xs text-slate-500 mt-0.5">Tùy biến cấu hình thông báo hệ thống (5.6.1), đổi mật khẩu tài khoản (5.6.2) và quản lý phiên đăng nhập an toàn (5.6.3).</p>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200/60 shrink-0">
-                                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                                Sẵn sàng triển khai chi tiết
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200/60 shrink-0">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                Đang hoạt động
                             </span>
                         </div>
 
@@ -2479,49 +2479,409 @@ function resendVerificationEmail() {
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-6">
                             <!-- 5.6.1: Cài đặt thông báo -->
                             <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.1 Kênh thông báo</span>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.1 Tùy chọn thông báo</span>
+                                    <span class="text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded border border-brand-100">Tùy biến</span>
+                                </div>
                                 <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs space-y-2">
                                     <div class="flex items-center justify-between">
-                                        <span class="text-slate-600">Thông báo qua Email</span>
-                                        <span class="font-bold text-emerald-600">Đang bật</span>
+                                        <span class="text-slate-600">Trạng thái bộ lọc</span>
+                                        <span class="font-bold text-emerald-600 flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            Đang đồng bộ
+                                        </span>
                                     </div>
                                     <div class="flex items-center justify-between">
-                                        <span class="text-slate-600">Thông báo Web In-app</span>
-                                        <span class="font-bold text-emerald-600">Đang bật</span>
+                                        <span class="text-slate-600">Trung tâm thông báo</span>
+                                        <a href="{{ url_for('notifications_page') }}" class="font-bold text-brand-600 hover:text-brand-700 hover:underline">Xem tin →</a>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- 5.6.2: Đổi mật khẩu -->
                             <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.2 Mật khẩu đăng nhập</span>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.2 Mật khẩu đăng nhập</span>
+                                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Bảo vệ</span>
+                                </div>
                                 <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs space-y-2">
-                                    <span class="text-slate-500 block">Độ mạnh mật khẩu</span>
-                                    <span class="font-bold text-slate-800">Đã thiết lập bảo mật</span>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-600">Mật khẩu tài khoản</span>
+                                        <span class="font-bold text-slate-800">••••••••</span>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-600">Độ an toàn</span>
+                                        <span class="font-bold text-emerald-600">Đã thiết lập</span>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- 5.6.3: Phiên làm việc -->
                             <div class="p-4 bg-slate-50/70 rounded-xl border border-slate-200/70 space-y-2">
-                                <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.3 Phiên & Thiết bị</span>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wider block">5.6.3 Phiên & Thiết bị</span>
+                                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Hiện tại</span>
+                                </div>
                                 <div class="p-3 bg-white rounded-lg border border-slate-200/60 text-xs space-y-2">
-                                    <span class="text-slate-500 block">Thiết bị hiện tại</span>
+                                    <span class="text-slate-500 block">Phiên đăng nhập</span>
                                     <span class="font-bold text-emerald-700 flex items-center gap-1.5">
                                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                                        Phiên làm việc an toàn
+                                        Thiết bị xác thực an toàn
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Form Đổi mật khẩu sẵn sàng hoạt động -->
-                        <div class="mt-6 pt-6 border-t border-slate-100">
+                        <!-- ─────────────────────────────────────────────────────────────
+                             PHÂN KHU 5.6.1: CẤU HÌNH TÙY CHỌN THÔNG BÁO (NOTIFICATION PREFERENCES)
+                        ───────────────────────────────────────────────────────────── -->
+                        <div id="section-notification-preferences" class="mt-8 pt-6 border-t border-slate-100">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-brand-600"></span>
+                                        <h3 class="text-base font-bold text-slate-900">5.6.1 Cài đặt thông báo (Notification Preferences)</h3>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">Bộ lọc thông báo</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-1 max-w-3xl">Tùy chỉnh bật/tắt các nhóm thông báo theo nhu cầu. Cấu hình này làm điều kiện kiểm tra (flag) trước khi hệ thống tạo bản ghi thông báo mới vào Trung tâm thông báo (Notification Center).</p>
+                                </div>
+
+                                <div class="flex items-center gap-2 self-start sm:self-center shrink-0">
+                                    <span id="notif-sync-badge" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70 transition-all duration-300">
+                                        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        <span id="notif-sync-text">Tự động đồng bộ</span>
+                                    </span>
+                                </div>
+                            </div>
+
+                            <form id="form-notification-settings" method="POST" action="{{ url_for('account_profile') }}" class="space-y-5">
+                                <input type="hidden" name="action" value="save_notification_settings">
+                                <input type="hidden" name="tab" value="security">
+
+                                <!-- 1. NHÓM CÔNG VIỆC -->
+                                <div class="bg-gradient-to-br from-white via-white to-blue-50/20 rounded-2xl border border-slate-200/90 shadow-xs p-5 transition hover:shadow-soft">
+                                    <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100 font-bold shadow-xs">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                    Nhóm Công việc
+                                                </h4>
+                                                <p class="text-[11px] text-slate-500">Cơ hội việc mới phù hợp, kết quả nộp đơn và lượt xem hồ sơ từ khách hàng.</p>
+                                            </div>
+                                        </div>
+                                        <span class="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200/60 shrink-0">3 tùy chọn</span>
+                                    </div>
+
+                                    <div class="divide-y divide-slate-100 space-y-3.5">
+                                        <!-- Switch 1: Job mới phù hợp tiêu chí -->
+                                        <div class="pt-3.5 first:pt-0 flex items-center justify-between gap-4">
+                                            <div class="space-y-0.5">
+                                                <label for="toggle_notify_job_match" class="text-xs font-bold text-slate-800 cursor-pointer hover:text-blue-700 transition flex items-center gap-2">
+                                                    Job mới phù hợp tiêu chí
+                                                </label>
+                                                <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                    Tự động thông báo khi có công việc phiên dịch mới đăng tuyển phù hợp với cặp ngôn ngữ và lĩnh vực chuyên môn bạn đã đăng ký.
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2.5 shrink-0">
+                                                <span id="label_toggle_notify_job_match" class="text-[11px] font-semibold {% if notification_setting.notify_job_match %}text-blue-600{% else %}text-slate-400{% endif %}">
+                                                    {{ 'Đang bật' if notification_setting.notify_job_match else 'Đang tắt' }}
+                                                </span>
+                                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                                    <input type="checkbox" id="toggle_notify_job_match" name="notify_job_match" value="1"
+                                                        {% if notification_setting.notify_job_match %}checked{% endif %}
+                                                        onchange="onNotificationSettingChange(this)"
+                                                        class="sr-only peer">
+                                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Switch 2: Trạng thái đơn ứng tuyển -->
+                                        <div class="pt-3.5 flex items-center justify-between gap-4">
+                                            <div class="space-y-0.5">
+                                                <label for="toggle_notify_application_update" class="text-xs font-bold text-slate-800 cursor-pointer hover:text-blue-700 transition flex items-center gap-2">
+                                                    Trạng thái đơn ứng tuyển
+                                                </label>
+                                                <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                    Nhận cập nhật tức thì khi khách hàng xem đơn, chấp nhận báo giá, mời phỏng vấn hoặc phản hồi đơn chào giá/ứng tuyển của bạn.
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2.5 shrink-0">
+                                                <span id="label_toggle_notify_application_update" class="text-[11px] font-semibold {% if notification_setting.notify_application_update %}text-blue-600{% else %}text-slate-400{% endif %}">
+                                                    {{ 'Đang bật' if notification_setting.notify_application_update else 'Đang tắt' }}
+                                                </span>
+                                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                                    <input type="checkbox" id="toggle_notify_application_update" name="notify_application_update" value="1"
+                                                        {% if notification_setting.notify_application_update %}checked{% endif %}
+                                                        onchange="onNotificationSettingChange(this)"
+                                                        class="sr-only peer">
+                                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <!-- Switch 3: Khách đã xem hồ sơ -->
+                                        <div class="pt-3.5 flex items-center justify-between gap-4">
+                                            <div class="space-y-0.5">
+                                                <label for="toggle_notify_profile_view" class="text-xs font-bold text-slate-800 cursor-pointer hover:text-blue-700 transition flex items-center gap-2">
+                                                    Khách đã xem hồ sơ
+                                                </label>
+                                                <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                    Thông báo khi có khách hàng hoặc nhà tuyển dụng mở xem trang hồ sơ phiên dịch và năng lực chuyên môn công khai của bạn.
+                                                </p>
+                                            </div>
+                                            <div class="flex items-center gap-2.5 shrink-0">
+                                                <span id="label_toggle_notify_profile_view" class="text-[11px] font-semibold {% if notification_setting.notify_profile_view %}text-blue-600{% else %}text-slate-400{% endif %}">
+                                                    {{ 'Đang bật' if notification_setting.notify_profile_view else 'Đang tắt' }}
+                                                </span>
+                                                <label class="relative inline-flex items-center cursor-pointer select-none">
+                                                    <input type="checkbox" id="toggle_notify_profile_view" name="notify_profile_view" value="1"
+                                                        {% if notification_setting.notify_profile_view %}checked{% endif %}
+                                                        onchange="onNotificationSettingChange(this)"
+                                                        class="sr-only peer">
+                                                    <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 shadow-inner"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 2. NHÓM LỊCH TRÌNH -->
+                                <div class="bg-gradient-to-br from-white via-white to-purple-50/20 rounded-2xl border border-slate-200/90 shadow-xs p-5 transition hover:shadow-soft">
+                                    <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100 font-bold shadow-xs">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                    Nhóm Lịch trình
+                                                </h4>
+                                                <p class="text-[11px] text-slate-500">Nhắc nhở chuẩn bị tài liệu và tham gia các ca phiên dịch đúng giờ.</p>
+                                            </div>
+                                        </div>
+                                        <span class="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200/60 shrink-0">Kèm chọn mốc nhắc</span>
+                                    </div>
+
+                                    <!-- Switch chính: Nhắc lịch ca dịch sắp tới -->
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="space-y-0.5">
+                                            <label for="toggle_notify_schedule_reminder" class="text-xs font-bold text-slate-800 cursor-pointer hover:text-purple-700 transition flex items-center gap-2">
+                                                Nhắc lịch ca dịch sắp tới
+                                            </label>
+                                            <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                Chủ động gửi thông báo đếm ngược trước khi bắt đầu ca phiên dịch trực tuyến hoặc tại chỗ theo các mốc thời gian đã chọn bên dưới.
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-2.5 shrink-0">
+                                            <span id="label_toggle_notify_schedule_reminder" class="text-[11px] font-semibold {% if notification_setting.notify_schedule_reminder %}text-purple-600{% else %}text-slate-400{% endif %}">
+                                                {{ 'Đang bật' if notification_setting.notify_schedule_reminder else 'Đang tắt' }}
+                                            </span>
+                                            <label class="relative inline-flex items-center cursor-pointer select-none">
+                                                <input type="checkbox" id="toggle_notify_schedule_reminder" name="notify_schedule_reminder" value="1"
+                                                    {% if notification_setting.notify_schedule_reminder %}checked{% endif %}
+                                                    onchange="handleScheduleToggleChange(this)"
+                                                    class="sr-only peer">
+                                                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 shadow-inner"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Panel chọn các mốc thời gian: Trước 60p, Trước 30p, Trước 15p -->
+                                    <div id="schedule-reminder-options-box" class="mt-4 p-4 rounded-xl bg-purple-50/60 border border-purple-100 transition-all duration-300 {% if not notification_setting.notify_schedule_reminder %}opacity-40 pointer-events-none grayscale{% endif %}">
+                                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                                            <div class="flex items-center gap-2">
+                                                <svg class="w-4 h-4 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span class="text-xs font-bold text-purple-950">Chọn các mốc thời gian nhắc trước ca dịch:</span>
+                                            </div>
+                                            <span class="text-[11px] text-purple-700 italic">Có thể chọn đồng thời nhiều mốc nhắc</span>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            <!-- Mốc 1: Trước 60p -->
+                                            <label class="relative flex items-center gap-3 p-3 rounded-xl bg-white border border-purple-200/90 cursor-pointer hover:border-purple-400 hover:shadow-xs transition select-none group">
+                                                <input type="checkbox" id="chk_reminder_60m" name="reminder_time_60m" value="1"
+                                                    {% if notification_setting.reminder_time_60m %}checked{% endif %}
+                                                    onchange="onNotificationSettingChange(this)"
+                                                    class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500">
+                                                <div>
+                                                    <span class="text-xs font-bold text-slate-900 group-hover:text-purple-700 transition block">Trước 60 phút</span>
+                                                    <span class="text-[11px] text-slate-500 block">1 giờ trước khi ca dịch bắt đầu</span>
+                                                </div>
+                                            </label>
+
+                                            <!-- Mốc 2: Trước 30p -->
+                                            <label class="relative flex items-center gap-3 p-3 rounded-xl bg-white border border-purple-200/90 cursor-pointer hover:border-purple-400 hover:shadow-xs transition select-none group">
+                                                <input type="checkbox" id="chk_reminder_30m" name="reminder_time_30m" value="1"
+                                                    {% if notification_setting.reminder_time_30m %}checked{% endif %}
+                                                    onchange="onNotificationSettingChange(this)"
+                                                    class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500">
+                                                <div>
+                                                    <span class="text-xs font-bold text-slate-900 group-hover:text-purple-700 transition block">Trước 30 phút</span>
+                                                    <span class="text-[11px] text-slate-500 block">Chuẩn bị di chuyển / kết nối phòng họp</span>
+                                                </div>
+                                            </label>
+
+                                            <!-- Mốc 3: Trước 15p -->
+                                            <label class="relative flex items-center gap-3 p-3 rounded-xl bg-white border border-purple-200/90 cursor-pointer hover:border-purple-400 hover:shadow-xs transition select-none group">
+                                                <input type="checkbox" id="chk_reminder_15m" name="reminder_time_15m" value="1"
+                                                    {% if notification_setting.reminder_time_15m %}checked{% endif %}
+                                                    onchange="onNotificationSettingChange(this)"
+                                                    class="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500">
+                                                <div>
+                                                    <span class="text-xs font-bold text-slate-900 group-hover:text-purple-700 transition block">Trước 15 phút</span>
+                                                    <span class="text-[11px] text-slate-500 block">Sẵn sàng vào phòng và kiểm tra âm thanh</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. NHÓM THU NHẬP -->
+                                <div class="bg-gradient-to-br from-white via-white to-emerald-50/20 rounded-2xl border border-slate-200/90 shadow-xs p-5 transition hover:shadow-soft">
+                                    <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100 font-bold shadow-xs">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                    Nhóm Thu nhập
+                                                </h4>
+                                                <p class="text-[11px] text-slate-500">Theo dõi dòng tiền thù lao, thanh toán tạm giữ và giải ngân tiền công.</p>
+                                            </div>
+                                        </div>
+                                        <span class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/60 shrink-0">Tài chính</span>
+                                    </div>
+
+                                    <!-- Switch: Cập nhật thù lao và giải ngân -->
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="space-y-0.5">
+                                            <label for="toggle_notify_income_update" class="text-xs font-bold text-slate-800 cursor-pointer hover:text-emerald-700 transition flex items-center gap-2">
+                                                Cập nhật thù lao và giải ngân
+                                            </label>
+                                            <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                Thông báo ngay khi khách hàng thực hiện ký quỹ đảm bảo (Escrow), giải ngân tiền công ca dịch hoặc khi giao dịch thanh toán hoàn tất thành công.
+                                            </p>
+                                        </div>
+                                        <div class="flex items-center gap-2.5 shrink-0">
+                                            <span id="label_toggle_notify_income_update" class="text-[11px] font-semibold {% if notification_setting.notify_income_update %}text-emerald-600{% else %}text-slate-400{% endif %}">
+                                                {{ 'Đang bật' if notification_setting.notify_income_update else 'Đang tắt' }}
+                                            </span>
+                                            <label class="relative inline-flex items-center cursor-pointer select-none">
+                                                <input type="checkbox" id="toggle_notify_income_update" name="notify_income_update" value="1"
+                                                    {% if notification_setting.notify_income_update %}checked{% endif %}
+                                                    onchange="onNotificationSettingChange(this)"
+                                                    class="sr-only peer">
+                                                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600 shadow-inner"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 4. NHÓM BẢO MẬT & HỆ THỐNG -->
+                                <div class="bg-gradient-to-br from-white via-white to-rose-50/20 rounded-2xl border border-rose-200/70 shadow-xs p-5 transition hover:shadow-soft">
+                                    <div class="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-rose-100">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100 font-bold shadow-xs">
+                                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <h4 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                                    Nhóm Bảo mật & Hệ thống
+                                                </h4>
+                                                <p class="text-[11px] text-slate-500">Bảo vệ an toàn tài khoản và ngăn chặn truy cập trái phép.</p>
+                                            </div>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200 shrink-0">
+                                            <svg class="w-3.5 h-3.5 text-rose-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                            Luôn BẬT & KHÓA
+                                        </span>
+                                    </div>
+
+                                    <!-- Switch: Cảnh báo đăng nhập lạ và bảo mật (LUÔN BẬT VÀ KHÓA) -->
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="space-y-1">
+                                            <div class="flex items-center gap-2">
+                                                <span class="text-xs font-bold text-slate-900">
+                                                    Cảnh báo đăng nhập lạ và bảo mật
+                                                </span>
+                                                <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-rose-100 text-rose-700 border border-rose-200">
+                                                    Bắt buộc
+                                                </span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-500 leading-relaxed max-w-2xl">
+                                                Cảnh báo khẩn cấp khi phát hiện đăng nhập từ thiết bị lạ, thay đổi mật khẩu hoặc cập nhật chính sách bảo mật từ ban quản trị VietTranslate.
+                                            </p>
+                                            <div class="flex items-center gap-1.5 text-[10px] font-medium text-rose-700 pt-0.5">
+                                                <svg class="w-3.5 h-3.5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                <span>Kênh bảo mật trọng yếu, bắt buộc duy trì bật và không thể tắt để bảo vệ an toàn tài khoản của bạn.</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Locked switch (Checked & Disabled) -->
+                                        <div class="flex items-center gap-2.5 shrink-0">
+                                            <span class="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                                                <svg class="w-3 h-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                                                Đã khóa (Bật)
+                                            </span>
+                                            <div class="relative inline-flex items-center cursor-not-allowed select-none group" title="Kênh bảo mật bắt buộc, không thể tắt">
+                                                <input type="checkbox" id="toggle_notify_security_alert" checked disabled
+                                                    class="sr-only peer">
+                                                <input type="hidden" name="notify_security_alert" value="1">
+                                                <div class="w-11 h-6 bg-rose-500 rounded-full cursor-not-allowed opacity-90 after:content-[''] after:absolute after:top-[2px] after:right-[2px] after:bg-white after:border-rose-300 after:border after:rounded-full after:h-5 after:w-5 shadow-xs"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action bar & Auto-save feedback -->
+                                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-5 border-t border-slate-100">
+                                    <div class="flex items-center gap-2 text-xs">
+                                        <div id="notif-save-status-msg" class="flex items-center gap-1.5 text-slate-500 font-medium">
+                                            <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                            <span>Mọi tùy chọn được tự động lưu ngay khi bạn bật hoặc tắt công tắc.</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex items-center gap-2.5 w-full sm:w-auto">
+                                        <button type="button" onclick="resetNotificationSettingsToDefault()"
+                                            class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer">
+                                            Khôi phục mặc định
+                                        </button>
+                                        <button type="submit" id="btn-save-notif-settings"
+                                            class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer">
+                                            <svg id="save-notif-spinner" class="w-4 h-4 hidden animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+                                            <span id="save-notif-btn-text">Lưu cài đặt thông báo</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <!-- ─────────────────────────────────────────────────────────────
+                             PHÂN KHU 5.6.2: ĐỔI MẬT KHẨU TÀI KHOẢN
+                        ───────────────────────────────────────────────────────────── -->
+                        <div class="mt-8 pt-6 border-t border-slate-100">
                             <h3 class="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
                                 <span class="w-2 h-2 rounded-full bg-rose-500"></span>
                                 5.6.2 Đổi mật khẩu tài khoản
                             </h3>
                             <form method="POST" action="{{ url_for('account_profile') }}" class="max-w-md space-y-3">
                                 <input type="hidden" name="action" value="change_password">
+                                <input type="hidden" name="tab" value="security">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu hiện tại</label>
                                     <input type="password" name="old_password" required placeholder="Nhập mật khẩu cũ"
@@ -2540,17 +2900,11 @@ function resendVerificationEmail() {
                                     </div>
                                 </div>
                                 <div class="pt-2">
-                                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs transition shadow-sm">
+                                    <button type="submit" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl text-xs transition shadow-sm cursor-pointer">
                                         Cập nhật mật khẩu
                                     </button>
                                 </div>
                             </form>
-                        </div>
-
-                        <!-- Placeholder alert -->
-                        <div class="mt-6 p-4 rounded-xl bg-rose-50/70 border border-rose-200 text-xs text-rose-800 flex items-center gap-3">
-                            <svg class="w-5 h-5 text-rose-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <span>Khung giao diện <strong>Tab 4: Cài đặt thông báo & Bảo mật</strong> đã sẵn sàng. Quản lý thiết bị đăng nhập và toggle thông báo sẽ được triển khai đầy đủ ở prompt tiếp theo.</span>
                         </div>
                     </div>
                 </div>
@@ -6762,8 +7116,176 @@ function resendVerificationEmail() {
         }
     }
 
+    // ─── XỬ LÝ CẤU HÌNH THÔNG BÁO (NOTIFICATION PREFERENCES - MỤC 5.6.1) ─────────
+    function handleScheduleToggleChange(toggleEl) {
+        if (!toggleEl) return;
+        const isChecked = toggleEl.checked;
+        const box = document.getElementById('schedule-reminder-options-box');
+        const label = document.getElementById('label_toggle_notify_schedule_reminder');
+        if (label) {
+            label.textContent = isChecked ? 'Đang bật' : 'Đang tắt';
+            label.className = 'text-[11px] font-semibold ' + (isChecked ? 'text-purple-600' : 'text-slate-400');
+        }
+        if (box) {
+            if (isChecked) {
+                box.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+            } else {
+                box.classList.add('opacity-40', 'pointer-events-none', 'grayscale');
+            }
+        }
+        onNotificationSettingChange(toggleEl);
+    }
+
+    function onNotificationSettingChange(inputEl) {
+        if (inputEl && inputEl.id) {
+            const labelEl = document.getElementById('label_' + inputEl.id);
+            if (labelEl) {
+                const checked = inputEl.checked;
+                labelEl.textContent = checked ? 'Đang bật' : 'Đang tắt';
+                let colorClass = 'text-slate-400';
+                if (checked) {
+                    if (inputEl.id.includes('job') || inputEl.id.includes('application') || inputEl.id.includes('profile')) {
+                        colorClass = 'text-blue-600';
+                    } else if (inputEl.id.includes('income')) {
+                        colorClass = 'text-emerald-600';
+                    } else if (inputEl.id.includes('schedule')) {
+                        colorClass = 'text-purple-600';
+                    }
+                }
+                labelEl.className = 'text-[11px] font-semibold ' + colorClass;
+            }
+        }
+
+        const syncBadge = document.getElementById('notif-sync-badge');
+        const syncText = document.getElementById('notif-sync-text');
+        const statusMsg = document.getElementById('notif-save-status-msg');
+
+        if (syncBadge && syncText) {
+            syncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 transition-all';
+            syncText.textContent = 'Đang lưu...';
+        }
+        if (statusMsg) {
+            statusMsg.innerHTML = '<span class="inline-flex items-center gap-1.5 text-brand-600 font-semibold"><svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>Đang đồng bộ cài đặt...</span>';
+        }
+
+        const payload = {
+            action: 'save_notification_settings',
+            notify_job_match: document.getElementById('toggle_notify_job_match')?.checked ?? true,
+            notify_application_update: document.getElementById('toggle_notify_application_update')?.checked ?? true,
+            notify_profile_view: document.getElementById('toggle_notify_profile_view')?.checked ?? true,
+            notify_schedule_reminder: document.getElementById('toggle_notify_schedule_reminder')?.checked ?? true,
+            reminder_time_60m: document.getElementById('chk_reminder_60m')?.checked ?? true,
+            reminder_time_30m: document.getElementById('chk_reminder_30m')?.checked ?? true,
+            reminder_time_15m: document.getElementById('chk_reminder_15m')?.checked ?? false,
+            notify_income_update: document.getElementById('toggle_notify_income_update')?.checked ?? true,
+            notify_security_alert: true
+        };
+
+        fetch('/api/account/notification-settings', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(payload)
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (syncBadge && syncText) {
+                    syncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70 transition-all';
+                    syncText.textContent = 'Tự động đồng bộ ✓';
+                }
+                if (statusMsg) {
+                    statusMsg.innerHTML = '<span class="inline-flex items-center gap-1.5 text-emerald-600 font-semibold"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Cài đặt thông báo đã được lưu thành công ✓</span>';
+                    setTimeout(() => {
+                        statusMsg.innerHTML = '<span class="inline-flex items-center gap-1.5 text-slate-500"><svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Mọi tùy chọn được tự động lưu ngay khi bạn bật hoặc tắt công tắc.</span>';
+                    }, 3000);
+                }
+            } else {
+                throw new Error(data.message || 'Lưu thất bại');
+            }
+        })
+        .catch(err => {
+            console.error('Save notification settings error:', err);
+            if (syncBadge && syncText) {
+                syncBadge.className = 'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 transition-all';
+                syncText.textContent = 'Lỗi lưu';
+            }
+            if (statusMsg) {
+                statusMsg.innerHTML = '<span class="inline-flex items-center gap-1.5 text-rose-600 font-semibold"><svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Không thể lưu cài đặt, vui lòng thử lại!</span>';
+            }
+        });
+    }
+
+    function resetNotificationSettingsToDefault() {
+        if (!confirm('Khôi phục tất cả cài đặt thông báo về trạng thái mặc định được đề xuất?')) return;
+        const job = document.getElementById('toggle_notify_job_match');
+        const app = document.getElementById('toggle_notify_application_update');
+        const profile = document.getElementById('toggle_notify_profile_view');
+        const sched = document.getElementById('toggle_notify_schedule_reminder');
+        const m60 = document.getElementById('chk_reminder_60m');
+        const m30 = document.getElementById('chk_reminder_30m');
+        const m15 = document.getElementById('chk_reminder_15m');
+        const inc = document.getElementById('toggle_notify_income_update');
+
+        if (job) job.checked = true;
+        if (app) app.checked = true;
+        if (profile) profile.checked = true;
+        if (sched) sched.checked = true;
+        if (m60) m60.checked = true;
+        if (m30) m30.checked = true;
+        if (m15) m15.checked = false;
+        if (inc) inc.checked = true;
+
+        const box = document.getElementById('schedule-reminder-options-box');
+        if (box) box.classList.remove('opacity-40', 'pointer-events-none', 'grayscale');
+
+        ['toggle_notify_job_match', 'toggle_notify_application_update', 'toggle_notify_profile_view'].forEach(id => {
+            const lbl = document.getElementById('label_' + id);
+            if (lbl) {
+                lbl.textContent = 'Đang bật';
+                lbl.className = 'text-[11px] font-semibold text-blue-600';
+            }
+        });
+
+        const schedLbl = document.getElementById('label_toggle_notify_schedule_reminder');
+        if (schedLbl) {
+            schedLbl.textContent = 'Đang bật';
+            schedLbl.className = 'text-[11px] font-semibold text-purple-600';
+        }
+
+        const incLbl = document.getElementById('label_toggle_notify_income_update');
+        if (incLbl) {
+            incLbl.textContent = 'Đang bật';
+            incLbl.className = 'text-[11px] font-semibold text-emerald-600';
+        }
+
+        onNotificationSettingChange(job);
+    }
+
     // Auto init on DOM ready
     document.addEventListener('DOMContentLoaded', function() {
+        const notifForm = document.getElementById('form-notification-settings');
+        if (notifForm) {
+            notifForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const btn = document.getElementById('btn-save-notif-settings');
+                const spinner = document.getElementById('save-notif-spinner');
+                const btnText = document.getElementById('save-notif-btn-text');
+                if (btn) btn.disabled = true;
+                if (spinner) spinner.classList.remove('hidden');
+                if (btnText) btnText.textContent = 'Đang lưu...';
+
+                onNotificationSettingChange(null);
+                setTimeout(() => {
+                    if (btn) btn.disabled = false;
+                    if (spinner) spinner.classList.add('hidden');
+                    if (btnText) btnText.textContent = 'Lưu cài đặt thông báo';
+                }, 600);
+            });
+        }
+
         renderSelectedLanguages();
         renderSelectedLocations();
         updateRateDisplayLabels();

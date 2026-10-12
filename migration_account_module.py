@@ -114,8 +114,14 @@ def migrate_sqlite(db_path=DB_PATH):
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL UNIQUE,
                 notify_job_match BOOLEAN DEFAULT 1,
-                notify_schedule_reminder BOOLEAN DEFAULT 1,
                 notify_application_update BOOLEAN DEFAULT 1,
+                notify_profile_view BOOLEAN DEFAULT 1,
+                notify_schedule_reminder BOOLEAN DEFAULT 1,
+                reminder_time_60m BOOLEAN DEFAULT 1,
+                reminder_time_30m BOOLEAN DEFAULT 1,
+                reminder_time_15m BOOLEAN DEFAULT 0,
+                notify_income_update BOOLEAN DEFAULT 1,
+                notify_security_alert BOOLEAN DEFAULT 1,
                 notify_marketing BOOLEAN DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -123,6 +129,19 @@ def migrate_sqlite(db_path=DB_PATH):
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_notification_setting_user_id ON notification_setting (user_id)")
+        notif_cols = [c[1] for c in cur.execute("PRAGMA table_info(notification_setting)").fetchall()]
+        notif_additions = [
+            ('notify_profile_view', 'BOOLEAN DEFAULT 1'),
+            ('reminder_time_60m', 'BOOLEAN DEFAULT 1'),
+            ('reminder_time_30m', 'BOOLEAN DEFAULT 1'),
+            ('reminder_time_15m', 'BOOLEAN DEFAULT 0'),
+            ('notify_income_update', 'BOOLEAN DEFAULT 1'),
+            ('notify_security_alert', 'BOOLEAN DEFAULT 1'),
+        ]
+        for col_name, col_def in notif_additions:
+            if col_name not in notif_cols:
+                print(f"[+] Adding column '{col_name}' ({col_def}) to 'notification_setting' table...")
+                cur.execute(f"ALTER TABLE notification_setting ADD COLUMN {col_name} {col_def}")
 
         # ---------------------------------------------------------------------
         # 5. Tạo bảng user_session (Quản lý phiên - Mục 5.6.2)
