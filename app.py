@@ -667,6 +667,11 @@ def _add_missing_columns():
                 col_type = col.type.compile(dialect=db.engine.dialect)
                 preparer = db.engine.dialect.identifier_preparer
                 stmt = f'ALTER TABLE {preparer.quote(table.name)} ADD COLUMN {preparer.quote(col.name)} {col_type}'
+                _d = col.default.arg if col.default is not None and getattr(col.default, 'is_scalar', False) else None
+                if isinstance(_d, bool):
+                    stmt += ' DEFAULT TRUE' if _d else ' DEFAULT FALSE'
+                elif isinstance(_d, (int, float)):
+                    stmt += f' DEFAULT {_d}'
                 try:
                     db.session.execute(db.text(stmt))
                     db.session.commit()
@@ -947,6 +952,8 @@ def _init_db():
     except Exception as e:
         print(f"[DB] db.create_all() or migration error: {e}", file=sys.stderr)
         db.session.rollback()
+        # Vẫn phải bù cột thiếu, nếu không mọi truy vấn User sẽ lỗi UndefinedColumn
+        _add_missing_columns()
         return
 
     _ensure_new_columns()
@@ -2081,6 +2088,8 @@ def login():
                 # Kết nối cũ/hỏng: rollback, bỏ connection và thử lại 1 lần
                 print(f"[AUTH SQL RETRY] {first_err}")
                 db.session.rollback()
+                if 'UndefinedColumn' in type(getattr(first_err, 'orig', first_err)).__name__:
+                    _add_missing_columns()
                 db.session.remove()
                 db.engine.dispose()
                 user = User.query.filter_by(email=email).first()
