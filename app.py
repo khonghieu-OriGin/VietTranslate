@@ -3222,6 +3222,15 @@ def account_profile():
     from services.account_security import get_active_sessions
     active_sessions = get_active_sessions(user, current_token)
 
+    from services.account_support import (
+        FAQ_TOPICS,
+        FAQ_ITEMS,
+        POLICY_DOCUMENTS,
+        SUPPORT_CATEGORIES,
+        get_user_tickets,
+    )
+    user_support_tickets = get_user_tickets(user.id)
+
     return render_template(
         'account_profile.html',
         user=user,
@@ -3234,8 +3243,14 @@ def account_profile():
         declared_language_pairs=declared_language_pairs,
         notification_setting=notification_setting,
         active_sessions=active_sessions,
+        support_tickets=user_support_tickets,
+        faq_topics=FAQ_TOPICS,
+        faq_items=FAQ_ITEMS,
+        policy_documents=POLICY_DOCUMENTS,
+        support_categories=SUPPORT_CATEGORIES,
         today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
+
 
 
 # ─── QUẢN LÝ DỊCH VỤ & BIỂU PHÍ PHIÊN DỊCH (MỤC 5.2) ─────────────────────────
@@ -10701,6 +10716,176 @@ def cron_release_expired():
         return jsonify({'success': True, 'released_count': count})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# ─── PHÂN HỆ TRỢ GIÚP & HỖ TRỢ (MỤC 5.7) ──────────────────────────────────────
+
+@app.route('/account/support/tickets/create', methods=['POST'])
+@login_required
+def create_support_ticket_endpoint():
+    """
+    Endpoint tạo yêu cầu hỗ trợ mới (Mục 5.7.3).
+    Hỗ trợ cả gửi qua AJAX (FormData có tệp ảnh) lẫn Form POST truyền thống.
+    Tái sử dụng File Upload Service từ module KYC để xử lý ảnh đính kèm.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+            return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản.'}), 401
+        flash('Không tìm thấy thông tin tài khoản.', 'error')
+        return redirect(url_for('login'))
+
+    is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+               'application/json' in request.headers.get('Accept', '') or 
+               request.is_json)
+
+    category = request.form.get('category')
+    title = request.form.get('title')
+    description = request.form.get('description')
+    attachment_file = (request.files.get('attachment') or 
+                       request.files.get('screenshot') or 
+                       request.files.get('file'))
+
+    from services.account_support import create_support_ticket
+    ok, ticket, err = create_support_ticket(
+        user=user,
+        category=category,
+        title=title,
+        description=description,
+        attachment_file=attachment_file
+    )
+
+    if not ok:
+        if is_ajax:
+            return jsonify({'success': False, 'message': err}), 400
+        flash(err, 'error')
+        return redirect(url_for('account_profile') + '?tab=support')
+
+    success_msg = f'Đã gửi yêu cầu hỗ trợ #{ticket.ticket_code} thành công! Ban Quản trị sẽ tiếp nhận và phản hồi sớm.'
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': success_msg,
+            'ticket': ticket.to_dict()
+        }), 201
+
+    flash(success_msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=support')
+
+
+@app.route('/account/support/tickets/<string:ticket_code>', methods=['GET'])
+@login_required
+def get_support_ticket_endpoint(ticket_code):
+    """
+    Endpoint lấy chi tiết ticket và khung xem phản hồi từ Ban Quản trị (Mục 5.7.3).
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản.'}), 401
+
+    from services.account_support import get_ticket_by_code
+    ticket, err = get_ticket_by_code(ticket_code, user)
+    if not ticket:
+        status_code = 404 if 'Không tìm thấy' in (err or '') else 403
+        return jsonify({'success': False, 'message': err}), status_code
+
+    return jsonify({
+        'success': True,
+        'ticket': ticket.to_dict()
+    }), 200
+
+
+@app.route('/account/support/attachment/<path:filename>')
+@login_required
+def view_support_attachment(filename):
+    """
+    Endpoint xem / tải ảnh chụp màn hình minh chứng của ticket hỗ trợ.
+    Tái sử dụng Private Storage từ KYC (get_private_verification_folder).
+    Kiểm tra bảo mật RBAC: Chỉ người tạo ticket hoặc Quản trị viên mới được phép truy cập.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        abort(401)
+
+    clean_filename = os.path.basename(filename)
+
+    # Kiểm tra quyền truy cập ở cấp cơ sở dữ liệu
+    if getattr(user, 'role', '') != 'admin':
+        ticket = SupportTicket.query.filter(
+            SupportTicket.user_id == user.id,
+            SupportTicket.attachment_url.like(f"%{clean_filename}%")
+        ).first()
+        if not ticket:
+            abort(403)
+
+    from services.verification import get_private_verification_folder
+    file_path = os.path.join(get_private_verification_folder(), clean_filename)
+    if not os.path.exists(file_path):
+        abort(404)
+
+    ext = clean_filename.rsplit('.', 1)[-1].lower() if '.' in clean_filename else ''
+    mimetype = 'application/pdf' if ext == 'pdf' else (f'image/{ext}' if ext in ('png', 'jpeg', 'jpg', 'webp') else 'application/octet-stream')
+
+    response = send_file(
+        file_path,
+        as_attachment=False,
+        download_name=clean_filename,
+        mimetype=mimetype
+    )
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Cache-Control'] = 'private, max-age=3600'
+    return response
+
+
+@app.route('/account/support/policy/<string:doc_key>', methods=['GET'])
+@login_required
+def get_support_policy_doc(doc_key):
+    """
+    Endpoint lấy toàn văn điều khoản / chính sách (chỉ xem / read-only) (Mục 5.7.2).
+    """
+    from services.account_support import POLICY_DOCUMENTS
+    doc = next((d for d in POLICY_DOCUMENTS if d['key'] == doc_key), None)
+    if not doc:
+        return jsonify({'success': False, 'message': 'Không tìm thấy tài liệu điều khoản.'}), 404
+
+    return jsonify({
+        'success': True,
+        'document': doc
+    }), 200
+
+
+@app.route('/account/support/tickets/<string:ticket_code>/reply', methods=['POST'])
+@login_required
+def reply_support_ticket_endpoint(ticket_code):
+    """
+    Endpoint phản hồi ticket hỗ trợ từ Ban Quản trị / Quản trị viên.
+    """
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy tài khoản.'}), 401
+
+    if getattr(user, 'role', '') != 'admin':
+        return jsonify({'success': False, 'message': 'Chỉ Ban Quản trị mới có quyền gửi phản hồi chính thức.'}), 403
+
+    data = request.get_json(silent=True) or request.form
+    reply_text = data.get('reply_text') or data.get('message') or ''
+    new_status = data.get('status', 'resolved')
+
+    from services.account_support import admin_respond_to_ticket
+    ok, ticket, err = admin_respond_to_ticket(ticket_code, reply_text, new_status)
+    if not ok:
+        return jsonify({'success': False, 'message': err}), 400
+
+    return jsonify({
+        'success': True,
+        'message': f'Đã gửi phản hồi cho ticket #{ticket.ticket_code} thành công!',
+        'ticket': ticket.to_dict()
+    }), 200
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
