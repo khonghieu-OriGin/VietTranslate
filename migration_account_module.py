@@ -93,12 +93,17 @@ def migrate_sqlite(db_path=DB_PATH):
                 max_rate REAL,
                 allow_outside_rate BOOLEAN DEFAULT 0,
                 available_hours TEXT,
+                locations TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS ix_interpreter_preference_user_id ON interpreter_preference (user_id)")
+        pref_cols = [c[1] for c in cur.execute("PRAGMA table_info(interpreter_preference)").fetchall()]
+        if 'locations' not in pref_cols:
+            print("[+] Adding column 'locations' (TEXT) to 'interpreter_preference' table...")
+            cur.execute("ALTER TABLE interpreter_preference ADD COLUMN locations TEXT")
 
         # ---------------------------------------------------------------------
         # 4. Tạo bảng notification_setting (Cài đặt thông báo - Mục 5.6.1)
