@@ -578,6 +578,38 @@ with app.app_context():
 
 import sys
 
+def _add_missing_columns():
+    """Tự thêm các cột model có nhưng DB thiếu (schema drift) để tránh ProgrammingError/UndefinedColumn.
+
+    create_all() chỉ tạo bảng mới, không thêm cột vào bảng đã tồn tại.
+    Chỉ ADD COLUMN (nullable, không ràng buộc) nên an toàn và idempotent.
+    """
+    from sqlalchemy import inspect as _sa_inspect
+    try:
+        inspector = _sa_inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        for table in db.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            existing_cols = {c['name'] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing_cols:
+                    continue
+                col_type = col.type.compile(dialect=db.engine.dialect)
+                preparer = db.engine.dialect.identifier_preparer
+                stmt = f'ALTER TABLE {preparer.quote(table.name)} ADD COLUMN {preparer.quote(col.name)} {col_type}'
+                try:
+                    db.session.execute(db.text(stmt))
+                    db.session.commit()
+                    print(f"[DB MIGRATE] {stmt}", file=sys.stderr)
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"[DB MIGRATE ERROR] {stmt}: {e}", file=sys.stderr)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB MIGRATE] Không kiểm tra được schema: {e}", file=sys.stderr)
+
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -590,7 +622,10 @@ def _init_db():
         db.create_all()
     except Exception as e:
         print(f"[DB] db.create_all() error: {e}", file=sys.stderr)
+        db.session.rollback()
         return
+
+    _add_missing_columns()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -914,6 +949,7 @@ def login():
                 return render_template('login.html', email=email)
         except SQLAlchemyError as e:
             print(f"[AUTH SQL ERROR] {e}")
+            db.session.rollback()
             flash(_t('flash.system_overload'), 'error')
             return render_template('login.html', email=email)
         except Exception as e:
