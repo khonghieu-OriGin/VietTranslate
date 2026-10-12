@@ -647,6 +647,43 @@ db.init_app(app)
 
 import sys
 
+def _add_missing_columns():
+    """Tự thêm các cột model có nhưng DB thiếu (schema drift) để tránh ProgrammingError/UndefinedColumn.
+
+    create_all() chỉ tạo bảng mới, không thêm cột vào bảng đã tồn tại.
+    Chỉ ADD COLUMN (nullable, không ràng buộc) nên an toàn và idempotent.
+    """
+    from sqlalchemy import inspect as _sa_inspect
+    try:
+        inspector = _sa_inspect(db.engine)
+        existing_tables = set(inspector.get_table_names())
+        for table in db.metadata.sorted_tables:
+            if table.name not in existing_tables:
+                continue
+            existing_cols = {c['name'] for c in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing_cols:
+                    continue
+                col_type = col.type.compile(dialect=db.engine.dialect)
+                preparer = db.engine.dialect.identifier_preparer
+                stmt = f'ALTER TABLE {preparer.quote(table.name)} ADD COLUMN {preparer.quote(col.name)} {col_type}'
+                _d = col.default.arg if col.default is not None and getattr(col.default, 'is_scalar', False) else None
+                if isinstance(_d, bool):
+                    stmt += ' DEFAULT TRUE' if _d else ' DEFAULT FALSE'
+                elif isinstance(_d, (int, float)):
+                    stmt += f' DEFAULT {_d}'
+                try:
+                    db.session.execute(db.text(stmt))
+                    db.session.commit()
+                    print(f"[DB MIGRATE] {stmt}", file=sys.stderr)
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"[DB MIGRATE ERROR] {stmt}: {e}", file=sys.stderr)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[DB MIGRATE] Không kiểm tra được schema: {e}", file=sys.stderr)
+
+
 HIRER_COMPANY_SIZES = ('<10', '10-50', '50-200', '200+')
 FREE_EMAIL_DOMAINS = {
     'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.com.vn', 'hotmail.com', 'outlook.com',
@@ -914,10 +951,14 @@ def _init_db():
                         pass
     except Exception as e:
         print(f"[DB] db.create_all() or migration error: {e}", file=sys.stderr)
+        db.session.rollback()
+        # Vẫn phải bù cột thiếu, nếu không mọi truy vấn User sẽ lỗi UndefinedColumn
+        _add_missing_columns()
         return
 
     _ensure_new_columns()
     _ensure_job_columns()
+    _add_missing_columns()
 
     try:
         # Thực hiện một query giả để SQLAlchemy fetch toàn bộ column của User và kiểm tra schema drift
@@ -2047,6 +2088,8 @@ def login():
                 # Kết nối cũ/hỏng: rollback, bỏ connection và thử lại 1 lần
                 print(f"[AUTH SQL RETRY] {first_err}")
                 db.session.rollback()
+                if 'UndefinedColumn' in type(getattr(first_err, 'orig', first_err)).__name__:
+                    _add_missing_columns()
                 db.session.remove()
                 db.engine.dispose()
                 user = User.query.filter_by(email=email).first()
@@ -2079,9 +2122,11 @@ def login():
                 flash(_t('flash.account_not_found'), 'error')
                 return render_template('login.html', email=email, next_url=next_url)
         except SQLAlchemyError as e:
-            print(f"[AUTH SQL ERROR] {e}")
+            import traceback
+            print(f"[AUTH SQL ERROR] {type(e).__name__}: {e}")
+            traceback.print_exc()
             db.session.rollback()
-            flash(_t('flash.system_overload'), 'error')
+            flash(f"{_t('flash.system_overload')} [{type(e).__name__}]", 'error')
             return render_template('login.html', email=email, next_url=next_url)
         except Exception as e:
             print(f"[AUTH ERROR] {e}")
