@@ -2542,6 +2542,133 @@ def compute_profile_completion(user):
         return None
 
 
+def get_user_notification_setting(user_or_id):
+    """Lấy hoặc khởi tạo NotificationSetting mặc định cho người dùng."""
+    from models import NotificationSetting
+    user_id = user_or_id.id if hasattr(user_or_id, 'id') else int(user_or_id)
+    setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+    if not setting:
+        setting = NotificationSetting(
+            user_id=user_id,
+            notify_job_match=True,
+            notify_application_update=True,
+            notify_profile_view=True,
+            notify_schedule_reminder=True,
+            reminder_time_60m=True,
+            reminder_time_30m=True,
+            reminder_time_15m=False,
+            notify_income_update=True,
+            notify_security_alert=True,
+            notify_marketing=False
+        )
+        try:
+            db.session.add(setting)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+    return setting
+
+
+def save_notification_settings_action(user):
+    """Xử lý cập nhật tùy chọn thông báo (Notification Preferences) cho người dùng."""
+    from models import NotificationSetting
+    is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+               'application/json' in request.headers.get('Accept', '') or
+               request.is_json)
+    data = request.get_json(silent=True) if request.is_json else (request.form or {})
+
+    setting = user.notification_setting or NotificationSetting.query.filter_by(user_id=user.id).first()
+    if not setting:
+        setting = NotificationSetting(user_id=user.id)
+        db.session.add(setting)
+
+    # 1. Nếu gửi partial toggle qua AJAX (1 switch riêng lẻ)
+    if 'field' in data and 'value' in data:
+        field = data.get('field')
+        val = data.get('value')
+        if isinstance(val, str):
+            val = val.lower() in ('1', 'true', 'on', 'yes')
+        else:
+            val = bool(val)
+
+        if field == 'notify_job_match':
+            setting.notify_job_match = val
+        elif field == 'notify_application_update':
+            setting.notify_application_update = val
+        elif field == 'notify_profile_view':
+            setting.notify_profile_view = val
+        elif field == 'notify_schedule_reminder':
+            setting.notify_schedule_reminder = val
+        elif field in ('reminder_time_60m', 'reminder_60m'):
+            setting.reminder_time_60m = val
+        elif field in ('reminder_time_30m', 'reminder_30m'):
+            setting.reminder_time_30m = val
+        elif field in ('reminder_time_15m', 'reminder_15m'):
+            setting.reminder_time_15m = val
+        elif field in ('notify_income_update', 'notify_payout'):
+            setting.notify_income_update = val
+        elif field == 'notify_security_alert':
+            # Nhóm Bảo mật: Luôn BẬT và KHÓA không cho phép tắt
+            setting.notify_security_alert = True
+        elif field == 'notify_marketing':
+            setting.notify_marketing = val
+    else:
+        # 2. Cập nhật toàn bộ biểu mẫu
+        if request.is_json:
+            if 'notify_job_match' in data:
+                setting.notify_job_match = bool(data.get('notify_job_match'))
+            if 'notify_application_update' in data:
+                setting.notify_application_update = bool(data.get('notify_application_update'))
+            if 'notify_profile_view' in data:
+                setting.notify_profile_view = bool(data.get('notify_profile_view'))
+            if 'notify_schedule_reminder' in data:
+                setting.notify_schedule_reminder = bool(data.get('notify_schedule_reminder'))
+            if 'reminder_time_60m' in data or 'reminder_60m' in data:
+                setting.reminder_time_60m = bool(data.get('reminder_time_60m', data.get('reminder_60m')))
+            if 'reminder_time_30m' in data or 'reminder_30m' in data:
+                setting.reminder_time_30m = bool(data.get('reminder_time_30m', data.get('reminder_30m')))
+            if 'reminder_time_15m' in data or 'reminder_15m' in data:
+                setting.reminder_time_15m = bool(data.get('reminder_time_15m', data.get('reminder_15m')))
+            if 'notify_income_update' in data or 'notify_payout' in data:
+                setting.notify_income_update = bool(data.get('notify_income_update', data.get('notify_payout')))
+            setting.notify_security_alert = True  # Luôn BẬT và KHÓA
+            if 'notify_marketing' in data:
+                setting.notify_marketing = bool(data.get('notify_marketing'))
+        else:
+            # HTML Form submit
+            setting.notify_job_match = ('notify_job_match' in data)
+            setting.notify_application_update = ('notify_application_update' in data)
+            setting.notify_profile_view = ('notify_profile_view' in data)
+            setting.notify_schedule_reminder = ('notify_schedule_reminder' in data)
+            setting.reminder_time_60m = ('reminder_time_60m' in data or 'reminder_60m' in data)
+            setting.reminder_time_30m = ('reminder_time_30m' in data or 'reminder_30m' in data)
+            setting.reminder_time_15m = ('reminder_time_15m' in data or 'reminder_15m' in data)
+            setting.notify_income_update = ('notify_income_update' in data or 'notify_payout' in data)
+            setting.notify_security_alert = True  # Luôn BẬT và KHÓA
+            if 'notify_marketing' in data:
+                setting.notify_marketing = ('notify_marketing' in data)
+
+    setting.updated_at = datetime.utcnow()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        if is_ajax:
+            return jsonify({'success': False, 'message': f'Lỗi khi lưu cài đặt: {str(e)}'}), 500
+        flash('Đã xảy ra lỗi khi lưu cài đặt thông báo.', 'error')
+        return redirect(url_for('account_profile', tab='security'))
+
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': 'Đã lưu cấu hình cài đặt thông báo thành công.',
+            'settings': setting.to_dict()
+        })
+    flash('Cài đặt thông báo đã được lưu thành công.', 'success')
+    return redirect(url_for('account_profile', tab='security'))
+
+
 @app.route('/account', methods=['GET', 'POST'])
 @app.route('/account/profile', methods=['GET', 'POST'])
 @app.route('/account/overview', methods=['GET', 'POST'])
@@ -2966,6 +3093,9 @@ def account_profile():
                     except Exception:
                         pass
 
+        elif action in ('save_notification_settings', 'notification_setting', 'notification_settings'):
+            return save_notification_settings_action(user)
+
         elif action == 'change_password':
             old_pw = request.form.get('old_password', '')
             new_pw = request.form.get('new_password', '')
@@ -3033,6 +3163,8 @@ def account_profile():
         except Exception as e:
             print(f"[declared_language_pairs error] {e}", file=sys.stderr)
 
+    notification_setting = get_user_notification_setting(user)
+
     return render_template(
         'account_profile.html',
         user=user,
@@ -3043,6 +3175,7 @@ def account_profile():
         verification_documents=verification_documents,
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
         declared_language_pairs=declared_language_pairs,
+        notification_setting=notification_setting,
         today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
 
@@ -9988,11 +10121,65 @@ def admin_search():
                 
     return render_template('admin_search.html', query=q, results=results)
 
-# ─── NOTIFICATION API ─────────────────────────────────────────────────────────
+# ─── NOTIFICATION API & PREFERENCES ─────────────────────────────────────────
 
-def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None, related_proposal_id=None):
+def is_notification_allowed(user_id, notification_type):
+    """
+    Kiểm tra cài đặt NotificationSetting của người dùng trước khi tạo bản ghi thông báo mới.
+    Cấu hình này làm điều kiện kiểm tra (flag) trước khi hệ thống tạo bản ghi thông báo mới vào Notification Center.
+    """
+    try:
+        from models import NotificationSetting
+        setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+        if not setting:
+            return True
+
+        ntype = str(notification_type or '').upper()
+
+        # 1. Nhóm Công việc
+        if ntype in ('JOB_MATCH', 'NEW_JOB_MATCH', 'JOB_INVITATION', 'MATCHING_JOB'):
+            return bool(setting.notify_job_match) if setting.notify_job_match is not None else True
+
+        if ntype in ('JOB_APPLICATION', 'APPLICATION_COUNT', 'PROPOSAL_ACCEPTED', 'PROPOSAL_REJECTED',
+                     'PROPOSAL_UPDATE', 'APPLICATION_STATUS', 'CONTRACT_CREATED', 'CONTRACT_COMPLETED'):
+            return bool(setting.notify_application_update) if setting.notify_application_update is not None else True
+
+        if ntype in ('PROFILE_VIEW', 'PROFILE_VIEWED', 'PROFILE_VISIT'):
+            return bool(setting.notify_profile_view) if setting.notify_profile_view is not None else True
+
+        # 2. Nhóm Lịch trình
+        if ntype in ('SCHEDULE_REMINDER', 'BOOKING_REMINDER', 'APPOINTMENT_REMINDER', 'TRANSLATOR_SCHEDULE_REMINDER'):
+            return bool(setting.notify_schedule_reminder) if setting.notify_schedule_reminder is not None else True
+
+        # 3. Nhóm Thu nhập
+        if ntype in ('PAYMENT', 'PAYMENT_RELEASED', 'PAYMENT_REFUNDED', 'PAYOUT', 'PAYOUT_UPDATE',
+                     'INCOME_UPDATE', 'ESCROW_RELEASE', 'PAYMENT_RECEIVED'):
+            return bool(setting.notify_income_update) if setting.notify_income_update is not None else True
+
+        # 4. Nhóm Bảo mật & Hệ thống: Luôn BẬT và KHÓA không cho tắt
+        if ntype in ('SECURITY_ALERT', 'LOGIN_ALERT', 'PASSWORD_CHANGED', 'SECURITY_WARNING',
+                     'UNUSUAL_LOGIN', 'DEVICE_LOGIN', 'VERIFICATION_REQUIRED', 'VERIFICATION_SUBMITTED',
+                     'VERIFICATION_RESUBMITTED', 'VERIFICATION_NEEDS_REVISION', 'VERIFICATION_APPROVED',
+                     'VERIFICATION_REJECTED', 'VERIFICATION_POLICY_UPDATE_REQUIRED'):
+            return True
+
+        # Tiếp thị / Khuyến mại
+        if ntype in ('MARKETING', 'PROMOTION', 'PLATFORM_EVENT'):
+            return bool(setting.notify_marketing) if setting.notify_marketing is not None else False
+
+        return True
+    except Exception as e:
+        print(f"[Notification Flag Check Error] {e}", file=sys.stderr)
+        return True
+
+
+def create_notification(user_id, notification_type, title, message, url=None, related_job_id=None, related_contract_id=None, related_review_id=None, related_proposal_id=None, force=False):
     """Tạo thông báo. Nếu đã có thông báo CHƯA ĐỌC cùng người nhận/loại/liên kết thì làm mới thay vì tạo thêm
-    (một sự kiện xử lý nhiều lần, hoặc nhiều tin nhắn liên tiếp, chỉ cho một thông báo)."""
+    (một sự kiện xử lý nhiều lần, hoặc nhiều tin nhắn liên tiếp, chỉ cho một thông báo).
+    Kiểm tra điều kiện cấu hình (flag) trong NotificationSetting trước khi ghi vào Notification Center."""
+    if not force and not is_notification_allowed(user_id, notification_type):
+        return None
+
     from models import Notification
     existing = Notification.query.filter_by(
         user_id=user_id, type=notification_type, is_read=False, url=url,
@@ -10016,6 +10203,25 @@ def create_notification(user_id, notification_type, title, message, url=None, re
     )
     db.session.add(notification)
     return notification
+
+
+@app.route('/api/account/notification-settings', methods=['GET', 'POST', 'PATCH'])
+@login_required
+def api_notification_settings():
+    """API lấy và cập nhật cài đặt cấu hình thông báo (Notification Preferences)."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy người dùng'}), 404
+
+    setting = get_user_notification_setting(user)
+    if request.method == 'GET':
+        return jsonify({
+            'success': True,
+            'settings': setting.to_dict()
+        })
+
+    return save_notification_settings_action(user)
 
 @app.route('/notifications')
 @login_required

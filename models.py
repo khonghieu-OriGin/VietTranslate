@@ -2284,19 +2284,93 @@ class InterpreterPreference(db.Model):
 class NotificationSetting(db.Model):
     """
     Cài đặt nhận thông báo của người dùng (Mục 5.6.1).
+    Phục vụ cấu hình tùy chọn thông báo (Notification Preferences) với 4 nhóm:
+    1. Nhóm Công việc: Job mới phù hợp, Trạng thái đơn ứng tuyển, Khách đã xem hồ sơ
+    2. Nhóm Lịch trình: Nhắc lịch ca dịch sắp tới (kèm các mốc 60p, 30p, 15p)
+    3. Nhóm Thu nhập: Cập nhật thù lao và giải ngân
+    4. Nhóm Bảo mật & Hệ thống: Cảnh báo đăng nhập lạ và bảo mật (Luôn bật và khóa)
     """
     __tablename__ = 'notification_setting'
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
 
+    # 1. Nhóm Công việc
     notify_job_match = db.Column(db.Boolean, default=True)           # Công việc mới phù hợp tiêu chí
-    notify_schedule_reminder = db.Column(db.Boolean, default=True)   # Nhắc nhở lịch hẹn phiên dịch
-    notify_application_update = db.Column(db.Boolean, default=True)  # Cập nhật kết quả ứng tuyển / hợp đồng
+    notify_application_update = db.Column(db.Boolean, default=True)  # Trạng thái đơn ứng tuyển / hợp đồng
+    notify_profile_view = db.Column(db.Boolean, default=True)        # Khách đã xem hồ sơ
+
+    # 2. Nhóm Lịch trình
+    notify_schedule_reminder = db.Column(db.Boolean, default=True)   # Nhắc lịch ca dịch sắp tới
+    reminder_time_60m = db.Column(db.Boolean, default=True)          # Mốc nhắc: Trước 60 phút
+    reminder_time_30m = db.Column(db.Boolean, default=True)          # Mốc nhắc: Trước 30 phút
+    reminder_time_15m = db.Column(db.Boolean, default=False)         # Mốc nhắc: Trước 15 phút
+
+    # 3. Nhóm Thu nhập
+    notify_income_update = db.Column(db.Boolean, default=True)       # Cập nhật thù lao và giải ngân
+
+    # 4. Nhóm Bảo mật & Hệ thống (Luôn BẬT và KHÓA)
+    notify_security_alert = db.Column(db.Boolean, default=True)      # Cảnh báo đăng nhập lạ và bảo mật
+
+    # Tiếp thị & Nền tảng
     notify_marketing = db.Column(db.Boolean, default=False)          # Tin khuyến mại, sự kiện nền tảng
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Alias properties cho tính tương thích và tiện dụng
+    @property
+    def reminder_60m(self):
+        return bool(self.reminder_time_60m) if self.reminder_time_60m is not None else True
+
+    @reminder_60m.setter
+    def reminder_60m(self, val):
+        self.reminder_time_60m = bool(val)
+
+    @property
+    def reminder_30m(self):
+        return bool(self.reminder_time_30m) if self.reminder_time_30m is not None else True
+
+    @reminder_30m.setter
+    def reminder_30m(self, val):
+        self.reminder_time_30m = bool(val)
+
+    @property
+    def reminder_15m(self):
+        return bool(self.reminder_time_15m) if self.reminder_time_15m is not None else False
+
+    @reminder_15m.setter
+    def reminder_15m(self, val):
+        self.reminder_time_15m = bool(val)
+
+    @property
+    def notify_payout(self):
+        return bool(self.notify_income_update) if self.notify_income_update is not None else True
+
+    @notify_payout.setter
+    def notify_payout(self, val):
+        self.notify_income_update = bool(val)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'notify_job_match': True if self.notify_job_match is None else bool(self.notify_job_match),
+            'notify_application_update': True if self.notify_application_update is None else bool(self.notify_application_update),
+            'notify_profile_view': True if self.notify_profile_view is None else bool(self.notify_profile_view),
+            'notify_schedule_reminder': True if self.notify_schedule_reminder is None else bool(self.notify_schedule_reminder),
+            'reminder_time_60m': True if self.reminder_time_60m is None else bool(self.reminder_time_60m),
+            'reminder_time_30m': True if self.reminder_time_30m is None else bool(self.reminder_time_30m),
+            'reminder_time_15m': False if self.reminder_time_15m is None else bool(self.reminder_time_15m),
+            'reminder_60m': True if self.reminder_time_60m is None else bool(self.reminder_time_60m),
+            'reminder_30m': True if self.reminder_time_30m is None else bool(self.reminder_time_30m),
+            'reminder_15m': False if self.reminder_time_15m is None else bool(self.reminder_time_15m),
+            'notify_income_update': True if self.notify_income_update is None else bool(self.notify_income_update),
+            'notify_security_alert': True,  # Luôn BẬT và KHÓA
+            'notify_marketing': bool(self.notify_marketing),
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }
 
 
 class UserSession(db.Model):
