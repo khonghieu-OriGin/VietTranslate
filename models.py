@@ -2388,6 +2388,53 @@ class UserSession(db.Model):
     is_current = db.Column(db.Boolean, default=False)                 # Đánh dấu phiên hiện tại
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def format_last_active(self):
+        """Định dạng thời gian hoạt động gần nhất thân thiện tiếng Việt."""
+        if not self.last_active:
+            return "Chưa xác định"
+        now = datetime.utcnow()
+        diff = now - self.last_active
+        seconds = int(diff.total_seconds())
+        if seconds < 0:
+            seconds = 0
+        if seconds < 60:
+            return "Vừa xong"
+        minutes = seconds // 60
+        if minutes < 60:
+            return f"{minutes} phút trước"
+        hours = minutes // 60
+        if hours < 24:
+            return f"{hours} giờ trước"
+        days = hours // 24
+        if days < 7:
+            return f"{days} ngày trước"
+        return self.last_active.strftime("%H:%M %d/%m/%Y")
+
+    def get_device_type(self):
+        """Xác định loại thiết bị: desktop, mobile, tablet."""
+        name = (self.device_name or "").lower()
+        if any(x in name for x in ['iphone', 'android', 'mobile', 'phone']):
+            return 'mobile'
+        if any(x in name for x in ['ipad', 'tablet']):
+            return 'tablet'
+        return 'desktop'
+
+    def to_dict(self, current_session_token=None):
+        """Chuyển đổi UserSession thành dict đầy đủ thuộc tính."""
+        is_cur = bool(current_session_token and self.session_id == current_session_token) or (not current_session_token and bool(self.is_current))
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_id': self.session_id,
+            'device_name': self.device_name or 'Trình duyệt Web',
+            'ip_address': self.ip_address or '127.0.0.1',
+            'last_active': self.last_active.isoformat() if self.last_active else None,
+            'last_active_formatted': self.format_last_active(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_current': is_cur,
+            'device_type': self.get_device_type()
+        }
+
 
 class SupportTicket(db.Model):
     """

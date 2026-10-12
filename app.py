@@ -1169,6 +1169,25 @@ def get_current_user():
         if user and not user.is_active:
             session.clear()
             return None
+
+        # Kiểm tra tính hợp lệ của phiên đăng nhập (Session Revocation Check - Mục 5.6.2)
+        token = session.get('session_token')
+        if token and user:
+            from models import UserSession
+            user_sess = UserSession.query.filter_by(user_id=user.id, session_id=token).first()
+            if not user_sess:
+                # Phiên đã bị thu hồi ở backend từ thiết bị khác -> Hủy session ngay lập tức
+                session.clear()
+                return None
+            # Cập nhật thời gian hoạt động gần nhất (giảm tải DB: chỉ commit nếu cách hơn 60s)
+            now = datetime.utcnow()
+            if user_sess.last_active is None or (now - user_sess.last_active).total_seconds() > 60:
+                user_sess.last_active = now
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+
         return user
     except SQLAlchemyError as e:
         db.session.rollback()
@@ -2104,6 +2123,11 @@ def login():
                     session.clear()
                     session.permanent = True
                     session['user_id'] = user.id  # SQL integer ID
+                    try:
+                        from services.account_security import register_user_session
+                        register_user_session(user, request)
+                    except Exception as sess_err:
+                        print(f"[REGISTER SESSION WARNING] {sess_err}")
                     flash(_t('flash.login_success'), 'success')
                     # Role redirect
                     if user.is_admin:
@@ -2419,6 +2443,13 @@ def resend_verification_email():
 
 @app.route('/logout')
 def logout():
+    try:
+        from services.account_security import revoke_user_session
+        token = session.get('session_token')
+        if token and 'user_id' in session:
+            revoke_user_session(session['user_id'], token, token)
+    except Exception as e:
+        print(f"[LOGOUT REVOKE SESSION WARNING] {e}")
     session.clear()
     flash(_t('flash.logout_success'), 'success')
     return redirect(url_for('index'))
@@ -3100,16 +3131,29 @@ def account_profile():
             old_pw = request.form.get('old_password', '')
             new_pw = request.form.get('new_password', '')
             confirm_pw = request.form.get('confirm_password', '')
-            if not check_password_hash(user.password_hash, old_pw):
-                flash(_t('flash.old_password_incorrect'), 'error')
-            elif new_pw != confirm_pw:
-                flash(_t('flash.new_password_mismatch'), 'error')
-            elif len(new_pw) < 6:
-                flash(_t('flash.password_too_short'), 'error')
-            else:
-                user.password_hash = generate_password_hash(new_pw)
-                db.session.commit()
-                flash(_t('flash.password_changed'), 'success')
+            from services.account_security import change_user_password
+            success, msg = change_user_password(user, old_pw, new_pw, confirm_pw)
+            flash(msg, 'success' if success else 'error')
+            return redirect(url_for('account_profile') + '?tab=security')
+
+        elif action in ('revoke_session', 'logout_session'):
+            target_id = request.form.get('session_id') or request.form.get('user_session_id')
+            current_token = session.get('session_token')
+            from services.account_security import revoke_user_session
+            success, msg, is_current = revoke_user_session(user.id, target_id, current_token)
+            if is_current:
+                session.clear()
+                flash('Bạn đã đăng xuất khỏi thiết bị này thành công.', 'info')
+                return redirect(url_for('login'))
+            flash(msg, 'success' if success else 'error')
+            return redirect(url_for('account_profile') + '?tab=security')
+
+        elif action in ('revoke_other_sessions', 'logout_other_sessions'):
+            current_token = session.get('session_token')
+            from services.account_security import revoke_all_other_sessions
+            success, msg, count = revoke_all_other_sessions(user.id, current_token)
+            flash(msg, 'success' if success else 'error')
+            return redirect(url_for('account_profile') + '?tab=security')
 
         return redirect(url_for('account_profile'))
 
@@ -3165,6 +3209,19 @@ def account_profile():
 
     notification_setting = get_user_notification_setting(user)
 
+    # Lấy danh sách phiên đăng nhập (Mục 5.6.3)
+    current_token = session.get('session_token')
+    if not current_token and user and not app.config.get('TESTING'):
+        try:
+            from services.account_security import register_user_session
+            register_user_session(user, request)
+            current_token = session.get('session_token')
+        except Exception:
+            pass
+
+    from services.account_security import get_active_sessions
+    active_sessions = get_active_sessions(user, current_token)
+
     return render_template(
         'account_profile.html',
         user=user,
@@ -3176,6 +3233,7 @@ def account_profile():
         DOCUMENT_POLICIES=DOCUMENT_POLICIES,
         declared_language_pairs=declared_language_pairs,
         notification_setting=notification_setting,
+        active_sessions=active_sessions,
         today_str=datetime.utcnow().strftime('%Y-%m-%d')
     )
 
@@ -10222,6 +10280,103 @@ def api_notification_settings():
         })
 
     return save_notification_settings_action(user)
+
+
+# ─── BẢO MẬT TÀI KHOẢN & QUẢN LÝ PHIÊN (MỤC 5.6.2 & 5.6.3) ───────────────────
+
+@app.route('/api/account/change-password', methods=['POST'])
+@login_required
+def api_account_change_password():
+    """API đổi mật khẩu tài khoản an toàn (Mục 5.6.2)."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản'}), 404
+
+    data = request.get_json(silent=True) or request.form
+    old_pw = (data.get('old_password') or '').strip()
+    new_pw = (data.get('new_password') or '').strip()
+    confirm_pw = (data.get('confirm_password') or '').strip()
+
+    from services.account_security import change_user_password
+    success, msg = change_user_password(user, old_pw, new_pw, confirm_pw)
+    if not success:
+        return jsonify({'success': False, 'message': msg}), 400
+
+    return jsonify({'success': True, 'message': msg})
+
+
+@app.route('/api/account/sessions', methods=['GET'])
+@login_required
+def api_account_sessions():
+    """API lấy danh sách phiên đăng nhập của người dùng (Mục 5.6.3)."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản'}), 404
+
+    from services.account_security import get_active_sessions
+    current_token = session.get('session_token')
+    sessions = get_active_sessions(user, current_token)
+    return jsonify({
+        'success': True,
+        'sessions': sessions,
+        'total': len(sessions)
+    })
+
+
+@app.route('/api/account/sessions/revoke', methods=['POST'])
+@login_required
+def api_account_revoke_session():
+    """API thu hồi / hủy một phiên làm việc cụ thể ở backend (Mục 5.6.3)."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản'}), 404
+
+    data = request.get_json(silent=True) or request.form
+    target_id = data.get('session_id') or data.get('id')
+    if not target_id:
+        return jsonify({'success': False, 'message': 'Thiếu mã định danh phiên làm việc.'}), 400
+
+    current_token = session.get('session_token')
+    from services.account_security import revoke_user_session
+    success, msg, is_current = revoke_user_session(user.id, target_id, current_token)
+    if not success:
+        return jsonify({'success': False, 'message': msg}), 400
+
+    if is_current:
+        session.clear()
+        return jsonify({
+            'success': True,
+            'message': 'Bạn đã đăng xuất khỏi thiết bị này thành công.',
+            'is_current': True,
+            'redirect_url': url_for('login')
+        })
+
+    return jsonify({
+        'success': True,
+        'message': msg,
+        'is_current': False
+    })
+
+
+@app.route('/api/account/sessions/revoke-others', methods=['POST'])
+@login_required
+def api_account_revoke_other_sessions():
+    """API thu hồi / đăng xuất toàn bộ các thiết bị khác ở backend (Mục 5.6.3)."""
+    user = get_current_user()
+    if not user:
+        return jsonify({'success': False, 'message': 'Không tìm thấy thông tin tài khoản'}), 404
+
+    current_token = session.get('session_token')
+    from services.account_security import revoke_all_other_sessions
+    success, msg, count = revoke_all_other_sessions(user.id, current_token)
+    if not success:
+        return jsonify({'success': False, 'message': msg}), 400
+
+    return jsonify({
+        'success': True,
+        'message': msg,
+        'revoked_count': count
+    })
 
 @app.route('/notifications')
 @login_required
