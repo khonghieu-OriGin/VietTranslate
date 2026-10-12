@@ -140,6 +140,41 @@ class User(db.Model):
         """Kiểm tra số điện thoại đã xác thực chưa."""
         return bool(getattr(self, 'phone_verified', False) or (self.is_verified and self.phone))
 
+    @property
+    def subscription_tier(self):
+        """Tên mã gói dịch vụ hiện tại (Mục 5.5). Mặc định là 'standard' (Gói Tiêu Chuẩn)."""
+        return 'standard'
+
+    @property
+    def subscription_info(self):
+        """Thông tin chi tiết về gói dịch vụ & quyền lợi đang sử dụng (Mục 5.5)."""
+        tier = self.subscription_tier
+        if tier == 'pro':
+            return {
+                'tier': 'pro',
+                'name': 'Gói Phiên Dịch Viên Chuyên Nghiệp (Pro)',
+                'short_name': 'Gói Pro',
+                'badge_color': 'indigo',
+                'duration': '30 ngày',
+                'expires_at_display': 'Còn 30 ngày',
+                'is_pro': True,
+                'search_priority': 'Ưu tiên hiển thị Top 1 kết quả tìm kiếm',
+                'notification_speed': 'Tức thì (Real-time)',
+                'glossary_access': 'Mở khóa không giới hạn'
+            }
+        return {
+            'tier': 'standard',
+            'name': 'Gói Tiêu Chuẩn (Free)',
+            'short_name': 'Gói Tiêu Chuẩn',
+            'badge_color': 'slate',
+            'duration': 'Vô thời hạn',
+            'expires_at_display': 'Vô thời hạn',
+            'is_pro': False,
+            'search_priority': 'Tiêu chuẩn (Thứ hạng thông thường)',
+            'notification_speed': 'Thông thường (Web & Email)',
+            'glossary_access': 'Chỉ dành cho gói Pro'
+        }
+
 
 class TranslatorProfile(db.Model):
     id = db.Column(db.Integer, primary_key=True)

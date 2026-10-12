@@ -179,6 +179,16 @@ function resendVerificationEmail() {
                             </div>
                             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">5.4</span>
                         </button>
+                        <button type="button" id="tab-btn-subscription-side" onclick="switchTab('subscription', this)"
+                            class="tab-btn w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'subscription' %}bg-brand-50 text-brand-700 font-bold active{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
+                            <div class="flex items-center gap-2.5">
+                                <svg class="w-4 h-4 {% if active_tab == 'subscription' %}text-brand-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                                </svg>
+                                <span>Gói dịch vụ & Quyền lợi</span>
+                            </div>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500">5.5</span>
+                        </button>
                         <button type="button" onclick="switchTab('security', this)"
                             class="w-full text-left flex items-center justify-between px-3.5 py-2.5 {% if active_tab == 'security' %}bg-brand-50 text-brand-700 font-bold{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-semibold{% endif %} rounded-xl text-xs sm:text-sm transition cursor-pointer">
                             <div class="flex items-center gap-2.5">
@@ -496,6 +506,14 @@ function resendVerificationEmail() {
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                         <span>Tiêu chí nhận việc</span>
                         <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md {% if active_tab == 'preferences' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">5.4</span>
+                    </button>
+
+                    <button id="tab-btn-subscription"
+                        class="tab-btn {% if active_tab == 'subscription' %}active{% else %}text-slate-600 hover:bg-slate-50{% endif %} shrink-0 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 cursor-pointer transition"
+                        onclick="switchTab('subscription', this)">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                        <span>Gói dịch vụ & Quyền lợi</span>
+                        <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded-md {% if active_tab == 'subscription' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-500{% endif %}">5.5</span>
                     </button>
 
                     <button id="tab-btn-security"
@@ -2049,6 +2067,389 @@ function resendVerificationEmail() {
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <!-- TAB 5.5: GÓI DỊCH VỤ & QUYỀN LỢI (TIER & PRICING TABLE)                     -->
+                <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+                <div id="tab-subscription" class="tab-panel {% if active_tab == 'subscription' %}active{% endif %} space-y-6">
+                    <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-6 sm:p-8">
+                        <!-- Header Phân hệ Mục 5.5 -->
+                        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-soft">
+                                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h2 class="text-lg font-bold text-slate-900">Gói Dịch Vụ & Quyền Lợi Phiên Dịch Viên</h2>
+                                        <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Mục 5.5</span>
+                                    </div>
+                                    <p class="text-xs text-slate-500 mt-0.5">Quản lý trạng thái gói tài khoản, khám phá các đặc quyền cao cấp và tối ưu hóa cơ hội nhận việc trực tiếp từ khách hàng doanh nghiệp.</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 text-slate-700 text-xs font-bold rounded-xl border border-slate-200">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    Gói hiện tại: <span class="text-indigo-600">{{ user.subscription_info.short_name }}</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- 1. KHU VỰC HIỂN THỊ TRẠNG THÁI HIỆN TẠI (Yêu cầu 1) -->
+                        <div class="mt-6 p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-50 via-indigo-50/20 to-blue-50/30 border border-slate-200/80">
+                            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200/60">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Tình trạng tài khoản</span>
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                                            <svg class="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                            Đang hoạt động
+                                        </span>
+                                    </div>
+                                    <h3 class="text-base sm:text-lg font-black text-slate-900 mt-1 flex items-center gap-2">
+                                        {{ user.subscription_info.name }}
+                                        {% if not user.subscription_info.is_pro %}
+                                        <span class="text-xs font-normal text-slate-500">(Miễn phí trọn đời)</span>
+                                        {% endif %}
+                                    </h3>
+                                </div>
+                                <div class="text-left sm:text-right">
+                                    <span class="text-xs text-slate-500 block">Thời hạn sử dụng gói:</span>
+                                    <span class="text-sm font-extrabold text-indigo-700 bg-white px-3 py-1 rounded-lg border border-indigo-100 inline-block mt-0.5 shadow-xs">
+                                        ⏱️ {{ user.subscription_info.expires_at_display }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- 4 Thẻ trạng thái quyền lợi hiện tại -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-4">
+                                <!-- Thẻ 1 -->
+                                <div class="bg-white/90 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/70 shadow-xs">
+                                    <span class="text-[11px] font-semibold text-slate-400 block">Gói tài khoản</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-800">{{ user.subscription_info.short_name }}</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-1">Đầy đủ quyền ứng tuyển</p>
+                                </div>
+                                <!-- Thẻ 2 -->
+                                <div class="bg-white/90 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/70 shadow-xs">
+                                    <span class="text-[11px] font-semibold text-slate-400 block">Thời hạn hiệu lực</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-800">{{ user.subscription_info.duration }}</span>
+                                    </div>
+                                    <p class="text-[10px] text-slate-400 mt-1">Không giới hạn thời gian</p>
+                                </div>
+                                <!-- Thẻ 3 -->
+                                <div class="bg-white/90 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/70 shadow-xs">
+                                    <span class="text-[11px] font-semibold text-slate-400 block">Thứ hạng tìm kiếm</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-800">Thứ hạng thường</span>
+                                    </div>
+                                    <p class="text-[10px] text-amber-600 mt-1">Gói Pro đẩy lên Top 1</p>
+                                </div>
+                                <!-- Thẻ 4 -->
+                                <div class="bg-white/90 backdrop-blur-xs p-3.5 rounded-xl border border-slate-200/70 shadow-xs">
+                                    <span class="text-[11px] font-semibold text-slate-400 block">Thông báo việc mới</span>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div class="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                                        </div>
+                                        <span class="text-xs font-bold text-slate-800">Thông thường</span>
+                                    </div>
+                                    <p class="text-[10px] text-purple-600 mt-1">Gói Pro nhận việc tức thì</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. BẢNG SO SÁNH QUYỀN LỢI (PRICING / TIER TABLE - Yêu cầu 2) -->
+                        <div class="mt-8">
+                            <div class="text-center max-w-xl mx-auto mb-6">
+                                <span class="text-xs font-extrabold uppercase tracking-wider text-brand-600 bg-brand-50 px-3 py-1 rounded-full border border-brand-200/60 inline-block">Bảng Báo Giá & Quyền Lợi Nâng Cấp</span>
+                                <h3 class="text-lg sm:text-2xl font-black text-slate-900 mt-2">Chọn Gói Phù Hợp Với Định Hướng Nghề Nghiệp</h3>
+                                <p class="text-xs sm:text-sm text-slate-500 mt-1">Tối đa hóa thu nhập và nhận diện thương hiệu cá nhân cùng nền tảng VietTranslate</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+                                <!-- CỘT 1: GÓI TIÊU CHUẨN (FREE) -->
+                                <div class="bg-white rounded-2xl border-2 border-slate-200 p-6 flex flex-col justify-between hover:border-slate-300 transition shadow-xs relative">
+                                    <div>
+                                        <div class="flex items-center justify-between gap-2">
+                                            <span class="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">Gói Tiêu Chuẩn (Free)</span>
+                                            <span class="text-xs font-bold text-slate-400">Cơ bản</span>
+                                        </div>
+                                        <h4 class="text-xl font-black text-slate-900 mt-3">Gói Tiêu Chuẩn</h4>
+                                        <p class="text-xs text-slate-500 mt-1">Dành cho phiên dịch viên mới bắt đầu tham gia nền tảng và tìm kiếm cơ hội hợp tác linh hoạt.</p>
+
+                                        <div class="my-5 pb-5 border-b border-slate-100">
+                                            <div class="flex items-baseline gap-1">
+                                                <span class="text-3xl font-black text-slate-900">0 đ</span>
+                                                <span class="text-xs text-slate-500 font-medium">/ Vô thời hạn</span>
+                                            </div>
+                                            <p class="text-[11px] text-emerald-600 font-semibold mt-1">✓ Miễn phí mãi mãi · Không tính phí duy trì</p>
+                                        </div>
+
+                                        <!-- Nút trạng thái -->
+                                        <button type="button" disabled
+                                            class="w-full py-3 px-4 rounded-xl bg-slate-100 text-slate-500 font-bold text-xs flex items-center justify-center gap-2 cursor-not-allowed border border-slate-200">
+                                            <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                            <span>Gói hiện tại đang sử dụng</span>
+                                        </button>
+
+                                        <!-- Danh sách quyền lợi chi tiết -->
+                                        <div class="mt-6 space-y-3 text-xs">
+                                            <p class="font-bold text-slate-800 text-[11px] uppercase tracking-wider">Quyền lợi bao gồm:</p>
+                                            <ul class="space-y-2.5">
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span><strong>Hồ sơ cơ bản:</strong> Hiển thị thông tin dịch vụ, cặp ngôn ngữ, chứng chỉ và biểu phí công khai.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span><strong>Nhận thông báo việc làm thông thường:</strong> Nhận email và thông báo website theo tiến trình chuẩn.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span>Ứng tuyển không giới hạn số lượng công việc mở trên sàn việc làm.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span>Quản lý lịch rảnh cá nhân & đăng ký nhận ca phiên dịch.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span>Xác minh định danh KYC & nhận huy hiệu chứng thực chính thức.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-400">
+                                                    <svg class="w-4 h-4 text-slate-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    <span>Đẩy hồ sơ lên đầu kết quả tìm kiếm của khách hàng (Thứ tự thông thường).</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-400">
+                                                    <svg class="w-4 h-4 text-slate-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    <span>Nhận thông báo việc mới tức thì siêu tốc qua SMS/Zalo.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-400">
+                                                    <svg class="w-4 h-4 text-slate-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    <span>Mở khóa kho lưu trữ thuật ngữ riêng chuyên sâu.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-400">
+                                                    <svg class="w-4 h-4 text-slate-300 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                    <span>Huy hiệu PRO Verified cao cấp trên danh thiếp phiên dịch.</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6 pt-4 border-t border-slate-100 text-center">
+                                        <span class="text-[11px] text-slate-400">Phù hợp phiên dịch viên bán thời gian</span>
+                                    </div>
+                                </div>
+
+                                <!-- CỘT 2: GÓI PHIÊN DỊCH VIÊN CHUYÊN NGHIỆP (PRO) -->
+                                <div class="bg-gradient-to-b from-white via-indigo-50/20 to-brand-50/30 rounded-2xl border-2 border-indigo-500 shadow-xl p-6 sm:p-7 flex flex-col justify-between relative transform md:-translate-y-1 hover:shadow-2xl transition duration-300">
+                                    <!-- Badge nổi bật góc trên -->
+                                    <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-500 via-indigo-600 to-brand-600 text-white text-[11px] font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-md flex items-center gap-1.5 whitespace-nowrap">
+                                        <svg class="w-3.5 h-3.5 text-amber-300" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                        Đề Xuất Cho Phiên Dịch Viên Năng Động
+                                    </div>
+
+                                    <div>
+                                        <div class="flex items-center justify-between gap-2 mt-1">
+                                            <span class="text-[11px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">Gói Pro Nâng Cao</span>
+                                            <span class="text-xs font-bold text-indigo-600 flex items-center gap-1">
+                                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                                                Sắp ra mắt
+                                            </span>
+                                        </div>
+                                        <h4 class="text-xl font-black text-slate-900 mt-3 flex items-center gap-2">
+                                            Phiên Dịch Viên Chuyên Nghiệp (Pro)
+                                        </h4>
+                                        <p class="text-xs text-slate-600 mt-1">Bứt phá cơ hội thu nhập, tiếp cận trực tiếp các nhà tuyển dụng VIP và mở khóa công cụ phiên dịch chuyên nghiệp.</p>
+
+                                        <div class="my-5 pb-5 border-b border-indigo-100">
+                                            <div class="flex items-baseline gap-1">
+                                                <span class="text-3xl font-black text-indigo-600">199.000 đ</span>
+                                                <span class="text-xs text-slate-500 font-medium">/ tháng</span>
+                                            </div>
+                                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                                <span class="text-[11px] text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 font-bold">
+                                                    Ưu đãi Early Bird: Giảm 20% khi mở cổng
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <!-- 3. NÚT ĐĂNG KÝ QUAN TÂM AN TOÀN (Yêu cầu 3) -->
+                                        <button type="button" id="btn-open-pro-interest" onclick="openProRegistrationModal()"
+                                            class="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-brand-600 via-indigo-600 to-purple-600 hover:from-brand-700 hover:to-purple-700 text-white font-extrabold text-xs sm:text-sm shadow-md hover:shadow-indigo-500/25 transition flex items-center justify-center gap-2 transform active:scale-98 cursor-pointer">
+                                            <svg class="w-4 h-4 text-amber-300 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                                            </svg>
+                                            <span>Đăng ký quan tâm / Sắp ra mắt</span>
+                                        </button>
+                                        <p class="text-[11px] text-center text-slate-500 mt-2 flex items-center justify-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                                            <span>Tính năng đang thử nghiệm · Cam kết bảo mật, chưa trừ phí</span>
+                                        </p>
+
+                                        <!-- Danh sách quyền lợi Pro vượt trội theo đúng yêu cầu -->
+                                        <div class="mt-6 space-y-3 text-xs">
+                                            <p class="font-bold text-indigo-900 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                                                <svg class="w-3.5 h-3.5 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                                Đặc quyền vượt trội của Gói Pro:
+                                            </p>
+                                            <ul class="space-y-3">
+                                                <li class="flex items-start gap-2.5 text-slate-800 bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-100">
+                                                    <span class="text-base leading-none">🚀</span>
+                                                    <div>
+                                                        <strong class="text-indigo-950 font-bold">Đẩy hồ sơ lên đầu kết quả tìm kiếm của khách hàng:</strong>
+                                                        <p class="text-[11px] text-slate-600 mt-0.5">Xuất hiện ưu tiên Top 1 khi khách hàng lọc theo ngôn ngữ & lĩnh vực. Tăng 300% tỷ lệ được doanh nghiệp liên hệ đặt lịch phiên dịch trực tiếp.</p>
+                                                    </div>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-800 bg-amber-50/60 p-2.5 rounded-xl border border-amber-100">
+                                                    <span class="text-base leading-none">⚡</span>
+                                                    <div>
+                                                        <strong class="text-amber-950 font-bold">Nhận thông báo việc mới tức thì:</strong>
+                                                        <p class="text-[11px] text-slate-600 mt-0.5">Hệ thống thông báo Real-time siêu tốc qua SMS/Zalo/Email ưu tiên ngay khi khách hàng đăng tin, sớm hơn 15 - 30 phút so với thông thường.</p>
+                                                    </div>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-800 bg-purple-50/60 p-2.5 rounded-xl border border-purple-100">
+                                                    <span class="text-base leading-none">📚</span>
+                                                    <div>
+                                                        <strong class="text-purple-950 font-bold">Mở khóa kho lưu trữ thuật ngữ riêng:</strong>
+                                                        <p class="text-[11px] text-slate-600 mt-0.5">Không giới hạn sổ tay thuật ngữ cá nhân hoá theo từng chuyên ngành (Y tế, Hợp đồng, Kỹ thuật cao, Ngoại giao...) đồng bộ đa thiết bị.</p>
+                                                    </div>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span><strong>Huy hiệu PRO Verified:</strong> Huy hiệu vàng uy tín gắn cạnh ảnh đại diện và hồ sơ ứng tuyển.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span><strong>Báo cáo phân tích lượt xem:</strong> Thống kê chi tiết số lượt xem trang cá nhân và độ quan tâm của khách hàng.</span>
+                                                </li>
+                                                <li class="flex items-start gap-2.5 text-slate-700">
+                                                    <svg class="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                                    <span><strong>Hỗ trợ ưu tiên 24/7:</strong> Kênh chuyên viên riêng giải đáp hợp đồng, tranh chấp và bảo chứng thanh toán Escrow.</span>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <div class="mt-6 pt-4 border-t border-indigo-100 text-center">
+                                        <span class="text-[11px] font-bold text-indigo-700">Khuyên dùng cho phiên dịch viên chuyên nghiệp & Freelancer toàn thời gian</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. BẢNG SO SÁNH CHI TIẾT TÍNH NĂNG (FEATURE COMPARISON MATRIX) -->
+                        <div class="mt-10 pt-8 border-t border-slate-200/80">
+                            <h4 class="text-sm sm:text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                So Sánh Chi Tiết Tính Năng Giữa Các Gói
+                            </h4>
+                            <div class="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-2xs">
+                                <table class="w-full text-left text-xs text-slate-700">
+                                    <thead class="bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                                        <tr>
+                                            <th class="py-3 px-4 w-1/2">Tính Năng / Đặc Quyền</th>
+                                            <th class="py-3 px-4 text-center w-1/4">Gói Tiêu Chuẩn (Free)</th>
+                                            <th class="py-3 px-4 text-center w-1/4 bg-indigo-50/50 text-indigo-900">Gói Pro (Chuyên Nghiệp)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-slate-100 bg-white">
+                                        <!-- Nhóm 1: Kết nối & Hiển thị -->
+                                        <tr class="bg-slate-50/40">
+                                            <td colspan="3" class="py-2 px-4 text-[11px] font-extrabold uppercase text-slate-500">1. Khả Năng Hiển Thị & Kết Nối</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Vị trí hiển thị trong kết quả tìm kiếm của khách hàng</td>
+                                            <td class="py-3 px-4 text-center text-slate-500">Thứ tự thông thường</td>
+                                            <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30">⭐ Luôn đẩy lên đầu kết quả (Top 1)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Tốc độ gửi thông báo việc làm mới phù hợp</td>
+                                            <td class="py-3 px-4 text-center text-slate-500">Thông thường (Email / Web)</td>
+                                            <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30">⚡ Tức thì (Real-time alert ưu tiên)</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Huy hiệu chứng thực trên hồ sơ</td>
+                                            <td class="py-3 px-4 text-center text-slate-600">Huy hiệu KYC thường</td>
+                                            <td class="py-3 px-4 text-center font-bold text-amber-600 bg-indigo-50/30">💎 Huy hiệu PRO Verified nổi bật</td>
+                                        </tr>
+
+                                        <!-- Nhóm 2: Công cụ nghề nghiệp -->
+                                        <tr class="bg-slate-50/40">
+                                            <td colspan="3" class="py-2 px-4 text-[11px] font-extrabold uppercase text-slate-500">2. Công Cụ & Quản Trị Nghiệp Vụ</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Kho lưu trữ thuật ngữ chuyên ngành cá nhân hoá</td>
+                                            <td class="py-3 px-4 text-center text-slate-400">✕ Không hỗ trợ</td>
+                                            <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30">📚 Mở khóa không giới hạn</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Báo cáo lượt xem hồ sơ & mức độ quan tâm</td>
+                                            <td class="py-3 px-4 text-center text-slate-400">✕ Không hỗ trợ</td>
+                                            <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30">✓ Báo cáo chi tiết theo tuần/tháng</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Quản lý lịch rảnh & nhận ca dịch</td>
+                                            <td class="py-3 px-4 text-center text-emerald-600 font-bold">✓ Không giới hạn</td>
+                                            <td class="py-3 px-4 text-center text-emerald-600 font-bold bg-indigo-50/30">✓ Không giới hạn</td>
+                                        </tr>
+
+                                        <!-- Nhóm 3: Hỗ trợ khách hàng -->
+                                        <tr class="bg-slate-50/40">
+                                            <td colspan="3" class="py-2 px-4 text-[11px] font-extrabold uppercase text-slate-500">3. Hỗ Trợ Kỹ Thuật & Bảo Chứng</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Thời gian phản hồi hỗ trợ kỹ thuật & hợp đồng</td>
+                                            <td class="py-3 px-4 text-center text-slate-500">24 – 48 giờ làm việc</td>
+                                            <td class="py-3 px-4 text-center font-bold text-indigo-700 bg-indigo-50/30">🚀 Ưu tiên 24/7 chuyên viên riêng</td>
+                                        </tr>
+                                        <tr>
+                                            <td class="py-3 px-4 font-semibold text-slate-800">Bảo vệ thanh toán qua Escrow VietTranslate</td>
+                                            <td class="py-3 px-4 text-center text-emerald-600 font-bold">✓ Áp dụng chuẩn</td>
+                                            <td class="py-3 px-4 text-center text-emerald-600 font-bold bg-indigo-50/30">✓ Áp dụng chuẩn & ưu tiên giải ngân</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 4. HỎI ĐÁP & CHÍNH SÁCH BẢO VỆ THANH TOÁN (FAQ) -->
+                        <div class="mt-8 p-5 bg-slate-50 rounded-2xl border border-slate-200/80">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Câu Hỏi Thường Gặp Về Gói Dịch Vụ & Thanh Toán An Toàn
+                            </h4>
+                            <div class="space-y-3 text-xs text-slate-600">
+                                <div>
+                                    <strong class="text-slate-800 block">Q: Tôi có bị ép buộc phải nâng cấp lên Gói Pro để nhận việc không?</strong>
+                                    <p class="text-slate-600 mt-0.5">Hoàn toàn không. Gói Tiêu Chuẩn được thiết kế để phục vụ đầy đủ mọi nhu cầu nhận việc, ứng tuyển và kết nối khách hàng miễn phí vĩnh viễn. Gói Pro chỉ là gói bổ trợ tăng tốc dành cho phiên dịch viên chuyên nghiệp muốn mở rộng tệp khách hàng VIP.</p>
+                                </div>
+                                <div>
+                                    <strong class="text-slate-800 block">Q: Vì sao nút đăng ký hiển thị "Đăng ký quan tâm / Sắp ra mắt"?</strong>
+                                    <p class="text-slate-600 mt-0.5">Nhằm đảm bảo an toàn tài chính tuyệt đối cho phiên dịch viên, VietTranslate đang hoàn thiện quy trình kiểm định an ninh với các cổng thanh toán trực tuyến chính thức (VNPAY / MoMo). Hệ thống cam kết không mở cổng thanh toán khi chưa qua kiểm định và tuyệt đối không tạo giao dịch ảo.</p>
+                                </div>
+                                <div>
+                                    <strong class="text-slate-800 block">Q: Khi đăng ký quan tâm tôi có được ưu đãi gì không?</strong>
+                                    <p class="text-slate-600 mt-0.5">Có. Các tài khoản đăng ký quan tâm sớm (Early Bird) sẽ được tặng mã ưu đãi giảm 20% và 14 ngày trải nghiệm Gói Pro miễn phí ngay khi cổng thanh toán chính thức đi vào hoạt động.</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -4216,6 +4617,115 @@ function resendVerificationEmail() {
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL: ĐĂNG KÝ QUAN TÂM GÓI PRO / TÍNH NĂNG ĐANG THỬ NGHIỆM (MỤC 5.5)       -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-subscription-interest" class="fixed inset-0 z-50 hidden transition-opacity duration-300" aria-labelledby="modal-sub-title" role="dialog" aria-modal="true">
+    <!-- Backdrop blur -->
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onclick="closeProRegistrationModal()"></div>
+
+    <div class="fixed inset-0 z-10 overflow-y-auto flex items-center justify-center p-4 sm:p-6">
+        <div class="relative bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden transform transition-all">
+            <!-- Modal Header -->
+            <div class="p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden">
+                <div class="absolute -right-8 -bottom-8 w-32 h-32 bg-indigo-500/20 rounded-full blur-2xl"></div>
+                <div class="flex items-start justify-between relative z-10">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-white/10 text-amber-300 flex items-center justify-center shrink-0 border border-white/20">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <span class="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">Tính Năng Đang Thử Nghiệm</span>
+                            <h3 id="modal-sub-title" class="text-base sm:text-lg font-black text-white mt-1">Đăng Ký Quan Tâm Gói Pro</h3>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeProRegistrationModal()" class="text-white/60 hover:text-white p-1 rounded-xl hover:bg-white/10 transition cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body -->
+            <form id="form-pro-interest" onsubmit="submitProInterest(event)" class="p-6 space-y-4">
+                <!-- Cảnh báo an toàn minh bạch theo Mục 5.5 -->
+                <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs flex items-start gap-3">
+                    <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                    <div>
+                        <strong class="font-bold block text-amber-950">Thông báo thanh toán an toàn:</strong>
+                        <p class="mt-0.5 text-amber-800 leading-relaxed">
+                            Cổng thanh toán chính thức qua <strong>VNPAY / MoMo</strong> đang được tích hợp và kiểm thử an toàn bảo mật. Để đảm bảo an toàn cho tài khoản của bạn, hệ thống hiện <strong>chưa mở cổng thu phí</strong> và <strong>tuyệt đối không tạo giao dịch ảo</strong>.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <p class="text-xs text-slate-600">
+                        Vui lòng xác nhận thông tin dưới đây để nhận thông báo sớm nhất cùng ưu đãi đặc quyền <strong>giảm 20%</strong> khi Gói Pro chính thức ra mắt:
+                    </p>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Họ và tên</label>
+                        <input type="text" value="{{ user.name }}" readonly
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 font-semibold focus:outline-none cursor-not-allowed">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Email nhận thông báo</label>
+                        <input type="email" value="{{ user.email }}" readonly
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-600 font-semibold focus:outline-none cursor-not-allowed">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Số điện thoại liên hệ (Tùy chọn)</label>
+                        <input type="text" id="pro-interest-phone" name="phone" value="{{ user.phone or '' }}" placeholder="Ví dụ: 0912345678"
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Đặc quyền bạn quan tâm nhất</label>
+                        <select id="pro-interest-priority" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs text-slate-800 font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="top_search">🚀 Đẩy hồ sơ lên đầu kết quả tìm kiếm của khách hàng</option>
+                            <option value="realtime_alert">⚡ Nhận thông báo việc làm mới tức thì (sớm 15-30 phút)</option>
+                            <option value="glossary">📚 Mở khóa kho lưu trữ thuật ngữ chuyên sâu riêng</option>
+                            <option value="pro_badge">💎 Huy hiệu PRO Verified trên trang cá nhân</option>
+                            <option value="all">🌟 Tất cả các đặc quyền trên</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Góp ý hoặc tính năng bạn mong đợi (Tùy chọn)</label>
+                        <textarea id="pro-interest-note" name="note" rows="2" placeholder="Ví dụ: Tôi muốn trải nghiệm sớm tính năng kho thuật ngữ y tế..."
+                            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"></textarea>
+                    </div>
+                </div>
+
+                <!-- Alert phản hồi khi gửi xong -->
+                <div id="pro-interest-alert" class="hidden p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                    <svg class="w-4 h-4 text-emerald-600 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                    <span id="pro-interest-alert-msg">Đã ghi nhận đăng ký quan tâm thành công!</span>
+                </div>
+
+                <!-- Modal Footer Buttons -->
+                <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                    <button type="button" onclick="closeProRegistrationModal()"
+                        class="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                        Đóng
+                    </button>
+                    <button type="submit" id="btn-submit-pro-interest"
+                        class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-brand-600 hover:from-indigo-700 hover:to-brand-700 text-white font-bold text-xs transition shadow-sm flex items-center gap-2 cursor-pointer">
+                        <span id="sub-interest-spinner" class="hidden"><svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg></span>
+                        <span id="sub-interest-btn-text">Gửi Đăng Ký Quan Tâm</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Floating Toast Notification -->
 <div id="avatar-toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
     <div id="avatar-toast-inner" class="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border text-xs sm:text-sm font-semibold bg-white">
@@ -4233,19 +4743,21 @@ function resendVerificationEmail() {
         document.querySelectorAll('.tab-btn').forEach(b => {
             b.classList.remove('active');
             b.classList.add('text-slate-600', 'hover:bg-slate-50');
+            b.classList.remove('bg-brand-50', 'text-brand-700', 'font-bold');
         });
 
         const panel = document.getElementById('tab-' + tab);
         if (panel) panel.classList.add('active');
 
-        let targetBtn = btnElement;
-        if (!targetBtn || !targetBtn.classList || !targetBtn.classList.contains('tab-btn')) {
-            targetBtn = document.getElementById('tab-btn-' + tab) || document.querySelector(`.tab-btn[onclick*="'${tab}'"]`);
-        }
-        if (targetBtn) {
-            targetBtn.classList.add('active');
-            targetBtn.classList.remove('text-slate-600', 'hover:bg-slate-50');
-        }
+        // Kích hoạt tất cả các nút tương ứng (cả trên thanh tab ngang và sidebar)
+        const matchedButtons = document.querySelectorAll(`.tab-btn[onclick*="'${tab}'"], #tab-btn-${tab}, #tab-btn-${tab}-side`);
+        matchedButtons.forEach(btn => {
+            btn.classList.add('active');
+            btn.classList.remove('text-slate-600', 'hover:bg-slate-50');
+            if (btn.id && btn.id.includes('-side')) {
+                btn.classList.add('bg-brand-50', 'text-brand-700', 'font-bold');
+            }
+        });
 
         // Nếu chuyển tab từ một nút bên trong nội dung, cuộn mượt lên đầu phần tab
         if (!btnElement || !btnElement.classList || !btnElement.classList.contains('tab-btn')) {
@@ -4262,6 +4774,89 @@ function resendVerificationEmail() {
             window.history.replaceState({}, '', url);
         } catch (e) {}
     }
+
+    // ─── XỬ LÝ MODAL ĐĂNG KÝ QUAN TÂM GÓI PRO (MỤC 5.5) ─────────────────────────
+    function openProRegistrationModal() {
+        const modal = document.getElementById('modal-subscription-interest');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            const alertBox = document.getElementById('pro-interest-alert');
+            if (alertBox) alertBox.classList.add('hidden');
+        }
+    }
+
+    function closeProRegistrationModal() {
+        const modal = document.getElementById('modal-subscription-interest');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+    }
+
+    function submitProInterest(event) {
+        event.preventDefault();
+        const phoneInput = document.getElementById('pro-interest-phone');
+        const noteInput = document.getElementById('pro-interest-note');
+        const prioritySelect = document.getElementById('pro-interest-priority');
+        const alertBox = document.getElementById('pro-interest-alert');
+        const alertMsg = document.getElementById('pro-interest-alert-msg');
+        const submitBtn = document.getElementById('btn-submit-pro-interest');
+        const spinner = document.getElementById('sub-interest-spinner');
+        const btnText = document.getElementById('sub-interest-btn-text');
+
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        const priorityText = prioritySelect ? prioritySelect.options[prioritySelect.selectedIndex].text : '';
+        const note = (noteInput ? noteInput.value.trim() : '') + (priorityText ? ' [Quan tâm nhất: ' + priorityText + ']' : '');
+
+        if (submitBtn) submitBtn.disabled = true;
+        if (spinner) spinner.classList.remove('hidden');
+        if (btnText) btnText.textContent = 'Đang ghi nhận...';
+
+        fetch("{{ url_for('account_subscription_interest') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({ phone: phone, note: note })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                if (alertBox) {
+                    alertBox.classList.remove('hidden');
+                    if (alertMsg) alertMsg.textContent = data.message || 'Đã ghi nhận đăng ký quan tâm thành công! VietTranslate sẽ gửi ưu đãi đến bạn sớm nhất.';
+                }
+                setTimeout(() => {
+                    closeProRegistrationModal();
+                    if (alertBox) alertBox.classList.add('hidden');
+                    if (submitBtn) submitBtn.disabled = false;
+                    if (spinner) spinner.classList.add('hidden');
+                    if (btnText) btnText.textContent = 'Gửi Đăng Ký Quan Tâm';
+                }, 1800);
+            } else {
+                alert(data.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+                if (submitBtn) submitBtn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.textContent = 'Gửi Đăng Ký Quan Tâm';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Có lỗi xảy ra khi gửi đăng ký. Vui lòng thử lại sau.');
+            if (submitBtn) submitBtn.disabled = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = 'Gửi Đăng Ký Quan Tâm';
+        });
+    }
+
+    // Đóng modal khi bấm phím ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeProRegistrationModal();
+        }
+    });
 
     function refreshOverviewState(btn) {
         const icon = document.getElementById('overview-sync-icon');

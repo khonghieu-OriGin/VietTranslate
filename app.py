@@ -3600,6 +3600,47 @@ def account_preferences_get():
     })
 
 
+# ─── GÓI DỊCH VỤ & QUYỀN LỢI (MỤC 5.5) ─────────────────────────────────────────
+
+@app.route('/account/subscription/interest', methods=['POST'])
+@login_required
+def account_subscription_interest():
+    """Ghi nhận đăng ký quan tâm gói Pro (Mục 5.5 - Xử lý an toàn khi chưa có cổng VNPAY/Momo)."""
+    uid = session.get('user_id')
+    user = User.query.get(uid)
+    if not user:
+        return jsonify({'success': False, 'message': 'Người dùng không hợp lệ.'}), 401
+
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 'application/json' in request.headers.get('Accept', '')
+    data = request.get_json(silent=True) or request.form
+    note = data.get('note', '').strip() if data else ''
+    phone = data.get('phone', '').strip() if data else (user.phone or '')
+
+    # TUYỆT ĐỐI KHÔNG thay đổi trạng thái thanh toán hoặc tạo giao dịch giả mạo.
+    # Chỉ tạo thông báo hệ thống ghi nhận nguyện vọng danh sách chờ Early Bird.
+    try:
+        from models import Notification
+        notif = Notification(
+            user_id=user.id,
+            title='Đăng ký quan tâm Gói Pro thành công',
+            message='VietTranslate đã ghi nhận bạn vào danh sách ưu tiên trải nghiệm Gói Phiên Dịch Viên Chuyên Nghiệp (Pro). Chúng tôi sẽ gửi thông báo ưu đãi sớm nhất khi cổng thanh toán chính thức ra mắt!',
+            type='SUBSCRIPTION_INTEREST'
+        )
+        db.session.add(notif)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+
+    msg = 'Đã ghi nhận đăng ký quan tâm! VietTranslate sẽ gửi thông báo ưu đãi tới bạn ngay khi cổng thanh toán chính thức ra mắt.'
+    if is_ajax:
+        return jsonify({
+            'success': True,
+            'message': msg
+        })
+    flash(msg, 'success')
+    return redirect(url_for('account_profile') + '?tab=subscription')
+
+
 @app.route('/account/verification/submit', methods=['POST'])
 @email_verified_required
 def submit_verification():
