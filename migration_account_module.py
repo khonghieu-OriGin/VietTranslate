@@ -177,11 +177,19 @@ def migrate_sqlite(db_path=DB_PATH):
                 description TEXT NOT NULL,
                 attachment_url VARCHAR(500),
                 status VARCHAR(30) DEFAULT 'open',
+                admin_reply TEXT,
+                admin_reply_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE
             )
         """)
+        ticket_cols = [c[1] for c in cur.execute("PRAGMA table_info(support_ticket)").fetchall()]
+        if 'admin_reply' not in ticket_cols:
+            cur.execute("ALTER TABLE support_ticket ADD COLUMN admin_reply TEXT")
+        if 'admin_reply_at' not in ticket_cols:
+            cur.execute("ALTER TABLE support_ticket ADD COLUMN admin_reply_at DATETIME")
+
         cur.execute("CREATE INDEX IF NOT EXISTS ix_support_ticket_user_id ON support_ticket (user_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_support_ticket_ticket_code ON support_ticket (ticket_code)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_support_ticket_status ON support_ticket (status)")

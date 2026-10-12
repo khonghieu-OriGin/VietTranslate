@@ -2446,12 +2446,69 @@ class SupportTicket(db.Model):
     ticket_code = db.Column(db.String(50), unique=True, nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
 
-    category = db.Column(db.String(100), nullable=False)     # Phân loại: tài khoản, thanh toán, bảo mật...
+    category = db.Column(db.String(100), nullable=False)     # Phân loại: compensation, cancellation, dispute, identity, technical, other
     title = db.Column(db.String(255), nullable=False)        # Tiêu đề
     description = db.Column(db.Text, nullable=False)         # Nội dung mô tả chi tiết
     attachment_url = db.Column(db.String(500), nullable=True)# URL tệp đính kèm (ảnh lỗi, tài liệu...)
     status = db.Column(db.String(30), default='open', index=True) # open, in_progress, resolved, closed
+    admin_reply = db.Column(db.Text, nullable=True)          # Phản hồi từ Ban Quản trị / Hỗ trợ viên
+    admin_reply_at = db.Column(db.DateTime, nullable=True)   # Thời gian phản hồi
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def status_label(self):
+        labels = {
+            'open': 'Đã tiếp nhận',
+            'received': 'Đã tiếp nhận',
+            'in_progress': 'Đang xử lý',
+            'resolved': 'Đã giải quyết',
+            'closed': 'Đã đóng'
+        }
+        return labels.get(self.status, 'Đã tiếp nhận')
+
+    @property
+    def status_badge_class(self):
+        badges = {
+            'open': 'bg-blue-50 text-blue-700 border-blue-200/80',
+            'received': 'bg-blue-50 text-blue-700 border-blue-200/80',
+            'in_progress': 'bg-amber-50 text-amber-700 border-amber-200/80',
+            'resolved': 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+            'closed': 'bg-slate-100 text-slate-700 border-slate-200/80'
+        }
+        return badges.get(self.status, 'bg-blue-50 text-blue-700 border-blue-200/80')
+
+    @property
+    def category_label(self):
+        labels = {
+            'compensation': 'Nhận thù lao & Escrow',
+            'cancellation': 'Quy tắc hủy ca & Bồi thường',
+            'dispute': 'Giải quyết tranh chấp & Khiếu nại',
+            'identity': 'Đổi thông tin định danh & KYC',
+            'technical': 'Sự cố kỹ thuật & Đăng nhập',
+            'account_security': 'Bảo mật tài khoản',
+            'other': 'Yêu cầu khác'
+        }
+        return labels.get(self.category, self.category or 'Hỗ trợ chung')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'ticket_code': self.ticket_code,
+            'user_id': self.user_id,
+            'category': self.category,
+            'category_label': self.category_label,
+            'title': self.title,
+            'description': self.description,
+            'attachment_url': self.attachment_url,
+            'status': self.status,
+            'status_label': self.status_label,
+            'status_badge_class': self.status_badge_class,
+            'admin_reply': self.admin_reply,
+            'admin_reply_at': self.admin_reply_at.strftime('%d/%m/%Y %H:%M') if self.admin_reply_at else None,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%d/%m/%Y %H:%M') if self.updated_at else None,
+        }
+
 
