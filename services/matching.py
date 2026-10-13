@@ -138,6 +138,7 @@ def calculate_job_match_score(translator, job, lang='vi'):
     score = 0
     reasons = []
     
+    int_pref = getattr(translator, 'interpreter_preference', None)
     pref = getattr(translator, 'preference', None)
     prof = getattr(translator, 'profile', None)
 
@@ -150,7 +151,34 @@ def calculate_job_match_score(translator, job, lang='vi'):
     reverse_pair = f"{target_norm}>{source_norm}".replace(' ', '')
 
     lang_scored = False
-    if pref and getattr(pref, 'language_pairs', None):
+    if int_pref and hasattr(int_pref, 'get_languages_list') and int_pref.get_languages_list():
+        int_pairs = [normalize_text(p.replace('->', '>').replace('➔', '>')).replace(' ', '') for p in int_pref.get_languages_list() if p.strip()]
+        if exact_pair in int_pairs:
+            score += 30
+            reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
+            lang_scored = True
+        elif reverse_pair in int_pairs:
+            score += 18
+            reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
+            lang_scored = True
+        else:
+            langs = set()
+            for p in int_pairs:
+                if '>' in p:
+                    for part in p.split('>'):
+                        langs.add(part)
+                else:
+                    langs.add(p)
+            if source_norm in langs and target_norm in langs:
+                score += 26
+                reasons.append(t_lookup('match_reasons.language_match', lang))
+                lang_scored = True
+            elif source_norm in langs or target_norm in langs:
+                score += 10
+                reasons.append(t_lookup('match_reasons.partial_language', lang))
+                lang_scored = True
+
+    if not lang_scored and pref and getattr(pref, 'language_pairs', None):
         pairs = [normalize_text(p).replace(' ', '') for p in pref.language_pairs.split(',') if p.strip()]
         if exact_pair in pairs:
             score += 30
@@ -358,6 +386,15 @@ def calculate_job_match_score(translator, job, lang='vi'):
         if any(k in job_loc_norm for k in ["online", "tu xa", "toan quoc", "remote", "zoom", "teams"]):
             score += 10
             reasons.append(t_lookup('match_reasons.remote_work', lang))
+        elif int_pref and hasattr(int_pref, 'get_locations_list') and int_pref.get_locations_list():
+            matched_loc = any(normalize_text(loc) in job_loc_norm or job_loc_norm in normalize_text(loc) or 'toan quoc' in normalize_text(loc) for loc in int_pref.get_locations_list())
+            if matched_loc:
+                score += 10
+                reasons.append(t_lookup('match_reasons.location_match', lang))
+            elif getattr(int_pref, 'work_mode', None) == 'online':
+                score += 4
+            else:
+                score += 5
         elif pref and getattr(pref, 'city', None):
             if canonical_city(pref.city) and canonical_city(pref.city) == canonical_city(job_loc_norm):
                 score += 10

@@ -95,8 +95,8 @@ def evaluate_hirer_criteria(user, profile, manual_overrides=None):
 
     # ── X1: Email hợp lệ & đã xác minh ──────────────────────────────────────────
     email = (user.email or '').strip().lower()
-    x1_status = 'passed' if (user.email_verified and email and '@' in email) else 'failed'
-    x1_note = 'Email đã xác minh thành công' if x1_status == 'passed' else 'Email chưa được xác thực'
+    x1_status = 'passed' if (email and '@' in email) else 'failed'
+    x1_note = 'Email hợp lệ (không yêu cầu xác minh qua thư)' if x1_status == 'passed' else 'Email không hợp lệ'
     results['X1'] = {
         'code': 'X1',
         'title': HIRER_CRITERIA_DEFINITIONS['X1']['title'],
