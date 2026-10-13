@@ -52,6 +52,12 @@ class User(db.Model):
     email_verified = db.Column(db.Boolean, default=False)
     verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
+    # Phân hệ Tài khoản Phiên dịch viên (Mục V)
+    bio = db.Column(db.Text, nullable=True)
+    date_of_birth = db.Column(db.String(20), nullable=True)
+    city = db.Column(db.String(100), nullable=True)
+    is_public_profile = db.Column(db.Boolean, default=True)
+    phone_verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     profile = db.relationship('TranslatorProfile', backref='user', uselist=False, cascade='all, delete-orphan')
@@ -61,6 +67,13 @@ class User(db.Model):
     direct_messages_sent = db.relationship('DirectMessage', foreign_keys='DirectMessage.sender_id', backref='sender', lazy=True)
     preference = db.relationship('TranslatorPreference', backref='user', uselist=False, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(Notification.created_at)')
+
+    # Phân hệ Tài khoản & Tiêu chí chuyên sâu (Mục V)
+    interpreter_services = db.relationship('InterpreterService', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(InterpreterService.id)')
+    interpreter_preference = db.relationship('InterpreterPreference', backref='user', uselist=False, cascade='all, delete-orphan')
+    notification_setting = db.relationship('NotificationSetting', backref='user', uselist=False, cascade='all, delete-orphan')
+    user_sessions = db.relationship('UserSession', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(UserSession.last_active)')
+    support_tickets = db.relationship('SupportTicket', backref='user', lazy=True, cascade='all, delete-orphan', order_by='desc(SupportTicket.created_at)')
 
     @property
     def avatar_url(self):
@@ -112,6 +125,55 @@ class User(db.Model):
                 pass
             return None
         return None
+
+    @property
+    def is_verified(self):
+        """Kiểm tra tài khoản đã xác minh định danh chưa."""
+        if self.role == 'translator':
+            return bool(self.profile and self.profile.is_verified)
+        elif self.role == 'hirer':
+            return bool(self.hirer_profile and self.hirer_profile.is_verified)
+        return False
+
+    @property
+    def is_phone_verified(self):
+        """Kiểm tra số điện thoại đã xác thực chưa."""
+        return bool(getattr(self, 'phone_verified', False) or (self.is_verified and self.phone))
+
+    @property
+    def subscription_tier(self):
+        """Tên mã gói dịch vụ hiện tại (Mục 5.5). Mặc định là 'standard' (Gói Tiêu Chuẩn)."""
+        return 'standard'
+
+    @property
+    def subscription_info(self):
+        """Thông tin chi tiết về gói dịch vụ & quyền lợi đang sử dụng (Mục 5.5)."""
+        tier = self.subscription_tier
+        if tier == 'pro':
+            return {
+                'tier': 'pro',
+                'name': 'Gói Phiên Dịch Viên Chuyên Nghiệp (Pro)',
+                'short_name': 'Gói Pro',
+                'badge_color': 'indigo',
+                'duration': '30 ngày',
+                'expires_at_display': 'Còn 30 ngày',
+                'is_pro': True,
+                'search_priority': 'Ưu tiên hiển thị Top 1 kết quả tìm kiếm',
+                'notification_speed': 'Tức thì (Real-time)',
+                'glossary_access': 'Mở khóa không giới hạn'
+            }
+        return {
+            'tier': 'standard',
+            'name': 'Gói Tiêu Chuẩn (Free)',
+            'short_name': 'Gói Tiêu Chuẩn',
+            'badge_color': 'slate',
+            'duration': 'Vô thời hạn',
+            'expires_at_display': 'Vô thời hạn',
+            'is_pro': False,
+            'search_priority': 'Tiêu chuẩn (Thứ hạng thông thường)',
+            'notification_speed': 'Thông thường (Web & Email)',
+            'glossary_access': 'Chỉ dành cho gói Pro'
+        }
 
 
 class TranslatorProfile(db.Model):
@@ -1415,6 +1477,11 @@ class TranslatorSchedule(db.Model):
     # reserved | active | completed | cancelled
     status = db.Column(db.String(20), default='reserved', index=True)
 
+    # shift | busy
+    schedule_type = db.Column(db.String(20), default='shift', index=True)
+    note = db.Column(db.String(255), nullable=True)
+    is_all_day = db.Column(db.Boolean, default=False)
+
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=True, index=True)
 
@@ -1881,4 +1948,567 @@ class EmailVerificationToken(db.Model):
 
     def is_valid(self):
         return not self.is_used and self.expires_at > datetime.utcnow()
+
+
+# ─── PHÂN HỆ TÀI KHOẢN PHIÊN DỊCH VIÊN (MỤC V) ───────────────────────────────
+
+class InterpreterService(db.Model):
+    """
+    Năng lực & Bảng giá của phiên dịch viên (Mục 5.2).
+    Lưu trữ cấu hình cặp ngôn ngữ, hình thức phiên dịch, chuyên môn và mức thù lao.
+    """
+    __tablename__ = 'interpreter_service'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    # Cặp ngôn ngữ & Hình thức phiên dịch
+    source_lang = db.Column(db.String(100), nullable=False)
+    target_lang = db.Column(db.String(100), nullable=False)
+    interpreting_type = db.Column(db.String(100), nullable=False)  # cabin, nối tiếp, tháp tùng, online
+    specialization = db.Column(db.String(255), nullable=True)     # kinh doanh, kỹ thuật, y tế, pháp lý
+
+    # Bảng giá
+    hourly_rate = db.Column(db.Float, nullable=True)               # Giá theo giờ (VND)
+    session_rate = db.Column(db.Float, nullable=True)              # Giá theo buổi/ca (VND)
+    currency = db.Column(db.String(10), default='VND')
+
+    is_active = db.Column(db.Boolean, default=True, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def formatted_hourly_rate(self):
+        """Định dạng mức thù lao theo giờ chuẩn VNĐ (Ví dụ: 1.500.000 VNĐ)."""
+        if self.hourly_rate is not None and self.hourly_rate > 0:
+            return f"{int(round(self.hourly_rate)):,}".replace(',', '.') + ' VNĐ'
+        return None
+
+    @property
+    def formatted_session_rate(self):
+        """Định dạng mức thù lao theo ca/buổi chuẩn VNĐ (Ví dụ: 5.000.000 VNĐ)."""
+        if self.session_rate is not None and self.session_rate > 0:
+            return f"{int(round(self.session_rate)):,}".replace(',', '.') + ' VNĐ'
+        return None
+
+    @property
+    def display_rate_summary(self):
+        """Tóm tắt mức thù lao theo giờ và theo ca."""
+        parts = []
+        if self.formatted_hourly_rate:
+            parts.append(f"{self.formatted_hourly_rate}/giờ")
+        if self.formatted_session_rate:
+            parts.append(f"{self.formatted_session_rate}/buổi")
+        return " · ".join(parts) if parts else "Thỏa thuận"
+
+    @property
+    def display_interpreting_type(self):
+        """Tên hiển thị chuẩn của hình thức phiên dịch."""
+        type_map = {
+            'cabin': 'Dịch Cabin (Đồng thời)',
+            'nối tiếp': 'Dịch nối tiếp (Consecutive)',
+            'noi_tiep': 'Dịch nối tiếp (Consecutive)',
+            'tháp tùng': 'Dịch tháp tùng (Escort)',
+            'thap_tung': 'Dịch tháp tùng (Escort)',
+            'online': 'Dịch từ xa (Online / Remote)',
+            'từ xa': 'Dịch từ xa (Online / Remote)',
+        }
+        raw = (self.interpreting_type or '').strip().lower()
+        for k, v in type_map.items():
+            if k in raw:
+                return v
+        return self.interpreting_type or 'Chung'
+
+    @property
+    def interpreting_type_badge_class(self):
+        """Màu badge phù hợp với hình thức phiên dịch."""
+        raw = (self.interpreting_type or '').strip().lower()
+        if 'cabin' in raw:
+            return 'bg-purple-50 text-purple-700 border-purple-200'
+        elif 'nối tiếp' in raw or 'noi_tiep' in raw:
+            return 'bg-blue-50 text-blue-700 border-blue-200'
+        elif 'tháp tùng' in raw or 'thap_tung' in raw:
+            return 'bg-amber-50 text-amber-700 border-amber-200'
+        elif 'online' in raw or 'từ xa' in raw:
+            return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        return 'bg-slate-50 text-slate-700 border-slate-200'
+
+    def is_kyc_verified(self):
+        """
+        Kiểm tra cặp ngôn ngữ và chuyên ngành của dịch vụ này
+        đã được Ban quản trị DUYỆT trong hệ thống KYC hay chưa.
+        NẾU ngôn ngữ/chuyên ngành ĐÃ ĐƯỢC DUYỆT ở hệ thống KYC: True -> 'Đã xác minh năng lực ✓'
+        NẾU là dịch vụ tự khai thêm: False -> 'Chưa xác minh'
+        """
+        user = self.user
+        if not user:
+            return False
+
+        # 1. Tìm hồ sơ xác minh đã duyệt (status == 'approved')
+        approved_verif = None
+        if hasattr(user, 'verifications') and user.verifications:
+            for v in user.verifications:
+                if getattr(v, 'status', None) == 'approved':
+                    approved_verif = v
+                    break
+
+        user_is_verified = bool(
+            approved_verif or
+            getattr(user, 'is_verified', False) or
+            (user.profile and getattr(user.profile, 'is_verified', False))
+        )
+        if not user_is_verified:
+            return False
+
+        def clean_lang(l):
+            if not l:
+                return ''
+            s = l.strip().lower()
+            lang_map = {
+                'tiếng việt': 'vi', 'việt': 'vi', 'vietnamese': 'vi', 'vn': 'vi', 'vi': 'vi',
+                'tiếng anh': 'en', 'anh': 'en', 'english': 'en', 'en': 'en',
+                'tiếng nhật': 'ja', 'tiếng nhật bản': 'ja', 'nhật': 'ja', 'nhật bản': 'ja', 'japanese': 'ja', 'jp': 'ja', 'ja': 'ja',
+                'tiếng hàn': 'ko', 'tiếng hàn quốc': 'ko', 'hàn': 'ko', 'hàn quốc': 'ko', 'korean': 'ko', 'kr': 'ko', 'ko': 'ko',
+                'tiếng trung': 'zh', 'tiếng trung quốc': 'zh', 'trung': 'zh', 'trung quốc': 'zh', 'chinese': 'zh', 'cn': 'zh', 'zh': 'zh',
+                'tiếng pháp': 'fr', 'pháp': 'fr', 'french': 'fr', 'fr': 'fr',
+                'tiếng đức': 'de', 'đức': 'de', 'german': 'de', 'de': 'de',
+                'tiếng nga': 'ru', 'nga': 'ru', 'russian': 'ru', 'ru': 'ru',
+                'tiếng tây ban nha': 'es', 'tây ban nha': 'es', 'spanish': 'es', 'es': 'es',
+                'tiếng bồ đào nha': 'pt', 'bồ đào nha': 'pt', 'portuguese': 'pt', 'pt': 'pt',
+                'tiếng thái': 'th', 'thái': 'th', 'thái lan': 'th', 'thai': 'th', 'th': 'th',
+            }
+            return lang_map.get(s, s)
+
+        approved_langs = set()
+        if approved_verif:
+            if approved_verif.source_language:
+                approved_langs.add(clean_lang(approved_verif.source_language))
+            if approved_verif.target_language:
+                approved_langs.add(clean_lang(approved_verif.target_language))
+            if approved_verif.primary_language:
+                approved_langs.add(clean_lang(approved_verif.primary_language))
+        if user.profile:
+            if user.profile.source_language:
+                approved_langs.add(clean_lang(user.profile.source_language))
+            if user.profile.target_language:
+                approved_langs.add(clean_lang(user.profile.target_language))
+            if user.profile.languages:
+                for l in user.profile.languages.split(','):
+                    approved_langs.add(clean_lang(l))
+
+        src_clean = clean_lang(self.source_lang)
+        tgt_clean = clean_lang(self.target_lang)
+
+        lang_matched = False
+        if approved_langs:
+            if src_clean in approved_langs and tgt_clean in approved_langs:
+                lang_matched = True
+            elif (src_clean in ('vi', '') and tgt_clean in approved_langs) or (tgt_clean in ('vi', '') and src_clean in approved_langs):
+                lang_matched = True
+        else:
+            lang_matched = True
+
+        # Thu thập lĩnh vực chuyên môn đã được duyệt
+        approved_specs = set()
+        def extract_specs(raw):
+            if not raw:
+                return
+            if isinstance(raw, str):
+                import json
+                try:
+                    parsed = json.loads(raw)
+                    if isinstance(parsed, list):
+                        for x in parsed:
+                            approved_specs.add(str(x).strip().lower())
+                        return
+                except Exception:
+                    pass
+                for part in raw.replace(';', ',').split(','):
+                    if part.strip():
+                        approved_specs.add(part.strip().lower())
+            elif isinstance(raw, list):
+                for x in raw:
+                    approved_specs.add(str(x).strip().lower())
+
+        if approved_verif and approved_verif.specializations:
+            extract_specs(approved_verif.specializations)
+        if user.profile and user.profile.specializations:
+            extract_specs(user.profile.specializations)
+
+        svc_spec = (self.specialization or '').strip().lower()
+        spec_matched = False
+        if not svc_spec or not approved_specs:
+            spec_matched = True
+        else:
+            for app_sp in approved_specs:
+                if app_sp in svc_spec or svc_spec in app_sp:
+                    spec_matched = True
+                    break
+                words_app = set(app_sp.replace('&', ' ').replace('-', ' ').split())
+                words_svc = set(svc_spec.replace('&', ' ').replace('-', ' ').split())
+                if words_app & words_svc:
+                    spec_matched = True
+                    break
+
+        return bool(lang_matched and spec_matched)
+
+    def to_dict(self):
+        """Chuyển đổi thành Dictionary phục vụ JSON API."""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'source_lang': self.source_lang,
+            'target_lang': self.target_lang,
+            'interpreting_type': self.interpreting_type,
+            'display_interpreting_type': self.display_interpreting_type,
+            'interpreting_type_badge_class': self.interpreting_type_badge_class,
+            'specialization': self.specialization or '',
+            'hourly_rate': self.hourly_rate,
+            'formatted_hourly_rate': self.formatted_hourly_rate,
+            'session_rate': self.session_rate,
+            'formatted_session_rate': self.formatted_session_rate,
+            'display_rate_summary': self.display_rate_summary,
+            'currency': self.currency or 'VND',
+            'is_active': self.is_active,
+            'is_kyc_verified': self.is_kyc_verified(),
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None
+        }
+
+
+class InterpreterPreference(db.Model):
+    """
+    Tiêu chí nhận việc của phiên dịch viên (Mục 5.4).
+    Lưu trữ các ràng buộc bộ lọc: ngôn ngữ, chuyên môn, phương thức làm việc và khoảng giá mong muốn.
+    """
+    __tablename__ = 'interpreter_preference'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+
+    languages = db.Column(db.Text, nullable=True)            # JSON string hoặc chuỗi phân tách các ngôn ngữ
+    specializations = db.Column(db.Text, nullable=True)      # JSON string hoặc chuỗi phân tách các chuyên môn
+    work_mode = db.Column(db.String(50), default='both')     # online, offline, both
+    min_rate = db.Column(db.Float, nullable=True)            # Mức giá tối thiểu mong muốn
+    max_rate = db.Column(db.Float, nullable=True)            # Mức giá tối đa mong muốn
+    allow_outside_rate = db.Column(db.Boolean, default=False)# Chấp nhận việc ngoài khoảng giá
+    available_hours = db.Column(db.Text, nullable=True)      # Khung giờ làm việc sẵn sàng (JSON/Text)
+    locations = db.Column(db.Text, nullable=True)            # Khu vực nhận việc trực tiếp (JSON/Text)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def get_languages_list(self):
+        if not self.languages:
+            return []
+        try:
+            val = json.loads(self.languages)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [l.strip() for l in self.languages.split(',') if l.strip()]
+
+    def set_languages_list(self, items):
+        if isinstance(items, list):
+            self.languages = json.dumps(items, ensure_ascii=False)
+        else:
+            self.languages = str(items or '')
+
+    def get_specializations_list(self):
+        if not self.specializations:
+            return []
+        try:
+            val = json.loads(self.specializations)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [s.strip() for s in self.specializations.split(',') if s.strip()]
+
+    def set_specializations_list(self, items):
+        if isinstance(items, list):
+            self.specializations = json.dumps(items, ensure_ascii=False)
+        else:
+            self.specializations = str(items or '')
+
+    def get_locations_list(self):
+        if not self.locations:
+            return []
+        try:
+            val = json.loads(self.locations)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [loc.strip() for loc in self.locations.split(',') if loc.strip()]
+
+    def set_locations_list(self, items):
+        if isinstance(items, list):
+            self.locations = json.dumps(items, ensure_ascii=False)
+        else:
+            self.locations = str(items or '')
+
+    def get_available_hours_list(self):
+        if not self.available_hours:
+            return []
+        try:
+            val = json.loads(self.available_hours)
+            if isinstance(val, list):
+                return val
+        except Exception:
+            pass
+        return [h.strip() for h in self.available_hours.split(',') if h.strip()]
+
+    def set_available_hours_list(self, items):
+        if isinstance(items, list):
+            self.available_hours = json.dumps(items, ensure_ascii=False)
+        else:
+            self.available_hours = str(items or '')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'languages': self.get_languages_list(),
+            'specializations': self.get_specializations_list(),
+            'work_mode': self.work_mode or 'both',
+            'min_rate': self.min_rate,
+            'max_rate': self.max_rate,
+            'allow_outside_rate': bool(self.allow_outside_rate),
+            'available_hours': self.get_available_hours_list(),
+            'locations': self.get_locations_list(),
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }
+
+
+class NotificationSetting(db.Model):
+    """
+    Cài đặt nhận thông báo của người dùng (Mục 5.6.1).
+    Phục vụ cấu hình tùy chọn thông báo (Notification Preferences) với 4 nhóm:
+    1. Nhóm Công việc: Job mới phù hợp, Trạng thái đơn ứng tuyển, Khách đã xem hồ sơ
+    2. Nhóm Lịch trình: Nhắc lịch ca dịch sắp tới (kèm các mốc 60p, 30p, 15p)
+    3. Nhóm Thu nhập: Cập nhật thù lao và giải ngân
+    4. Nhóm Bảo mật & Hệ thống: Cảnh báo đăng nhập lạ và bảo mật (Luôn bật và khóa)
+    """
+    __tablename__ = 'notification_setting'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True, index=True)
+
+    # 1. Nhóm Công việc
+    notify_job_match = db.Column(db.Boolean, default=True)           # Công việc mới phù hợp tiêu chí
+    notify_application_update = db.Column(db.Boolean, default=True)  # Trạng thái đơn ứng tuyển / hợp đồng
+    notify_profile_view = db.Column(db.Boolean, default=True)        # Khách đã xem hồ sơ
+
+    # 2. Nhóm Lịch trình
+    notify_schedule_reminder = db.Column(db.Boolean, default=True)   # Nhắc lịch ca dịch sắp tới
+    reminder_time_60m = db.Column(db.Boolean, default=True)          # Mốc nhắc: Trước 60 phút
+    reminder_time_30m = db.Column(db.Boolean, default=True)          # Mốc nhắc: Trước 30 phút
+    reminder_time_15m = db.Column(db.Boolean, default=False)         # Mốc nhắc: Trước 15 phút
+
+    # 3. Nhóm Thu nhập
+    notify_income_update = db.Column(db.Boolean, default=True)       # Cập nhật thù lao và giải ngân
+
+    # 4. Nhóm Bảo mật & Hệ thống (Luôn BẬT và KHÓA)
+    notify_security_alert = db.Column(db.Boolean, default=True)      # Cảnh báo đăng nhập lạ và bảo mật
+
+    # Tiếp thị & Nền tảng
+    notify_marketing = db.Column(db.Boolean, default=False)          # Tin khuyến mại, sự kiện nền tảng
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Alias properties cho tính tương thích và tiện dụng
+    @property
+    def reminder_60m(self):
+        return bool(self.reminder_time_60m) if self.reminder_time_60m is not None else True
+
+    @reminder_60m.setter
+    def reminder_60m(self, val):
+        self.reminder_time_60m = bool(val)
+
+    @property
+    def reminder_30m(self):
+        return bool(self.reminder_time_30m) if self.reminder_time_30m is not None else True
+
+    @reminder_30m.setter
+    def reminder_30m(self, val):
+        self.reminder_time_30m = bool(val)
+
+    @property
+    def reminder_15m(self):
+        return bool(self.reminder_time_15m) if self.reminder_time_15m is not None else False
+
+    @reminder_15m.setter
+    def reminder_15m(self, val):
+        self.reminder_time_15m = bool(val)
+
+    @property
+    def notify_payout(self):
+        return bool(self.notify_income_update) if self.notify_income_update is not None else True
+
+    @notify_payout.setter
+    def notify_payout(self, val):
+        self.notify_income_update = bool(val)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'notify_job_match': True if self.notify_job_match is None else bool(self.notify_job_match),
+            'notify_application_update': True if self.notify_application_update is None else bool(self.notify_application_update),
+            'notify_profile_view': True if self.notify_profile_view is None else bool(self.notify_profile_view),
+            'notify_schedule_reminder': True if self.notify_schedule_reminder is None else bool(self.notify_schedule_reminder),
+            'reminder_time_60m': True if self.reminder_time_60m is None else bool(self.reminder_time_60m),
+            'reminder_time_30m': True if self.reminder_time_30m is None else bool(self.reminder_time_30m),
+            'reminder_time_15m': False if self.reminder_time_15m is None else bool(self.reminder_time_15m),
+            'reminder_60m': True if self.reminder_time_60m is None else bool(self.reminder_time_60m),
+            'reminder_30m': True if self.reminder_time_30m is None else bool(self.reminder_time_30m),
+            'reminder_15m': False if self.reminder_time_15m is None else bool(self.reminder_time_15m),
+            'notify_income_update': True if self.notify_income_update is None else bool(self.notify_income_update),
+            'notify_security_alert': True,  # Luôn BẬT và KHÓA
+            'notify_marketing': bool(self.notify_marketing),
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S') if self.updated_at else None
+        }
+
+
+class UserSession(db.Model):
+    """
+    Quản lý phiên đăng nhập và bảo mật thiết bị (Mục 5.6.2).
+    """
+    __tablename__ = 'user_session'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    session_id = db.Column(db.String(255), nullable=True, index=True) # Token phiên
+    device_name = db.Column(db.String(255), nullable=True)            # Trình duyệt / Thiết bị
+    ip_address = db.Column(db.String(50), nullable=True)              # Địa chỉ IP
+    last_active = db.Column(db.DateTime, default=datetime.utcnow)    # Lần hoạt động cuối
+    is_current = db.Column(db.Boolean, default=False)                 # Đánh dấu phiên hiện tại
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def format_last_active(self):
+        """Định dạng thời gian hoạt động gần nhất thân thiện tiếng Việt."""
+        if not self.last_active:
+            return "Chưa xác định"
+        now = datetime.utcnow()
+        diff = now - self.last_active
+        seconds = int(diff.total_seconds())
+        if seconds < 0:
+            seconds = 0
+        if seconds < 60:
+            return "Vừa xong"
+        minutes = seconds // 60
+        if minutes < 60:
+            return f"{minutes} phút trước"
+        hours = minutes // 60
+        if hours < 24:
+            return f"{hours} giờ trước"
+        days = hours // 24
+        if days < 7:
+            return f"{days} ngày trước"
+        return self.last_active.strftime("%H:%M %d/%m/%Y")
+
+    def get_device_type(self):
+        """Xác định loại thiết bị: desktop, mobile, tablet."""
+        name = (self.device_name or "").lower()
+        if any(x in name for x in ['iphone', 'android', 'mobile', 'phone']):
+            return 'mobile'
+        if any(x in name for x in ['ipad', 'tablet']):
+            return 'tablet'
+        return 'desktop'
+
+    def to_dict(self, current_session_token=None):
+        """Chuyển đổi UserSession thành dict đầy đủ thuộc tính."""
+        is_cur = bool(current_session_token and self.session_id == current_session_token) or (not current_session_token and bool(self.is_current))
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'session_id': self.session_id,
+            'device_name': self.device_name or 'Trình duyệt Web',
+            'ip_address': self.ip_address or '127.0.0.1',
+            'last_active': self.last_active.isoformat() if self.last_active else None,
+            'last_active_formatted': self.format_last_active(),
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'is_current': is_cur,
+            'device_type': self.get_device_type()
+        }
+
+
+class SupportTicket(db.Model):
+    """
+    Yêu cầu hỗ trợ kỹ thuật và khiếu nại (Mục 5.7.3).
+    """
+    __tablename__ = 'support_ticket'
+
+    id = db.Column(db.Integer, primary_key=True)
+    ticket_code = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+
+    category = db.Column(db.String(100), nullable=False)     # Phân loại: compensation, cancellation, dispute, identity, technical, other
+    title = db.Column(db.String(255), nullable=False)        # Tiêu đề
+    description = db.Column(db.Text, nullable=False)         # Nội dung mô tả chi tiết
+    attachment_url = db.Column(db.String(500), nullable=True)# URL tệp đính kèm (ảnh lỗi, tài liệu...)
+    status = db.Column(db.String(30), default='open', index=True) # open, in_progress, resolved, closed
+    admin_reply = db.Column(db.Text, nullable=True)          # Phản hồi từ Ban Quản trị / Hỗ trợ viên
+    admin_reply_at = db.Column(db.DateTime, nullable=True)   # Thời gian phản hồi
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def status_label(self):
+        labels = {
+            'open': 'Đã tiếp nhận',
+            'received': 'Đã tiếp nhận',
+            'in_progress': 'Đang xử lý',
+            'resolved': 'Đã giải quyết',
+            'closed': 'Đã đóng'
+        }
+        return labels.get(self.status, 'Đã tiếp nhận')
+
+    @property
+    def status_badge_class(self):
+        badges = {
+            'open': 'bg-blue-50 text-blue-700 border-blue-200/80',
+            'received': 'bg-blue-50 text-blue-700 border-blue-200/80',
+            'in_progress': 'bg-amber-50 text-amber-700 border-amber-200/80',
+            'resolved': 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+            'closed': 'bg-slate-100 text-slate-700 border-slate-200/80'
+        }
+        return badges.get(self.status, 'bg-blue-50 text-blue-700 border-blue-200/80')
+
+    @property
+    def category_label(self):
+        labels = {
+            'compensation': 'Nhận thù lao & Escrow',
+            'cancellation': 'Quy tắc hủy ca & Bồi thường',
+            'dispute': 'Giải quyết tranh chấp & Khiếu nại',
+            'identity': 'Đổi thông tin định danh & KYC',
+            'technical': 'Sự cố kỹ thuật & Đăng nhập',
+            'account_security': 'Bảo mật tài khoản',
+            'other': 'Yêu cầu khác'
+        }
+        return labels.get(self.category, self.category or 'Hỗ trợ chung')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'ticket_code': self.ticket_code,
+            'user_id': self.user_id,
+            'category': self.category,
+            'category_label': self.category_label,
+            'title': self.title,
+            'description': self.description,
+            'attachment_url': self.attachment_url,
+            'status': self.status,
+            'status_label': self.status_label,
+            'status_badge_class': self.status_badge_class,
+            'admin_reply': self.admin_reply,
+            'admin_reply_at': self.admin_reply_at.strftime('%d/%m/%Y %H:%M') if self.admin_reply_at else None,
+            'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
+            'updated_at': self.updated_at.strftime('%d/%m/%Y %H:%M') if self.updated_at else None,
+        }
+
 
