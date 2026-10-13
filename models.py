@@ -141,6 +141,16 @@ class User(db.Model):
         return bool(getattr(self, 'phone_verified', False) or (self.is_verified and self.phone))
 
     @property
+    def is_authenticated(self):
+        """Khả năng tương thích kiểm tra đăng nhập."""
+        return True
+
+    @property
+    def is_anonymous(self):
+        """Khả năng tương thích kiểm tra người dùng vô danh."""
+        return False
+
+    @property
     def subscription_tier(self):
         """Tên mã gói dịch vụ hiện tại (Mục 5.5). Mặc định là 'standard' (Gói Tiêu Chuẩn)."""
         return 'standard'
