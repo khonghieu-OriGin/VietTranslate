@@ -270,7 +270,6 @@
                     </div>
                 </a>
 
-
                 <!-- Right Actions & User Account -->
                 <div class="flex items-center gap-2 lg:gap-3 shrink-0 whitespace-nowrap">
                     <!-- Clean "VI/EN" Switcher (No emoji flag) -->
@@ -606,8 +605,8 @@
                     </a>
                 </div>
                 <!-- Mobile: 4. Thu nhập -->
-                <a href="{{ url_for('account_history') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_history' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Thu nhập</a>
+                <a href="{{ url_for('interpreter_income_overview') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint and request.endpoint.startswith('interpreter_income_') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Thu nhập</a>
                 <!-- Mobile: 5. Tài khoản -->
                 <a href="{{ url_for('account_profile') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_profile' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tài khoản</a>
@@ -774,7 +773,7 @@
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                     <span>Lịch làm việc</span>
                 </a>
-                <a href="{{ url_for('account_history') }}" class="side-link {% if request.endpoint == 'account_history' %}active{% endif %}">
+                <a href="{{ url_for('interpreter_income_overview') }}" class="side-link {% if request.endpoint and request.endpoint.startswith('interpreter_income_') %}active{% endif %}">
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span>Thu nhập</span>
                 </a>

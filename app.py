@@ -5723,6 +5723,701 @@ def api_delete_busy_time(busy_id):
         'message': 'Đã xóa thời gian bận thành công.'
     })
 
+# ─── INTERPRETER INCOME MODULE (PHÂN HỆ THU NHẬP PHIÊN DỊCH VIÊN) ────────────
+
+@app.route('/interpreter/income')
+@login_required
+def interpreter_income_root():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+    return redirect(url_for('interpreter_income_overview'))
+
+@app.route('/interpreter/income/overview')
+@login_required
+def interpreter_income_overview():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+
+    import calendar
+    from datetime import datetime as dt_cls, date as date_cls, timedelta
+
+    # VN Timezone offset: UTC + 7
+    # Calculations are done using Vietnam date/time conventions and converted to UTC for DB queries.
+    now_utc = dt_cls.utcnow()
+    now_vn = now_utc + timedelta(hours=7)
+    today_vn = now_vn.date()
+
+    period = request.args.get('period', 'current_month')
+    start_date_str = request.args.get('start_date', '').strip()
+    end_date_str = request.args.get('end_date', '').strip()
+
+    start_date_vn = None
+    end_date_vn = None
+    period_label = ""
+
+    if period == 'last_month':
+        # Tháng trước: từ ngày 1 đến ngày cuối cùng của tháng trước
+        first_of_this_month = today_vn.replace(day=1)
+        last_day_of_prev_month = first_of_this_month - timedelta(days=1)
+        start_date_vn = last_day_of_prev_month.replace(day=1)
+        end_date_vn = last_day_of_prev_month
+        period_label = f"Tháng trước ({start_date_vn.strftime('%m/%Y')})"
+    elif period == 'custom':
+        # Khoảng ngày tùy chọn
+        try:
+            if start_date_str:
+                start_date_vn = dt_cls.strptime(start_date_str, '%Y-%m-%d').date()
+            if end_date_str:
+                end_date_vn = dt_cls.strptime(end_date_str, '%Y-%m-%d').date()
+
+            if start_date_vn and end_date_vn and start_date_vn > end_date_vn:
+                start_date_vn, end_date_vn = end_date_vn, start_date_vn
+                start_date_str, end_date_str = start_date_vn.strftime('%Y-%m-%d'), end_date_vn.strftime('%Y-%m-%d')
+
+            if start_date_vn and end_date_vn:
+                period_label = f"Từ {start_date_vn.strftime('%d/%m/%Y')} đến {end_date_vn.strftime('%d/%m/%Y')}"
+            elif start_date_vn:
+                period_label = f"Từ ngày {start_date_vn.strftime('%d/%m/%Y')}"
+            elif end_date_vn:
+                period_label = f"Đến ngày {end_date_vn.strftime('%d/%m/%Y')}"
+            else:
+                period = 'current_month'
+        except ValueError:
+            period = 'current_month'
+
+    if period == 'current_month':
+        start_date_vn = today_vn.replace(day=1)
+        _, last_day = calendar.monthrange(today_vn.year, today_vn.month)
+        end_date_vn = today_vn.replace(day=last_day)
+        period_label = f"Tháng này ({today_vn.strftime('%m/%Y')})"
+
+    # Convert VN dates to UTC range for filtering
+    start_dt_utc = dt_cls.combine(start_date_vn, dt_cls.min.time()) - timedelta(hours=7) if start_date_vn else None
+    end_dt_utc = dt_cls.combine(end_date_vn, dt_cls.max.time()) - timedelta(hours=7) if end_date_vn else None
+
+    # Query all contracts for this translator excluding cancelled contracts
+    all_contracts_query = Contract.query.filter(
+        Contract.translator_id == user.id,
+        Contract.status != 'cancelled'
+    )
+    all_contracts = all_contracts_query.order_by(Contract.created_at.desc()).all()
+
+    # Filter contracts into mutually exclusive groups and apply date boundaries
+    # Quy tắc ngày:
+    # - Hợp đồng completed/reviewed: ngày giải ngân căn cứ theo updated_at (hoặc created_at nếu không có)
+    # - Hợp đồng delivered, in_progress, escrow_held: ngày căn cứ theo event_sort_date hoặc created_at
+    filtered_contracts = []
+
+    total_gross = 0          # Tổng thu nhập gộp (100% agreed_price của các ca đã thanh toán trong kỳ)
+    total_net = 0            # Thu nhập ròng thực nhận (90% translator_net_amount của các ca đã thanh toán trong kỳ)
+    total_platform_fee = 0   # Phí nền tảng (10%)
+    pending_payout = 0       # Đang chờ thanh toán (delivered)
+    in_escrow = 0            # Đang xử lý / tạm giữ trong Escrow (in_progress, active, escrow_held)
+    paid_count = 0
+    pending_count = 0
+    escrow_count = 0
+
+    for c in all_contracts:
+        is_completed = c.status in ('completed', 'reviewed')
+        is_pending = c.status == 'delivered'
+        is_escrow = c.status in ('in_progress', 'active', 'escrow_held')
+
+        # Determine reference date for filtering
+        if is_completed:
+            ref_dt = c.updated_at or c.created_at
+        else:
+            if hasattr(c, 'event_sort_date') and c.event_sort_date:
+                ref_dt = dt_cls.combine(c.event_sort_date, dt_cls.min.time())
+            else:
+                ref_dt = c.created_at
+
+        # Check if contract falls into the selected period
+        in_period = True
+        if ref_dt:
+            if start_dt_utc and ref_dt < start_dt_utc:
+                in_period = False
+            if end_dt_utc and ref_dt > end_dt_utc:
+                in_period = False
+
+        if in_period:
+            filtered_contracts.append(c)
+            agreed = c.agreed_price or 0
+            net = c.translator_net_amount or int(agreed * 0.9)
+            fee = c.platform_fee or int(agreed * 0.1)
+
+            if is_completed:
+                total_gross += agreed
+                total_net += net
+                total_platform_fee += fee
+                paid_count += 1
+            elif is_pending:
+                pending_payout += net
+                pending_count += 1
+            elif is_escrow:
+                in_escrow += net
+                escrow_count += 1
+
+    return render_template(
+        'income_overview.html',
+        user=user,
+        contracts=filtered_contracts,
+        period=period,
+        period_label=period_label,
+        start_date_str=start_date_str or (start_date_vn.strftime('%Y-%m-%d') if start_date_vn else ''),
+        end_date_str=end_date_str or (end_date_vn.strftime('%Y-%m-%d') if end_date_vn else ''),
+        total_gross=total_gross,
+        total_net=total_net,
+        total_platform_fee=total_platform_fee,
+        pending_payout=pending_payout,
+        in_escrow=in_escrow,
+        paid_count=paid_count,
+        pending_count=pending_count,
+        escrow_count=escrow_count,
+        total_contract_count=len(filtered_contracts)
+    )
+
+@app.route('/interpreter/income/details')
+@login_required
+def interpreter_income_details():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+
+    q = request.args.get('q', '').strip()
+    status_filter = request.args.get('status', '').strip()
+
+    # Query all active contracts for current interpreter
+    query = Contract.query.filter(
+        Contract.translator_id == user.id,
+        Contract.status != 'cancelled'
+    )
+
+    # Filter by financial status
+    if status_filter == 'paid':
+        query = query.filter(Contract.status.in_(['completed', 'reviewed']))
+    elif status_filter == 'escrow_held':
+        query = query.filter(Contract.status.in_(['in_progress', 'active', 'escrow_held']))
+    elif status_filter == 'delivered':
+        query = query.filter(Contract.status == 'delivered')
+
+    # Filter by search term q
+    if q:
+        safe_q = f"%{q}%"
+        query = query.outerjoin(Job, Contract.job_id == Job.id).filter(
+            db.or_(
+                Contract.id.cast(db.String).ilike(safe_q),
+                Job.title.ilike(safe_q)
+            )
+        )
+
+    contracts = query.order_by(Contract.created_at.desc()).all()
+
+    # Calculate metrics for the displayed list
+    total_displayed_net = sum(c.translator_net_amount or int((c.agreed_price or 0) * 0.9) for c in contracts)
+    total_displayed_gross = sum(c.agreed_price or 0 for c in contracts)
+    total_displayed_fee = sum(c.platform_fee or int((c.agreed_price or 0) * 0.1) for c in contracts)
+
+    return render_template(
+        'income_details.html',
+        user=user,
+        contracts=contracts,
+        q=q,
+        status_filter=status_filter,
+        total_displayed_net=total_displayed_net,
+        total_displayed_gross=total_displayed_gross,
+        total_displayed_fee=total_displayed_fee,
+        total_count=len(contracts)
+    )
+
+
+@app.route('/interpreter/income/payouts')
+@login_required
+def interpreter_income_payouts():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+
+    status_filter = request.args.get('status', 'all').strip()
+    q = request.args.get('q', '').strip()
+    sort_by = request.args.get('sort', 'newest').strip()
+
+    try:
+        from services.projects import build_timeline
+        from models import ContractEvent, PaymentTransaction, Report
+
+        # Lấy tất cả hợp đồng của phiên dịch viên hiện tại (bảo đảm quyền truy cập)
+        all_contracts = Contract.query.filter(
+            Contract.translator_id == user.id
+        ).order_by(Contract.created_at.desc()).all()
+
+        # Bộ đếm số lượng theo giai đoạn tiến độ
+        counts = {
+            'all': len(all_contracts),
+            'delivered': 0,          # Chờ nghiệm thu & giải ngân
+            'escrow_held': 0,        # Đang giữ trong Escrow an toàn
+            'completed': 0,          # Đã giải ngân thành công
+            'revision_requested': 0, # Yêu cầu chỉnh sửa / Tạm giữ
+            'escrow_pending': 0,     # Chờ khách ký quỹ
+            'cancelled': 0           # Đã hủy / Hoàn tiền
+        }
+
+        # Tổng hợp số liệu tài chính theo nhóm trạng thái
+        metrics = {
+            'total_paid_net': 0,
+            'total_delivered_net': 0,
+            'total_escrow_held_net': 0,
+            'total_revision_net': 0,
+            'total_gross': 0,
+            'total_fee': 0
+        }
+
+        for c in all_contracts:
+            net = c.translator_net_amount or int((c.agreed_price or 0) * 0.9)
+            gross = c.agreed_price or 0
+            fee = c.platform_fee or int(gross * 0.1)
+
+            if c.status in ['completed', 'reviewed']:
+                counts['completed'] += 1
+                metrics['total_paid_net'] += net
+                metrics['total_gross'] += gross
+                metrics['total_fee'] += fee
+            elif c.status == 'delivered':
+                counts['delivered'] += 1
+                metrics['total_delivered_net'] += net
+                metrics['total_gross'] += gross
+                metrics['total_fee'] += fee
+            elif c.status == 'revision_requested':
+                counts['revision_requested'] += 1
+                metrics['total_revision_net'] += net
+                metrics['total_gross'] += gross
+                metrics['total_fee'] += fee
+            elif c.status in ['in_progress', 'active', 'escrow_held']:
+                counts['escrow_held'] += 1
+                metrics['total_escrow_held_net'] += net
+                metrics['total_gross'] += gross
+                metrics['total_fee'] += fee
+            elif c.status == 'escrow_pending':
+                counts['escrow_pending'] += 1
+            elif c.status == 'cancelled':
+                counts['cancelled'] += 1
+
+        # Lọc danh sách theo status_filter
+        if status_filter == 'delivered':
+            filtered = [c for c in all_contracts if c.status == 'delivered']
+        elif status_filter == 'escrow_held':
+            filtered = [c for c in all_contracts if c.status in ['in_progress', 'active', 'escrow_held']]
+        elif status_filter == 'completed':
+            filtered = [c for c in all_contracts if c.status in ['completed', 'reviewed']]
+        elif status_filter == 'revision_requested':
+            filtered = [c for c in all_contracts if c.status == 'revision_requested']
+        elif status_filter == 'escrow_pending':
+            filtered = [c for c in all_contracts if c.status == 'escrow_pending']
+        elif status_filter == 'cancelled':
+            filtered = [c for c in all_contracts if c.status == 'cancelled']
+        else:
+            filtered = list(all_contracts)
+
+        # Lọc theo từ khóa tìm kiếm (mã ca, tiêu đề công việc)
+        if q:
+            q_clean = q.lower().strip()
+            filtered = [
+                c for c in filtered
+                if q_clean in str(c.id).lower()
+                or (c.job and q_clean in c.job.title.lower())
+                or (f"ca-{c.id}" in q_clean.replace(" ", ""))
+                or (f"#ca-{c.id}" in q_clean.replace(" ", ""))
+            ]
+
+        # Sắp xếp
+        if sort_by == 'oldest':
+            filtered.sort(key=lambda c: c.created_at or datetime.min)
+        elif sort_by == 'amount_desc':
+            filtered.sort(key=lambda c: c.translator_net_amount or 0, reverse=True)
+        elif sort_by == 'amount_asc':
+            filtered.sort(key=lambda c: c.translator_net_amount or 0)
+        else:  # 'newest' mặc định
+            filtered.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
+
+        # Đóng gói dữ liệu bổ trợ cho từng hợp đồng
+        contract_items = []
+        for c in filtered:
+            # Xác định các bước pipeline (1: Ký quỹ, 2: Thực hiện ca, 3: Bàn giao & Nghiệm thu, 4: Giải ngân)
+            if c.status in ['completed', 'reviewed']:
+                stage_step = 4
+                stage_code = 'completed'
+                stage_label = 'Đã giải ngân Escrow'
+                stage_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                stage_dot = 'bg-emerald-500'
+                stage_desc = 'Bên tuyển dụng đã nghiệm thu thành công. Thù lao 90% đã được giải ngân an toàn.'
+            elif c.status == 'delivered':
+                stage_step = 3
+                stage_code = 'delivered'
+                stage_label = 'Chờ nghiệm thu & Giải ngân'
+                stage_badge = 'bg-purple-50 text-purple-700 border-purple-200'
+                stage_dot = 'bg-purple-500 animate-pulse'
+                stage_desc = 'Bạn đã bàn giao ca làm. Đang chờ khách hàng nghiệm thu để kích hoạt giải ngân.'
+            elif c.status == 'revision_requested':
+                stage_step = 3
+                stage_code = 'revision_requested'
+                stage_label = 'Yêu cầu chỉnh sửa / Tạm giữ'
+                stage_badge = 'bg-amber-50 text-amber-800 border-amber-300'
+                stage_dot = 'bg-amber-500'
+                stage_desc = 'Khách hàng yêu cầu rà soát bổ sung. Thù lao đang tạm thời đóng băng trong Escrow.'
+            elif c.status in ['in_progress', 'active', 'escrow_held']:
+                stage_step = 2
+                stage_code = 'escrow_held'
+                stage_label = 'Đang giữ Escrow an toàn'
+                stage_badge = 'bg-sky-50 text-sky-700 border-sky-200'
+                stage_dot = 'bg-sky-500'
+                stage_desc = 'Khách hàng đã ký quỹ 100% vào Escrow. Tiền được đảm bảo trong thời gian diễn ra ca làm.'
+            elif c.status == 'escrow_pending':
+                stage_step = 1
+                stage_code = 'escrow_pending'
+                stage_label = 'Chờ khách ký quỹ'
+                stage_badge = 'bg-slate-100 text-slate-600 border-slate-200'
+                stage_dot = 'bg-slate-400'
+                stage_desc = 'Ca làm đã chốt, đang chờ bên tuyển dụng hoàn tất nạp tiền ký quỹ vào hệ thống.'
+            elif c.status == 'cancelled':
+                stage_step = 0
+                stage_code = 'cancelled'
+                stage_label = 'Đã hủy / Hoàn tiền'
+                stage_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+                stage_dot = 'bg-rose-500'
+                stage_desc = 'Ca làm đã bị hủy. Khoản thanh toán (nếu có) được hoàn trả theo quy định.'
+            else:
+                stage_step = 1
+                stage_code = 'unknown'
+                stage_label = 'Đang xử lý'
+                stage_badge = 'bg-slate-100 text-slate-600 border-slate-200'
+                stage_dot = 'bg-slate-400'
+                stage_desc = 'Trạng thái giao dịch đang được cập nhật.'
+
+            # Lấy thông tin thanh toán Escrow thực tế nếu có
+            pay_tx = PaymentTransaction.query.filter_by(contract_id=c.id).order_by(PaymentTransaction.id.desc()).first()
+
+            # Lấy ghi chú chỉnh sửa mới nhất nếu có
+            last_rev = None
+            if c.status == 'revision_requested':
+                last_rev = ContractEvent.query.filter_by(
+                    contract_id=c.id, event_type='revision_requested'
+                ).order_by(ContractEvent.created_at.desc(), ContractEvent.id.desc()).first()
+
+            # Lấy timeline các mốc thời gian thực tế
+            timeline = build_timeline(c)
+
+            # Kiểm tra xem có khiếu nại đang xử lý cho hợp đồng này không
+            active_report = Report.query.filter(
+                Report.related_contract_id == c.id,
+                Report.status.in_(['new', 'investigating'])
+            ).first()
+
+            contract_items.append({
+                'contract': c,
+                'stage_step': stage_step,
+                'stage_code': stage_code,
+                'stage_label': stage_label,
+                'stage_badge': stage_badge,
+                'stage_dot': stage_dot,
+                'stage_desc': stage_desc,
+                'payment': pay_tx,
+                'last_revision': last_rev,
+                'timeline': timeline,
+                'active_report': active_report
+            })
+
+        return render_template(
+            'income_payouts.html',
+            user=user,
+            items=contract_items,
+            counts=counts,
+            metrics=metrics,
+            status_filter=status_filter,
+            q=q,
+            sort_by=sort_by,
+            total_displayed=len(contract_items),
+            has_error=False
+        )
+
+    except Exception as e:
+        flash('Có lỗi khi tải danh sách thanh toán. Vui lòng thử lại sau.', 'error')
+        return render_template(
+            'income_payouts.html',
+            user=user,
+            items=[],
+            counts={'all': 0, 'delivered': 0, 'escrow_held': 0, 'completed': 0, 'revision_requested': 0, 'escrow_pending': 0, 'cancelled': 0},
+            metrics={'total_paid_net': 0, 'total_delivered_net': 0, 'total_escrow_held_net': 0, 'total_revision_net': 0, 'total_gross': 0, 'total_fee': 0},
+            status_filter=status_filter,
+            q=q,
+            sort_by=sort_by,
+            total_displayed=0,
+            has_error=True
+        )
+
+@app.route('/interpreter/income/transactions')
+@login_required
+def interpreter_income_transactions():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+
+    status_filter = request.args.get('status', 'all').strip()
+    period_filter = request.args.get('period', 'all').strip()
+    q = request.args.get('q', '').strip()
+    sort_by = request.args.get('sort', 'newest').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 15
+
+    try:
+        from models import PaymentTransaction, Contract, Job
+
+        # Base query: Chỉ lấy giao dịch thuộc hợp đồng mà user là phiên dịch viên (bảo đảm quyền truy cập)
+        base_query = PaymentTransaction.query.join(
+            Contract, PaymentTransaction.contract_id == Contract.id
+        ).filter(
+            Contract.translator_id == user.id
+        )
+
+        # Tính toán bộ đếm và chỉ số KPI tài chính trên toàn bộ giao dịch của người dùng
+        all_txs = base_query.all()
+        counts = {
+            'all': len(all_txs),
+            'completed': 0,
+            'escrow_pending': 0,
+            'refunded': 0
+        }
+        metrics = {
+            'total_paid_net': 0,
+            'total_escrow_held_gross': 0,
+            'total_refunded_gross': 0,
+            'total_transactions': len(all_txs)
+        }
+
+        for tx in all_txs:
+            net = tx.contract.translator_net_amount or int((tx.contract.agreed_price or 0) * 0.9)
+            gross = tx.amount or (tx.contract.agreed_price or 0)
+            if tx.status == 'completed':
+                counts['completed'] += 1
+                metrics['total_paid_net'] += net
+            elif tx.status == 'escrow_pending':
+                counts['escrow_pending'] += 1
+                metrics['total_escrow_held_gross'] += gross
+            elif tx.status == 'refunded':
+                counts['refunded'] += 1
+                metrics['total_refunded_gross'] += gross
+
+        # Áp dụng bộ lọc trạng thái
+        filter_query = base_query
+        if status_filter != 'all':
+            filter_query = filter_query.filter(PaymentTransaction.status == status_filter)
+
+        # Áp dụng bộ lọc thời gian
+        if period_filter == 'current_month':
+            now = datetime.utcnow()
+            first_day = datetime(now.year, now.month, 1)
+            filter_query = filter_query.filter(PaymentTransaction.created_at >= first_day)
+        elif period_filter == 'last_month':
+            now = datetime.utcnow()
+            first_this_month = datetime(now.year, now.month, 1)
+            last_month_end = first_this_month - timedelta(seconds=1)
+            first_last_month = datetime(last_month_end.year, last_month_end.month, 1)
+            filter_query = filter_query.filter(
+                PaymentTransaction.created_at >= first_last_month,
+                PaymentTransaction.created_at < first_this_month
+            )
+
+        # Áp dụng tìm kiếm q (Mã GD, Ref, Mã hợp đồng, Tên ca làm)
+        if q:
+            q_clean = f"%{q}%"
+            filter_query = filter_query.outerjoin(Job, Contract.job_id == Job.id).filter(
+                db.or_(
+                    PaymentTransaction.id.cast(db.String).ilike(q_clean),
+                    PaymentTransaction.transaction_ref.ilike(q_clean),
+                    Contract.id.cast(db.String).ilike(q_clean),
+                    Job.title.ilike(q_clean)
+                )
+            )
+
+        # Áp dụng sắp xếp
+        if sort_by == 'oldest':
+            filter_query = filter_query.order_by(PaymentTransaction.created_at.asc(), PaymentTransaction.id.asc())
+        elif sort_by == 'amount_desc':
+            filter_query = filter_query.order_by(PaymentTransaction.amount.desc(), PaymentTransaction.id.desc())
+        elif sort_by == 'amount_asc':
+            filter_query = filter_query.order_by(PaymentTransaction.amount.asc(), PaymentTransaction.id.asc())
+        else:  # 'newest' mặc định
+            filter_query = filter_query.order_by(PaymentTransaction.created_at.desc(), PaymentTransaction.id.desc())
+
+        # Phân trang
+        pagination = filter_query.paginate(page=page, per_page=per_page, error_out=False)
+        transactions = pagination.items
+
+        # Đóng gói dữ liệu hiển thị chi tiết cho từng dòng giao dịch
+        tx_items = []
+        for tx in transactions:
+            c = tx.contract
+            net_amt = c.translator_net_amount or int((c.agreed_price or tx.amount or 0) * 0.9)
+            fee_amt = c.platform_fee or int((c.agreed_price or tx.amount or 0) * 0.1)
+            gross_amt = tx.amount or (c.agreed_price or 0)
+
+            if tx.status == 'completed':
+                status_label = 'Đã giải ngân'
+                status_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                status_dot = 'bg-emerald-500'
+                type_label = 'Giải ngân thù lao'
+                type_badge = 'bg-emerald-100/70 text-emerald-800'
+            elif tx.status == 'escrow_pending':
+                status_label = 'Đang giữ Escrow'
+                status_badge = 'bg-sky-50 text-sky-700 border-sky-200'
+                status_dot = 'bg-sky-500'
+                type_label = 'Ký quỹ bảo đảm'
+                type_badge = 'bg-sky-100/70 text-sky-800'
+            elif tx.status == 'refunded':
+                status_label = 'Đã hoàn tiền'
+                status_badge = 'bg-rose-50 text-rose-700 border-rose-200'
+                status_dot = 'bg-rose-500'
+                type_label = 'Hoàn trả hủy ca'
+                type_badge = 'bg-rose-100/70 text-rose-800'
+            else:
+                status_label = 'Chờ xử lý'
+                status_badge = 'bg-slate-100 text-slate-600 border-slate-200'
+                status_dot = 'bg-slate-400'
+                type_label = 'Giao dịch thanh toán'
+                type_badge = 'bg-slate-100 text-slate-700'
+
+            tx_items.append({
+                'tx': tx,
+                'contract': c,
+                'net_amount': net_amt,
+                'fee_amount': fee_amt,
+                'gross_amount': gross_amt,
+                'status_label': status_label,
+                'status_badge': status_badge,
+                'status_dot': status_dot,
+                'type_label': type_label,
+                'type_badge': type_badge
+            })
+
+        return render_template(
+            'income_transactions.html',
+            user=user,
+            tx_items=tx_items,
+            pagination=pagination,
+            counts=counts,
+            metrics=metrics,
+            status_filter=status_filter,
+            period_filter=period_filter,
+            q=q,
+            sort_by=sort_by,
+            has_error=False
+        )
+
+    except Exception as e:
+        flash('Có lỗi khi tải lịch sử giao dịch. Vui lòng thử lại sau.', 'error')
+        return render_template(
+            'income_transactions.html',
+            user=user,
+            tx_items=[],
+            pagination=None,
+            counts={'all': 0, 'completed': 0, 'escrow_pending': 0, 'refunded': 0},
+            metrics={'total_paid_net': 0, 'total_escrow_held_gross': 0, 'total_refunded_gross': 0, 'total_transactions': 0},
+            status_filter=status_filter,
+            period_filter=period_filter,
+            q=q,
+            sort_by=sort_by,
+            has_error=True
+        )
+
+@app.route('/interpreter/income/bank-info', methods=['GET', 'POST'])
+@login_required
+def interpreter_income_bank_info():
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Bạn không có quyền truy cập trang này', 'error')
+        return redirect(url_for('index'))
+
+    from services.payout_methods import (
+        get_payout_methods,
+        get_supported_banks,
+        get_user_payout_data,
+        add_payout_method,
+        set_default_payout_method,
+        delete_payout_method
+    )
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        if action == 'add':
+            bank_code = request.form.get('bank_code')
+            account_number = request.form.get('account_number')
+            account_holder_name = request.form.get('account_holder_name')
+            branch = request.form.get('branch', '')
+            set_as_default = bool(request.form.get('set_as_default'))
+
+            success, msg_or_obj = add_payout_method(
+                user_id=user.id,
+                bank_code=bank_code,
+                account_number=account_number,
+                account_holder_name=account_holder_name,
+                branch=branch,
+                set_as_default=set_as_default
+            )
+            if success:
+                flash(f"Đã thêm tài khoản ngân hàng {msg_or_obj.get('bank_short_name')} thành công.", "success")
+            else:
+                flash(msg_or_obj, "error")
+            return redirect(url_for('interpreter_income_bank_info'))
+
+        elif action == 'set_default':
+            method_id = request.form.get('method_id')
+            success, msg = set_default_payout_method(user.id, method_id)
+            if success:
+                flash(msg, "success")
+            else:
+                flash(msg, "error")
+            return redirect(url_for('interpreter_income_bank_info'))
+
+        elif action == 'delete':
+            method_id = request.form.get('method_id')
+            success, msg = delete_payout_method(user.id, method_id)
+            if success:
+                flash(msg, "success")
+            else:
+                flash(msg, "error")
+            return redirect(url_for('interpreter_income_bank_info'))
+
+        else:
+            flash("Thao tác không hợp lệ.", "error")
+            return redirect(url_for('interpreter_income_bank_info'))
+
+    # Xử lý GET: Lấy danh sách phương thức, lịch sử và số hợp đồng đang chờ giải ngân
+    user_payout_data = get_user_payout_data(user.id)
+    methods = user_payout_data.get("methods", [])
+    history = user_payout_data.get("history", [])
+    supported_banks = get_supported_banks()
+
+    pending_payout_count = Contract.query.filter(
+        Contract.translator_id == user.id,
+        Contract.status.in_(['in_progress', 'delivered'])
+    ).count()
+
+    return render_template(
+        'income_bank_info.html',
+        user=user,
+        methods=methods,
+        history=history,
+        supported_banks=supported_banks,
+        pending_payout_count=pending_payout_count,
+        subpage_title="Thông tin nhận tiền",
+        subpage_code="bank_info"
+    )
+
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
 @app.route('/translator')
