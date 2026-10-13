@@ -904,6 +904,208 @@ def _ensure_job_columns():
                                            'is_all_day': 'BOOLEAN DEFAULT 0'})
 
 
+_account_schema_ensured = False
+
+def _ensure_account_schema(force=False):
+    """
+    Tự động đồng bộ cấu trúc bảng và các cột của Phân hệ Tài khoản (Mục V):
+    1. Bổ sung các cột mới cho notification_setting (notify_profile_view, reminder_time_*, notify_income_update, notify_security_alert, notify_marketing)
+    2. Bổ sung các cột mới cho User (bio, date_of_birth, city, is_public_profile)
+    3. Tạo bảng và bổ sung cột cho interpreter_service, interpreter_preference (locations), user_session, support_ticket
+    Tương thích tuyệt đối cả PostgreSQL (Supabase/Vercel) và SQLite (Local/Test).
+    Chạy idempotent, an toàn, không gián đoạn hoặc xung đột dữ liệu hiện có.
+    """
+    global _account_schema_ensured
+    if _account_schema_ensured and not force:
+        return
+
+    from sqlalchemy import text, inspect
+    try:
+        engine_url = str(db.engine.url).lower()
+        is_postgres = (db.engine.dialect.name == 'postgresql' or 'postgresql' in engine_url)
+
+        if is_postgres:
+            pg_statements = [
+                # 1. Bổ sung cột cho bảng user
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS bio TEXT',
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS date_of_birth VARCHAR(20)',
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS city VARCHAR(100)',
+                'ALTER TABLE "user" ADD COLUMN IF NOT EXISTS is_public_profile BOOLEAN DEFAULT TRUE',
+
+                # 2. Tạo bảng interpreter_service (Mục 5.2)
+                '''CREATE TABLE IF NOT EXISTS interpreter_service (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+                    source_lang VARCHAR(100) NOT NULL,
+                    target_lang VARCHAR(100) NOT NULL,
+                    interpreting_type VARCHAR(100) NOT NULL,
+                    specialization VARCHAR(255),
+                    hourly_rate DOUBLE PRECISION,
+                    session_rate DOUBLE PRECISION,
+                    currency VARCHAR(10) DEFAULT 'VND',
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''',
+                'CREATE INDEX IF NOT EXISTS ix_interpreter_service_user_id ON interpreter_service (user_id)',
+                'CREATE INDEX IF NOT EXISTS ix_interpreter_service_is_active ON interpreter_service (is_active)',
+
+                # 3. Tạo bảng interpreter_preference (Mục 5.4)
+                '''CREATE TABLE IF NOT EXISTS interpreter_preference (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL UNIQUE REFERENCES "user"(id) ON DELETE CASCADE,
+                    languages TEXT,
+                    specializations TEXT,
+                    work_mode VARCHAR(50) DEFAULT 'both',
+                    min_rate DOUBLE PRECISION,
+                    max_rate DOUBLE PRECISION,
+                    allow_outside_rate BOOLEAN DEFAULT FALSE,
+                    available_hours TEXT,
+                    locations TEXT,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''',
+                'CREATE INDEX IF NOT EXISTS ix_interpreter_preference_user_id ON interpreter_preference (user_id)',
+                'ALTER TABLE interpreter_preference ADD COLUMN IF NOT EXISTS locations TEXT',
+
+                # 4. Tạo bảng notification_setting và bổ sung đầy đủ các cột mới (Mục 5.6.1)
+                '''CREATE TABLE IF NOT EXISTS notification_setting (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL UNIQUE REFERENCES "user"(id) ON DELETE CASCADE,
+                    notify_job_match BOOLEAN DEFAULT TRUE,
+                    notify_application_update BOOLEAN DEFAULT TRUE,
+                    notify_profile_view BOOLEAN DEFAULT TRUE,
+                    notify_schedule_reminder BOOLEAN DEFAULT TRUE,
+                    reminder_time_60m BOOLEAN DEFAULT TRUE,
+                    reminder_time_30m BOOLEAN DEFAULT TRUE,
+                    reminder_time_15m BOOLEAN DEFAULT FALSE,
+                    notify_income_update BOOLEAN DEFAULT TRUE,
+                    notify_security_alert BOOLEAN DEFAULT TRUE,
+                    notify_marketing BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_job_match BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_application_update BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_profile_view BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_schedule_reminder BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_60m BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_30m BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS reminder_time_15m BOOLEAN DEFAULT FALSE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_income_update BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_security_alert BOOLEAN DEFAULT TRUE',
+                'ALTER TABLE notification_setting ADD COLUMN IF NOT EXISTS notify_marketing BOOLEAN DEFAULT FALSE',
+                'CREATE INDEX IF NOT EXISTS ix_notification_setting_user_id ON notification_setting (user_id)',
+
+                # 5. Tạo bảng user_session (Mục 5.6.2)
+                '''CREATE TABLE IF NOT EXISTS user_session (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+                    session_id VARCHAR(255),
+                    device_name VARCHAR(255),
+                    ip_address VARCHAR(50),
+                    last_active TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    is_current BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''',
+                'CREATE INDEX IF NOT EXISTS ix_user_session_user_id ON user_session (user_id)',
+                'CREATE INDEX IF NOT EXISTS ix_user_session_session_id ON user_session (session_id)',
+
+                # 6. Tạo bảng support_ticket (Mục 5.7.3)
+                '''CREATE TABLE IF NOT EXISTS support_ticket (
+                    id SERIAL PRIMARY KEY,
+                    ticket_code VARCHAR(50) NOT NULL UNIQUE,
+                    user_id INTEGER NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
+                    category VARCHAR(50) NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT NOT NULL,
+                    attachment_url TEXT,
+                    status VARCHAR(50) DEFAULT 'open',
+                    admin_reply TEXT,
+                    admin_reply_at TIMESTAMP WITHOUT TIME ZONE,
+                    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )''',
+                'CREATE INDEX IF NOT EXISTS ix_support_ticket_user_id ON support_ticket (user_id)',
+                'CREATE INDEX IF NOT EXISTS ix_support_ticket_ticket_code ON support_ticket (ticket_code)',
+                'CREATE INDEX IF NOT EXISTS ix_support_ticket_status ON support_ticket (status)',
+            ]
+
+            with db.engine.connect() as conn:
+                for sql_stmt in pg_statements:
+                    try:
+                        conn.execute(text(sql_stmt))
+                        conn.commit()
+                    except Exception as pg_err:
+                        try:
+                            conn.rollback()
+                        except Exception:
+                            pass
+                        print(f"[Account Schema Sync PG] Non-fatal: {pg_err}", file=sys.stderr)
+        else:
+            # SQLite (Local Dev / Tests)
+            inspector = inspect(db.engine)
+            existing_tables = set(inspector.get_table_names())
+
+            # Bảng user
+            if 'user' in existing_tables:
+                user_cols = {c['name'] for c in inspector.get_columns('user')}
+                for col, typ in [('bio', 'TEXT'), ('date_of_birth', 'VARCHAR(20)'), ('city', 'VARCHAR(100)'), ('is_public_profile', 'BOOLEAN DEFAULT 1')]:
+                    if col not in user_cols:
+                        with db.engine.connect() as conn:
+                            try:
+                                conn.execute(text(f'ALTER TABLE "user" ADD COLUMN {col} {typ}'))
+                                conn.commit()
+                            except Exception:
+                                conn.rollback()
+
+            # Bảng notification_setting
+            if 'notification_setting' in existing_tables:
+                notif_cols = {c['name'] for c in inspector.get_columns('notification_setting')}
+                notif_fields = [
+                    ('notify_job_match', 'BOOLEAN DEFAULT 1'),
+                    ('notify_application_update', 'BOOLEAN DEFAULT 1'),
+                    ('notify_profile_view', 'BOOLEAN DEFAULT 1'),
+                    ('notify_schedule_reminder', 'BOOLEAN DEFAULT 1'),
+                    ('reminder_time_60m', 'BOOLEAN DEFAULT 1'),
+                    ('reminder_time_30m', 'BOOLEAN DEFAULT 1'),
+                    ('reminder_time_15m', 'BOOLEAN DEFAULT 0'),
+                    ('notify_income_update', 'BOOLEAN DEFAULT 1'),
+                    ('notify_security_alert', 'BOOLEAN DEFAULT 1'),
+                    ('notify_marketing', 'BOOLEAN DEFAULT 0'),
+                ]
+                for col, typ in notif_fields:
+                    if col not in notif_cols:
+                        with db.engine.connect() as conn:
+                            try:
+                                conn.execute(text(f'ALTER TABLE notification_setting ADD COLUMN {col} {typ}'))
+                                conn.commit()
+                            except Exception:
+                                conn.rollback()
+
+            # Bảng interpreter_preference
+            if 'interpreter_preference' in existing_tables:
+                pref_cols = {c['name'] for c in inspector.get_columns('interpreter_preference')}
+                if 'locations' not in pref_cols:
+                    with db.engine.connect() as conn:
+                        try:
+                            conn.execute(text('ALTER TABLE interpreter_preference ADD COLUMN locations TEXT'))
+                            conn.commit()
+                        except Exception:
+                            conn.rollback()
+
+            # Tạo các bảng thiếu nếu chưa có bằng db.create_all()
+            try:
+                db.create_all()
+            except Exception:
+                pass
+
+        _account_schema_ensured = True
+        print("[DB Sync] Phân hệ Tài khoản: Đã đồng bộ schema thành công.", file=sys.stderr)
+    except Exception as e:
+        print(f"[Account Schema Sync Error] {e}", file=sys.stderr)
+
+
 def _init_db():
     """Tạo bảng nếu chưa tồn tại và nạp seed data DUY NHẤT khi DB trống.
     
@@ -958,6 +1160,7 @@ def _init_db():
 
     _ensure_new_columns()
     _ensure_job_columns()
+    _ensure_account_schema()
     _add_missing_columns()
 
     try:
@@ -2573,32 +2776,96 @@ def compute_profile_completion(user):
         return None
 
 
+class FallbackNotificationSetting:
+    """Đối tượng NotificationSetting dự phòng an toàn khi CSDL bị lỗi hoặc đang đồng bộ."""
+    def __init__(self, user_id=None):
+        self.id = 0
+        self.user_id = user_id
+        self.notify_job_match = True
+        self.notify_application_update = True
+        self.notify_profile_view = True
+        self.notify_schedule_reminder = True
+        self.reminder_time_60m = True
+        self.reminder_time_30m = True
+        self.reminder_time_15m = False
+        self.reminder_60m = True
+        self.reminder_30m = True
+        self.reminder_15m = False
+        self.notify_income_update = True
+        self.notify_security_alert = True
+        self.notify_marketing = False
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'notify_job_match': True,
+            'notify_application_update': True,
+            'notify_profile_view': True,
+            'notify_schedule_reminder': True,
+            'reminder_time_60m': True,
+            'reminder_time_30m': True,
+            'reminder_time_15m': False,
+            'reminder_60m': True,
+            'reminder_30m': True,
+            'reminder_15m': False,
+            'notify_income_update': True,
+            'notify_security_alert': True,
+            'notify_marketing': False,
+        }
+
+
 def get_user_notification_setting(user_or_id):
-    """Lấy hoặc khởi tạo NotificationSetting mặc định cho người dùng."""
+    """Lấy hoặc khởi tạo NotificationSetting mặc định cho người dùng với cơ chế tự phục hồi schema."""
     from models import NotificationSetting
     user_id = user_or_id.id if hasattr(user_or_id, 'id') else int(user_or_id)
-    setting = NotificationSetting.query.filter_by(user_id=user_id).first()
-    if not setting:
-        setting = NotificationSetting(
-            user_id=user_id,
-            notify_job_match=True,
-            notify_application_update=True,
-            notify_profile_view=True,
-            notify_schedule_reminder=True,
-            reminder_time_60m=True,
-            reminder_time_30m=True,
-            reminder_time_15m=False,
-            notify_income_update=True,
-            notify_security_alert=True,
-            notify_marketing=False
-        )
+
+    # 1. Thử truy vấn thông thường
+    try:
+        setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+    except Exception as first_err:
+        db.session.rollback()
+        print(f"[get_user_notification_setting DB Error] {first_err}", file=sys.stderr)
         try:
+            # Tự động khắc phục thiếu cột / thiếu bảng trong production DB (Supabase)
+            _ensure_account_schema(force=True)
+            db.session.remove()
+            db.engine.dispose()
+            setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+        except Exception as retry_err:
+            db.session.rollback()
+            print(f"[get_user_notification_setting Retry Error] {retry_err}", file=sys.stderr)
+            return FallbackNotificationSetting(user_id=user_id)
+
+    if not setting:
+        try:
+            setting = NotificationSetting(
+                user_id=user_id,
+                notify_job_match=True,
+                notify_application_update=True,
+                notify_profile_view=True,
+                notify_schedule_reminder=True,
+                reminder_time_60m=True,
+                reminder_time_30m=True,
+                reminder_time_15m=False,
+                notify_income_update=True,
+                notify_security_alert=True,
+                notify_marketing=False
+            )
             db.session.add(setting)
             db.session.commit()
-        except Exception:
+        except Exception as add_err:
             db.session.rollback()
-            setting = NotificationSetting.query.filter_by(user_id=user_id).first()
-    return setting
+            print(f"[get_user_notification_setting Add Error] {add_err}", file=sys.stderr)
+            try:
+                _ensure_account_schema(force=True)
+                db.session.remove()
+                setting = NotificationSetting.query.filter_by(user_id=user_id).first()
+            except Exception:
+                db.session.rollback()
+                return FallbackNotificationSetting(user_id=user_id)
+
+    return setting or FallbackNotificationSetting(user_id=user_id)
 
 
 def save_notification_settings_action(user):
@@ -2609,7 +2876,18 @@ def save_notification_settings_action(user):
                request.is_json)
     data = request.get_json(silent=True) if request.is_json else (request.form or {})
 
-    setting = user.notification_setting or NotificationSetting.query.filter_by(user_id=user.id).first()
+    try:
+        setting = user.notification_setting or NotificationSetting.query.filter_by(user_id=user.id).first()
+    except Exception:
+        db.session.rollback()
+        try:
+            _ensure_account_schema(force=True)
+            db.session.remove()
+            setting = NotificationSetting.query.filter_by(user_id=user.id).first()
+        except Exception:
+            db.session.rollback()
+            setting = None
+
     if not setting:
         setting = NotificationSetting(user_id=user.id)
         db.session.add(setting)
@@ -2705,6 +2983,9 @@ def save_notification_settings_action(user):
 @app.route('/account/overview', methods=['GET', 'POST'])
 @login_required
 def account_profile():
+    # Đồng bộ schema Phân hệ Tài khoản (idempotent, an toàn trên cả Vercel/Supabase)
+    _ensure_account_schema()
+
     # TASK 6: Account dùng SQL only.
     # TASK 9: Legacy session sẽ bị login_required redirect vì get_current_user() trả về None.
     uid = session.get('user_id')
@@ -3207,7 +3488,12 @@ def account_profile():
         except Exception as e:
             print(f"[declared_language_pairs error] {e}", file=sys.stderr)
 
-    notification_setting = get_user_notification_setting(user)
+    try:
+        notification_setting = get_user_notification_setting(user)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[account_profile notification_setting error] {e}", file=sys.stderr)
+        notification_setting = FallbackNotificationSetting(user_id=getattr(user, 'id', 0))
 
     # Lấy danh sách phiên đăng nhập (Mục 5.6.3)
     current_token = session.get('session_token')
@@ -3219,8 +3505,14 @@ def account_profile():
         except Exception:
             pass
 
-    from services.account_security import get_active_sessions
-    active_sessions = get_active_sessions(user, current_token)
+    active_sessions = []
+    try:
+        from services.account_security import get_active_sessions
+        active_sessions = get_active_sessions(user, current_token)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[account_profile active_sessions error] {e}", file=sys.stderr)
+        active_sessions = []
 
     from services.account_support import (
         FAQ_TOPICS,
@@ -3229,7 +3521,13 @@ def account_profile():
         SUPPORT_CATEGORIES,
         get_user_tickets,
     )
-    user_support_tickets = get_user_tickets(user.id)
+    user_support_tickets = []
+    try:
+        user_support_tickets = get_user_tickets(user.id)
+    except Exception as e:
+        db.session.rollback()
+        print(f"[account_profile user_support_tickets error] {e}", file=sys.stderr)
+        user_support_tickets = []
 
     return render_template(
         'account_profile.html',
