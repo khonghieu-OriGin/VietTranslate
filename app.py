@@ -8522,7 +8522,7 @@ def job_list():
     is_rec_mode = bool(recommended)
 
     if is_rec_mode:
-        if not user or not user.is_authenticated:
+        if not user:
             flash('Vui lòng đăng nhập bằng tài khoản phiên dịch viên để xem danh sách việc làm phù hợp.', 'info')
             return redirect(url_for('login', next=request.url))
         if user.role != 'translator':
