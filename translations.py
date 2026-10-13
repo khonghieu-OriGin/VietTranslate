@@ -950,9 +950,12 @@ TRANSLATIONS = {
         # ─── Matching Reasons ───
         'match_reasons': {
             'exact_language_pair': 'Đúng chính xác cặp ngôn ngữ',
-            'reverse_language_pair': 'Cặp ngôn ngữ đảo chiều',
+            'reverse_language_pair': 'Cặp ngôn ngữ tương thích',
             'partial_language': 'Trùng một trong hai ngôn ngữ',
             'language_match': 'Khớp ngôn ngữ chuyên môn',
+            'specialty_match': 'Đúng lĩnh vực chuyên môn yêu cầu',
+            'qualification_match': 'Đáp ứng trình độ & bằng cấp chuyên ngành',
+            'verified_match': 'Hồ sơ đã được xác thực uy tín',
             'exact_job_type': 'Đúng loại hình dịch vụ mong muốn',
             'group_match': 'Cùng nhóm dịch vụ phiên dịch',
             'experience_match': 'Hồ sơ có đánh giá & kinh nghiệm tốt',
@@ -1901,15 +1904,21 @@ TRANSLATIONS = {
         # ─── Matching Reasons ───
         'match_reasons': {
             'exact_language_pair': 'Exact language pair match',
-            'reverse_language_pair': 'Reverse language pair match',
+            'reverse_language_pair': 'Compatible language pair',
             'partial_language': 'Partial language match',
             'language_match': 'Fluent language match',
+            'specialty_match': 'Required specialization matched',
+            'qualification_match': 'Qualifications & credentials matched',
+            'verified_match': 'Verified interpreter profile',
             'exact_job_type': 'Preferred service type match',
             'group_match': 'Matching service group',
             'experience_match': 'High rating & verified experience',
             'remote_work': 'Remote work (Online)',
             'location_match': 'Matching work location',
             'budget_match': 'Meets budget expectations',
+            'industry_match': 'Specialization in client industry',
+            'certified_match': 'Certified translation capable',
+            'mode_match': 'Work mode matched',
             'schedule_free': 'Schedule available without conflict',
         },
     }

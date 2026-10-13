@@ -8500,58 +8500,89 @@ def api_proposal_detail(proposal_id):
 def job_list():
     lang = request.args.get('lang', '')
     budget = request.args.get('budget', '')
-    sort = request.args.get('sort', 'newest')
+    sort = request.args.get('sort', '')
     page = request.args.get('page', 1, type=int)
     recommended = request.args.get('recommended')
     per_page = 10
 
     # Lấy các công việc đang mở, đã duyệt, không bị gắn cờ và còn trong thời hạn ứng tuyển
     today = date.today()
-    query = Job.query.join(User, Job.hirer_id == User.id).filter(
+    base_query = Job.query.join(User, Job.hirer_id == User.id).filter(
         Job.status == 'open',
         Job.moderation_status == 'approved',
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
-        User.is_active == True
+        User.is_active == True,
+        db.or_(Job.deadline.is_(None), Job.deadline >= today)
     )
-    query = query.filter(db.or_(Job.deadline.is_(None), Job.deadline >= today))
+
+    total_open_jobs = base_query.count()
 
     user = get_current_user()
-    if recommended and user and user.role == 'translator':
+    rec_map = {}
+    is_rec_mode = bool(recommended)
+
+    if is_rec_mode:
+        if not user or not user.is_authenticated:
+            flash('Vui lòng đăng nhập bằng tài khoản phiên dịch viên để xem danh sách việc làm phù hợp.', 'info')
+            return redirect(url_for('login', next=request.url))
+        if user.role != 'translator':
+            flash('Chức năng "Việc làm phù hợp" dành riêng cho tài khoản phiên dịch viên.', 'info')
+            return redirect(url_for('job_list'))
+
         from services.matching import get_recommended_jobs_for_translator
-        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-        rec_list = get_recommended_jobs_for_translator(user.id, 50, current_lang)
-        rec_ids = [r['job_id'] for r in rec_list]
-        if rec_ids:
-            query = query.filter(Job.id.in_(rec_ids))
-        else:
-            query = query.filter(Job.id == -1)
+        try:
+            current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+            rec_list = get_recommended_jobs_for_translator(user.id, limit=100, lang=current_lang)
+            rec_map = {r['job_id']: r for r in rec_list}
+            if rec_map:
+                query = base_query.filter(Job.id.in_(list(rec_map.keys())))
+            else:
+                query = base_query.filter(Job.id == -1)
+        except Exception as e:
+            import logging
+            logging.error(f"Error fetching recommended jobs in job_list: {e}")
+            query = base_query.filter(Job.id == -1)
+    else:
+        query = base_query
+
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(db.or_(Job.source_lang.ilike(f'%{safe_lang}%'), Job.target_lang.ilike(f'%{safe_lang}%')))
 
     if sort == 'budget_desc':
         query = query.order_by(Job.budget_min.desc())
-    else:
+    elif sort == 'budget_asc':
+        query = query.order_by(Job.budget_min.asc())
+    elif not is_rec_mode or sort:
         query = query.order_by(Job.created_at.desc())
-
-    is_recommended = request.args.get('recommended')
-    if is_recommended and session.get('user_id'):
-        from services.matching import get_recommended_jobs_for_translator
-        try:
-            current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
-            rec_jobs = get_recommended_jobs_for_translator(session['user_id'], limit=50, lang=current_lang)
-            rec_ids = [r['job_id'] for r in rec_jobs]
-            if rec_ids:
-                query = query.filter(Job.id.in_(rec_ids))
-        except Exception as e:
-            import logging
-            logging.warning("Error fetching recommended jobs in job_list: %s", e)
 
     # Lấy toàn bộ danh sách hợp lệ để client-side filter & pagination hoạt động đầy đủ
     all_jobs = query.all()
+
+    # Gắn điểm số phù hợp và lý do gợi ý vào từng job object
+    for j in all_jobs:
+        if j.id in rec_map:
+            j.match_score = rec_map[j.id].get('match_score', 0)
+            j.match_reasons = rec_map[j.id].get('reasons', [])
+        else:
+            j.match_score = None
+            j.match_reasons = []
+
+    # Nếu đang ở chế độ xem việc phù hợp và không chọn sort khác thì sắp xếp theo điểm match_score
+    if is_rec_mode and not sort:
+        all_jobs.sort(key=lambda j: (j.match_score or 0, j.created_at or datetime.min), reverse=True)
+
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-    return render_template('job_list.html', jobs=all_jobs, pagination=pagination,
-                           lang_filter=lang, LANGUAGES=LANGUAGES, is_recommended=bool(recommended))
+    return render_template(
+        'job_list.html',
+        jobs=all_jobs,
+        pagination=pagination,
+        lang_filter=lang,
+        LANGUAGES=LANGUAGES,
+        is_recommended=is_rec_mode,
+        total_open_jobs=total_open_jobs,
+        recommended_count=len(rec_map) if is_rec_mode else 0
+    )
 
 @app.route('/job/<int:job_id>', methods=['GET', 'POST'])
 def job_detail(job_id):
@@ -11307,6 +11338,7 @@ def api_recommended_jobs():
                     'title': job.title,
                     'category_group': job.display_category_group,
                     'category_text': job.display_category_text(current_lang),
+                    'specialty': getattr(job, 'specialty', '') or '',
                     'service_type': job.display_service_type,
                     'source_lang': job.source_lang,
                     'target_lang': job.target_lang,
