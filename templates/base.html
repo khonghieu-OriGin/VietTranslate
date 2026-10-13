@@ -401,8 +401,8 @@
                     <a href="{{ url_for('account_profile') }}#schedule"
                         class="nav-item hover:text-brand-600 py-1">Lịch làm việc</a>
                     <!-- 4. Thu nhập -->
-                    <a href="{{ url_for('account_history') }}"
-                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_history' %}active text-brand-600 font-bold{% endif %}">Thu nhập</a>
+                    <a href="{{ url_for('interpreter_income_overview') }}"
+                        class="nav-item hover:text-brand-600 py-1 {% if request.endpoint and request.endpoint.startswith('interpreter_income_') %}active text-brand-600 font-bold{% endif %}">Thu nhập</a>
                     <!-- 5. Tài khoản -->
                     <a href="{{ url_for('account_profile') }}"
                         class="nav-item hover:text-brand-600 py-1 {% if request.endpoint == 'account_profile' %}active text-brand-600 font-bold{% endif %}">Tài khoản</a>
@@ -757,8 +757,8 @@
                 <a href="{{ url_for('account_profile') }}#schedule"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold text-slate-700 hover:bg-brand-50 hover:text-brand-600">Lịch làm việc</a>
                 <!-- Mobile: 4. Thu nhập -->
-                <a href="{{ url_for('account_history') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_history' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Thu nhập</a>
+                <a href="{{ url_for('interpreter_income_overview') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint and request.endpoint.startswith('interpreter_income_') %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Thu nhập</a>
                 <!-- Mobile: 5. Tài khoản -->
                 <a href="{{ url_for('account_profile') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'account_profile' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">Tài khoản</a>
