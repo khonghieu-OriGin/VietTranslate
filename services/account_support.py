@@ -560,10 +560,14 @@ def create_support_ticket(
 
 def get_user_tickets(user_id: int, status: str = None) -> list[SupportTicket]:
     """Lấy danh sách ticket hỗ trợ của chính người dùng, sắp xếp mới nhất lên đầu."""
-    query = SupportTicket.query.filter_by(user_id=user_id)
-    if status and status in ('open', 'in_progress', 'resolved', 'closed'):
-        query = query.filter_by(status=status)
-    return query.order_by(SupportTicket.created_at.desc()).all()
+    try:
+        query = SupportTicket.query.filter_by(user_id=user_id)
+        if status and status in ('open', 'in_progress', 'resolved', 'closed'):
+            query = query.filter_by(status=status)
+        return query.order_by(SupportTicket.created_at.desc()).all()
+    except Exception:
+        db.session.rollback()
+        return []
 
 
 def get_ticket_by_code(ticket_code: str, user: User) -> tuple[SupportTicket | None, str | None]:
