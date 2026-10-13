@@ -1493,14 +1493,14 @@ def interpreter_dashboard():
     profile = user.profile
     preference = getattr(user, 'preference', None)
 
-    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế:
+    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế (100% tổng thể):
     # 1. Họ và tên: 15% (user.name)
-    # 2. Số điện thoại: 10% (user.phone)
-    # 3. Tiêu đề chuyên môn: 15% (profile.title)
-    # 4. Ngôn ngữ thông thạo: 20% (profile.languages)
-    # 5. Bằng cấp / Chứng chỉ: 15% (profile.badges)
+    # 2. Ảnh đại diện: 10% (user.avatar hoặc user.avatar_url)
+    # 3. Số điện thoại: 10% (user.phone)
+    # 4. Tiêu đề chuyên môn: 15% (profile.title)
+    # 5. Ngôn ngữ thông thạo: 20% (profile.languages)
     # 6. Giới thiệu bản thân: 15% (profile.bio)
-    # 7. Cài đặt nhận việc / Dịch vụ: 10% (preference.service_types hoặc profile.services)
+    # 7. Cài đặt nhận việc / Dịch vụ: 15% (preference.service_types hoặc profile.services)
     profile_completeness = 0
     profile_missing = []
 
@@ -1510,29 +1510,29 @@ def interpreter_dashboard():
     else:
         profile_missing.append('Họ và tên')
 
-    # 2. Số điện thoại
+    # 2. Ảnh đại diện cá nhân
+    if getattr(user, 'avatar', None) or getattr(user, 'avatar_url', None):
+        profile_completeness += 10
+    else:
+        profile_missing.append('Ảnh đại diện')
+
+    # 3. Số điện thoại
     if user.phone and user.phone.strip():
         profile_completeness += 10
     else:
         profile_missing.append('Số điện thoại')
 
-    # 3. Tiêu đề chuyên môn
+    # 4. Tiêu đề chuyên môn
     if profile and profile.title and profile.title.strip():
         profile_completeness += 15
     else:
         profile_missing.append('Tiêu đề chuyên môn')
 
-    # 4. Ngôn ngữ thông thạo
+    # 5. Ngôn ngữ thông thạo
     if profile and profile.languages and profile.languages.strip():
         profile_completeness += 20
     else:
         profile_missing.append('Ngôn ngữ thông thạo')
-
-    # 5. Bằng cấp / Chứng chỉ (căn cứ kiểm duyệt xác minh)
-    if profile and profile.badges and profile.badges.strip():
-        profile_completeness += 15
-    else:
-        profile_missing.append('Bằng cấp / Chứng chỉ')
 
     # 6. Giới thiệu bản thân
     if profile and profile.bio and profile.bio.strip():
@@ -1548,11 +1548,20 @@ def interpreter_dashboard():
         has_services = True
 
     if has_services:
-        profile_completeness += 10
+        profile_completeness += 15
     else:
         profile_missing.append('Dịch vụ / Cài đặt nhận việc')
 
-    # Xác định trạng thái xác minh thực tế:
+    # Đảm bảo phần trăm nằm chính xác trong khoảng 0 - 100
+    profile_completeness = max(0, min(100, int(profile_completeness)))
+
+    # Xác định trạng thái xác minh thực tế (dựa trên hồ sơ và yêu cầu thẩm định):
+    verif_req = None
+    try:
+        verif_req = getattr(user, 'latest_verification', None)
+    except Exception:
+        verif_req = None
+
     if not profile:
         verification_status = {
             'code': 'no_profile',
@@ -1564,7 +1573,7 @@ def interpreter_dashboard():
             'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
             'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
         }
-    elif profile.is_verified:
+    elif profile.is_verified or (verif_req and getattr(verif_req, 'status', None) in ('approved', 'verified')):
         verification_status = {
             'code': 'verified',
             'label': 'Đã xác minh',
@@ -1575,7 +1584,29 @@ def interpreter_dashboard():
             'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
             'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
         }
-    elif profile.badges and profile.badges.strip():
+    elif verif_req and getattr(verif_req, 'status', None) in ('needs_revision', 'revision_requested'):
+        verification_status = {
+            'code': 'needs_revision',
+            'label': 'Cần bổ sung',
+            'color': 'amber',
+            'badge_bg': 'bg-amber-50',
+            'badge_text': 'text-amber-700',
+            'badge_border': 'border-amber-200',
+            'tooltip': 'Ban quản trị yêu cầu bổ sung thông tin hoặc tài liệu xác minh.',
+            'action_hint': 'Cần bổ sung tài liệu theo yêu cầu của Admin.',
+        }
+    elif verif_req and getattr(verif_req, 'status', None) == 'rejected':
+        verification_status = {
+            'code': 'rejected',
+            'label': 'Bị từ chối',
+            'color': 'rose',
+            'badge_bg': 'bg-rose-50',
+            'badge_text': 'text-rose-700',
+            'badge_border': 'border-rose-200',
+            'tooltip': 'Hồ sơ xác minh chưa đạt yêu cầu của Ban quản trị.',
+            'action_hint': 'Xem lý do từ chối và nộp lại hồ sơ.',
+        }
+    elif (verif_req and getattr(verif_req, 'status', None) in ('pending', 'in_review')) or (profile.badges and profile.badges.strip()):
         verification_status = {
             'code': 'pending',
             'label': 'Đang chờ duyệt',
@@ -2203,7 +2234,7 @@ def account_verification():
     if user.role != 'translator':
         flash('Chức năng xác minh hồ sơ chỉ dành cho phiên dịch viên.', 'info')
         return redirect(url_for('account_profile'))
-    return redirect(url_for('account_profile', tab='translator'))
+    return redirect(url_for('verification_status_page'))
 
 @app.route('/about')
 def about():
