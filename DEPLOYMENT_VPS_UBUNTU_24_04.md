@@ -118,6 +118,17 @@ File reverse proxy: `/www/server/panel/vhost/nginx/proxy/157.66.100.101/*.conf`
 
 - **Upstream**: `proxy_pass http://127.0.0.1:5000;`
 - **Proxy headers**: `Host $host`, `X-Real-IP $remote_addr`, `X-Forwarded-For $proxy_add_x_forwarded_for`, `Upgrade $http_upgrade`, `Connection $connection_upgrade`.
+- **Cấu hình SSL / HTTPS (Port 443)**:
+  - Chứng chỉ SSL tự ký hiện tại: `/etc/ssl/certs/viettranslate_selfsigned.crt`
+  - Khóa riêng tư SSL: `/etc/ssl/private/viettranslate_selfsigned.key`
+  - Giao thức: `TLSv1.2 TLSv1.3`
+  - Hỗ trợ đồng thời cả HTTP cổng 80 và HTTPS cổng 443.
+- **Kích hoạt Let's Encrypt khi có tên miền riêng**:
+  Hệ thống đã chuẩn bị sẵn script tự động:
+  ```bash
+  sudo /usr/local/bin/enable_letsencrypt.sh yourdomain.com
+  ```
+  Script sẽ tự kiểm tra DNS, xin cấp chứng chỉ qua Certbot webroot, cập nhật Nginx và reload tự động.
 - **Chặn truy cập trực tiếp các tệp nhạy cảm**:
   ```nginx
   location ~ ^/(\.user.ini|\.htaccess|\.git|\.env|\.svn|\.project|LICENSE|README.md|instance) {

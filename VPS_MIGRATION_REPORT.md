@@ -149,11 +149,15 @@ Thực thi kiểm tra HTTP Request tới địa chỉ IP `103.161.118.158`:
 
 ---
 
-## 8. Vấn Đề Còn Tồn Tại & Đề Xuất Tiếp Theo
+## 8. Tình Trạng HTTPS & Đề Xuất Tiếp Theo
 
-1. **Tên miền và HTTPS (SSL/TLS)**:
-   - Hiện tại ứng dụng đang phục vụ qua địa chỉ IP trực tiếp (`http://103.161.118.158/`) trên giao thức HTTP cổng 80.
-   - *Khuyến nghị:* Khi người dùng trỏ bản ghi A của tên miền về IP này, hãy kích hoạt SSL miễn phí qua Certbot Let's Encrypt (`certbot --nginx -d yourdomain.com`) để bảo mật phiên đăng nhập và dữ liệu truyền tải.
+1. **HTTPS & Chứng chỉ SSL đã được thiết lập**:
+   - Website hiện phục vụ đồng thời cả HTTP cổng 80 và **HTTPS cổng 443** tại địa chỉ: `https://103.161.118.158/`.
+   - Chứng chỉ SSL tự ký (RSA 2048-bit, SAN IP: `103.161.118.158`) có hiệu lực 365 ngày đã được kích hoạt trên Nginx.
+   - Khi có tên miền riêng trỏ về IP này, quản trị viên chỉ cần thực hiện 1 câu lệnh duy nhất để chuyển sang chứng chỉ Let's Encrypt chính thức:
+     ```bash
+     sudo /usr/local/bin/enable_letsencrypt.sh yourdomain.com
+     ```
 2. **Sao lưu ngoài máy chủ (Off-site Backup)**:
-   - Các bản sao lưu hiện tại nằm trên chính ổ đĩa của VPS. Nếu xảy ra thảm họa phần cứng VPS (hỏng đĩa vật lý), bản sao lưu cục bộ có thể bị ảnh hưởng.
-   - *Khuyến nghị:* Cấu hình rclone hoặc script đẩy định kỳ bản sao lưu `postgres_db_*.sql.gz` sang Cloud Storage (S3, Google Drive, Backblaze B2) có mã hóa.
+   - Các bản sao lưu hiện tại nằm trên chính ổ đĩa của VPS (`/var/backups/viettranslate/`). Nếu xảy ra thảm họa phần cứng VPS (hỏng đĩa vật lý), bản sao lưu cục bộ có thể bị ảnh hưởng.
+   - *Khuyến nghị:* Trong tương lai, cấu hình thêm rclone để tự động sao lưu bản `postgres_db_*.sql.gz` lên Google Drive hoặc AWS S3.
