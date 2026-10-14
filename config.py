@@ -28,22 +28,18 @@ class DevelopmentConfig(Config):
     )
 
 class ProductionConfig(Config):
-    """Production configuration — Supabase PostgreSQL only."""
+    """Production configuration — PostgreSQL only."""
     DEBUG = False
 
-    # Supabase PostgreSQL—primary database
-    SUPABASE_URL = os.getenv('SUPABASE_URL')
-    SUPABASE_KEY = os.getenv('SUPABASE_KEY')
-    SUPABASE_DB_URL = os.getenv('SUPABASE_DB_URL')
-
-    # DATABASE_URL takes priority; SUPABASE_DB_URL is a documented alias.
-    # TASK 11: Không fallback SQLite. Nếu thiếu → app sẽ raise RuntimeError khi khởi động.
+    # DATABASE_URL takes priority; SUPABASE_DB_URL is a legacy alias
     _db_url = os.getenv('DATABASE_URL') or os.getenv('SUPABASE_DB_URL')
     if _db_url:
         SQLALCHEMY_DATABASE_URI = _db_url
     else:
-        # Fallback — sẽ bị ghi đè bởi logic fail-fast trong app.py nếu chạy trên Vercel/Render
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///instance/database.db'
+        raise RuntimeError(
+            "[CRITICAL] Production environment requires DATABASE_URL pointing to PostgreSQL! "
+            "SQLite fallback is strictly forbidden in production."
+        )
 
 class TestingConfig(Config):
     """Testing configuration"""

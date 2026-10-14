@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
 from models import (
     db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal,
@@ -467,14 +470,11 @@ if database_url:
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    if os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
-        # TASK 10: Production (Vercel/Render) — BẮT BUỘC có DATABASE_URL trỏ tới Supabase PostgreSQL.
-        # Không fallback sang SQLite memory trong production.
-        _platform = 'Vercel' if os.environ.get('VERCEL') else 'Render'
+    flask_env = os.environ.get('FLASK_ENV', 'development').lower()
+    if flask_env == 'production' or os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
         error_msg = (
-            f"[CRITICAL] Chạy trên {_platform} nhưng DATABASE_URL chưa được cấu hình! "
-            "Database production phải là Supabase PostgreSQL. "
-            "Hãy vào Dashboard → Environment Variables → thêm DATABASE_URL."
+            "[CRITICAL] Production environment requires DATABASE_URL pointing to PostgreSQL! "
+            "SQLite fallback is strictly forbidden in production."
         )
         print(error_msg, file=sys.stderr)
         raise RuntimeError(error_msg)
@@ -517,7 +517,7 @@ else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = _engine_opts
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(basedir, 'static', 'uploads'))
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
@@ -528,7 +528,7 @@ else:
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
-AVATAR_UPLOAD_FOLDER = os.path.join('static', 'uploads', 'avatars')
+AVATAR_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, 'avatars')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     AVATAR_UPLOAD_FOLDER = '/tmp/avatars'
 try:
@@ -618,7 +618,7 @@ def save_certificate_file(file, user_id):
     clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
-    folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
+    folder = os.path.join(app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads')), 'certificates')
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
 
