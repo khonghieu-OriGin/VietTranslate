@@ -1,7 +1,8 @@
 """
 VietTranslate - Payout Methods Service
 Quản lý phương thức nhận tiền (thông tin tài khoản ngân hàng thụ hưởng) của phiên dịch viên.
-Lưu trữ an toàn theo Phương án B tại instance/interpreter_payout_methods.json.
+Hỗ trợ lưu trữ trực tiếp trong PostgreSQL (qua SQLAlchemy ORM) đảm bảo tính toàn vẹn ACID giữa các Gunicorn workers,
+đồng thời tương thích ngược với fallback file khi chạy kiểm thử độc lập ngoài context.
 """
 
 import json
@@ -35,8 +36,19 @@ SUPPORTED_BANKS = [
     {"code": "BAB", "short_name": "Bac A Bank", "name": "Ngân hàng TMCP Bắc Á"},
 ]
 
+def _is_db_active():
+    """Kiểm tra xem ứng dụng có đang trong Flask Application Context và có thể dùng DB không."""
+    try:
+        from flask import has_app_context
+        if not has_app_context():
+            return False
+        from models import db
+        return db.session is not None
+    except Exception:
+        return False
+
 def _get_store_path():
-    """Lấy đường dẫn tệp JSON lưu trữ phương thức nhận tiền."""
+    """Lấy đường dẫn tệp JSON lưu trữ phương thức nhận tiền (fallback)."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     instance_dir = os.path.join(base_dir, 'instance')
     os.makedirs(instance_dir, exist_ok=True)
@@ -56,7 +68,6 @@ def normalize_account_holder_name(name: str) -> str:
     """Chuẩn hóa tên chủ tài khoản thành in hoa không khoảng trắng thừa."""
     if not name:
         return ""
-    # Chuẩn hóa khoảng trắng liên tiếp và viết in hoa
     return " ".join(str(name).strip().split()).upper()
 
 def get_supported_banks():
@@ -64,7 +75,7 @@ def get_supported_banks():
     return list(SUPPORTED_BANKS)
 
 def _read_data() -> dict:
-    """Đọc toàn bộ dữ liệu từ tệp lưu trữ."""
+    """Đọc toàn bộ dữ liệu từ tệp lưu trữ (fallback)."""
     path = _get_store_path()
     if not os.path.exists(path):
         return {}
@@ -75,7 +86,7 @@ def _read_data() -> dict:
         return {}
 
 def _write_data(data: dict) -> bool:
-    """Ghi dữ liệu an toàn (atomic write) vào tệp lưu trữ."""
+    """Ghi dữ liệu an toàn (atomic write) vào tệp lưu trữ (fallback)."""
     path = _get_store_path()
     tmp_path = path + '.tmp'
     try:
@@ -93,6 +104,18 @@ def _write_data(data: dict) -> bool:
 
 def get_user_payout_data(user_id) -> dict:
     """Lấy toàn bộ dữ liệu phương thức và lịch sử của một người dùng."""
+    if _is_db_active():
+        try:
+            from models import PayoutMethod, PayoutHistory
+            methods = PayoutMethod.query.filter_by(user_id=int(user_id)).order_by(PayoutMethod.created_at.asc()).all()
+            history = PayoutHistory.query.filter_by(user_id=int(user_id)).order_by(PayoutHistory.created_at.desc()).all()
+            return {
+                "methods": [m.to_dict() for m in methods],
+                "history": [h.to_dict() for h in history]
+            }
+        except Exception:
+            pass
+
     with _file_lock:
         data = _read_data()
         key = str(user_id)
@@ -105,6 +128,16 @@ def get_payout_methods(user_id) -> list:
 
 def get_default_payout_method(user_id) -> dict:
     """Lấy phương thức nhận tiền mặc định của phiên dịch viên."""
+    if _is_db_active():
+        try:
+            from models import PayoutMethod
+            pm = PayoutMethod.query.filter_by(user_id=int(user_id), is_default=True).first()
+            if not pm:
+                pm = PayoutMethod.query.filter_by(user_id=int(user_id)).order_by(PayoutMethod.created_at.asc()).first()
+            return pm.to_dict() if pm else None
+        except Exception:
+            pass
+
     methods = get_payout_methods(user_id)
     for m in methods:
         if m.get("is_default"):
@@ -113,6 +146,14 @@ def get_default_payout_method(user_id) -> dict:
 
 def get_payout_method_by_id(user_id, method_id: str):
     """Tìm phương thức nhận tiền theo mã ID và xác thực quyền sở hữu."""
+    if _is_db_active():
+        try:
+            from models import PayoutMethod
+            pm = PayoutMethod.query.filter_by(user_id=int(user_id), id=str(method_id)).first()
+            return pm.to_dict() if pm else None
+        except Exception:
+            pass
+
     methods = get_payout_methods(user_id)
     for m in methods:
         if m.get("id") == str(method_id):
@@ -122,7 +163,7 @@ def get_payout_method_by_id(user_id, method_id: str):
 def add_payout_method(user_id, bank_code: str, account_number: str, account_holder_name: str, branch: str = "", set_as_default: bool = False):
     """
     Thêm phương thức nhận tiền mới.
-    Kiểm tra hợp lệ dữ liệu và ghi vào store an toàn.
+    Kiểm tra hợp lệ dữ liệu và ghi vào store an toàn (PostgreSQL ORM hoặc fallback JSON).
     """
     bank_code = str(bank_code or '').strip().upper()
     account_number = str(account_number or '').strip()
@@ -145,6 +186,56 @@ def add_payout_method(user_id, bank_code: str, account_number: str, account_hold
     # 4. Kiểm tra độ dài chi nhánh
     if len(branch) > 120:
         return False, "Tên chi nhánh không được vượt quá 120 ký tự."
+
+    # 5. Xử lý lưu trữ
+    if _is_db_active():
+        try:
+            from models import db, PayoutMethod, PayoutHistory
+            u_id = int(user_id)
+            existing = PayoutMethod.query.filter_by(user_id=u_id, bank_code=matched_bank["code"], account_number=account_number).first()
+            if existing:
+                return False, f"Tài khoản {matched_bank['short_name']} với số tài khoản này đã tồn tại trong danh sách của bạn."
+
+            count = PayoutMethod.query.filter_by(user_id=u_id).count()
+            should_be_default = (count == 0) or bool(set_as_default)
+
+            if should_be_default:
+                PayoutMethod.query.filter_by(user_id=u_id).update({PayoutMethod.is_default: False})
+
+            method_id = f"pm_{uuid.uuid4().hex[:12]}"
+            masked = mask_account_number(account_number)
+
+            new_method = PayoutMethod(
+                id=method_id,
+                user_id=u_id,
+                bank_code=matched_bank["code"],
+                bank_short_name=matched_bank["short_name"],
+                bank_name=matched_bank["name"],
+                account_number=account_number,
+                masked_account_number=masked,
+                account_holder_name=account_holder_name,
+                branch=branch,
+                is_default=should_be_default,
+                status="active",
+                status_label="Khai báo hợp lệ · Đang hoạt động"
+            )
+            db.session.add(new_method)
+
+            history_entry = PayoutHistory(
+                user_id=u_id,
+                method_id=method_id,
+                action="add",
+                bank=matched_bank["short_name"],
+                masked_account=masked,
+                summary=f"Đã thêm tài khoản {matched_bank['short_name']} ({masked})"
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+            return True, new_method.to_dict()
+        except Exception as e:
+            from models import db
+            db.session.rollback()
+            return False, f"Lỗi hệ thống khi lưu phương thức nhận tiền: {str(e)}"
 
     with _file_lock:
         data = _read_data()
@@ -208,6 +299,38 @@ def add_payout_method(user_id, bank_code: str, account_number: str, account_hold
 def set_default_payout_method(user_id, method_id: str):
     """Đặt một phương thức làm phương thức nhận tiền mặc định."""
     method_id = str(method_id).strip()
+
+    if _is_db_active():
+        try:
+            from models import db, PayoutMethod, PayoutHistory
+            u_id = int(user_id)
+            target = PayoutMethod.query.filter_by(user_id=u_id, id=method_id).first()
+            if not target:
+                return False, "Phương thức nhận tiền không tồn tại hoặc bạn không có quyền thao tác."
+
+            if target.is_default:
+                return True, "Phương thức này hiện đã là phương thức mặc định."
+
+            PayoutMethod.query.filter_by(user_id=u_id).update({PayoutMethod.is_default: False})
+            target.is_default = True
+            target.updated_at = datetime.utcnow()
+
+            history_entry = PayoutHistory(
+                user_id=u_id,
+                method_id=method_id,
+                action="set_default",
+                bank=target.bank_short_name,
+                masked_account=target.masked_account_number,
+                summary=f"Đặt {target.bank_short_name} ({target.masked_account_number}) làm mặc định"
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+            return True, "Đã cập nhật phương thức nhận tiền mặc định thành công."
+        except Exception as e:
+            from models import db
+            db.session.rollback()
+            return False, f"Lỗi hệ thống khi cập nhật phương thức mặc định: {str(e)}"
+
     with _file_lock:
         data = _read_data()
         key = str(user_id)
@@ -254,6 +377,43 @@ def set_default_payout_method(user_id, method_id: str):
 def delete_payout_method(user_id, method_id: str):
     """Xóa một phương thức nhận tiền. Nếu là mặc định và còn tài khoản khác, tự động chuyển mặc định sang tài khoản đầu tiên còn lại."""
     method_id = str(method_id).strip()
+
+    if _is_db_active():
+        try:
+            from models import db, PayoutMethod, PayoutHistory
+            u_id = int(user_id)
+            target = PayoutMethod.query.filter_by(user_id=u_id, id=method_id).first()
+            if not target:
+                return False, "Phương thức nhận tiền không tồn tại hoặc bạn không có quyền thao tác."
+
+            was_default = target.is_default
+            bank_short = target.bank_short_name
+            masked = target.masked_account_number
+
+            db.session.delete(target)
+
+            if was_default:
+                remaining = PayoutMethod.query.filter(PayoutMethod.user_id == u_id, PayoutMethod.id != method_id).order_by(PayoutMethod.created_at.asc()).first()
+                if remaining:
+                    remaining.is_default = True
+                    remaining.updated_at = datetime.utcnow()
+
+            history_entry = PayoutHistory(
+                user_id=u_id,
+                method_id=method_id,
+                action="delete",
+                bank=bank_short,
+                masked_account=masked,
+                summary=f"Đã xóa tài khoản {bank_short} ({masked})"
+            )
+            db.session.add(history_entry)
+            db.session.commit()
+            return True, "Đã xóa phương thức nhận tiền thành công."
+        except Exception as e:
+            from models import db
+            db.session.rollback()
+            return False, f"Lỗi hệ thống khi xóa phương thức nhận tiền: {str(e)}"
+
     with _file_lock:
         data = _read_data()
         key = str(user_id)

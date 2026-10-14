@@ -76,6 +76,7 @@
                     <td>
                         <div class="flex items-center justify-end gap-2">
                             <form action="{{ url_for('admin_toggle_review', review_id=r.id) }}" method="POST">
+                                <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                                 {% if r.is_hidden %}
                                     <button type="submit" class="btn btn-sm btn-success" title="Khôi phục hiển thị">Khôi phục</button>
                                 {% else %}

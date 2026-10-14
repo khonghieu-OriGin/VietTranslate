@@ -592,7 +592,63 @@
                     </div>
                 </div>
 
-                <!-- Service Packages Section -->
+                <!-- Interpreter Services Section (Năng lực & Bảng giá theo giờ / ca) -->
+                {% set active_interpreter_services = (profile.user.interpreter_services | selectattr('is_active') | list) if profile.user.interpreter_services else [] %}
+                {% if active_interpreter_services %}
+                <h3 class="font-bold text-slate-900 text-base tracking-tight pt-2">Bảng giá & Dịch vụ Phiên dịch</h3>
+                {% for isvc in active_interpreter_services %}
+                <div class="bg-white rounded-3xl border border-slate-200/90 shadow-soft overflow-hidden p-5 sm:p-6 mb-4">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <span class="text-[11px] font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                            {{ isvc.source_lang }} → {{ isvc.target_lang }}
+                        </span>
+                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {{ isvc.interpreting_type | title }}
+                        </span>
+                    </div>
+                    {% if isvc.specialization %}
+                    <p class="text-xs text-slate-600 mb-2"><span class="text-slate-400">Chuyên môn:</span> <strong class="text-slate-800">{{ isvc.specialization }}</strong></p>
+                    {% endif %}
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-slate-100 my-4">
+                        {% if isvc.hourly_rate %}
+                        <div class="bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+                            <span class="text-[11px] text-slate-500 font-medium block">Thù lao theo giờ</span>
+                            <span class="text-lg font-black text-slate-900">{{ isvc.formatted_hourly_rate }}</span>
+                        </div>
+                        {% endif %}
+                        {% if isvc.session_rate %}
+                        <div class="bg-slate-50/80 rounded-2xl p-3 border border-slate-100">
+                            <span class="text-[11px] text-slate-500 font-medium block">Thù lao theo buổi / ca</span>
+                            <span class="text-lg font-black text-slate-900">{{ isvc.formatted_session_rate }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if profile.is_verified %}
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        {% if isvc.hourly_rate %}
+                        <a href="{{ url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type='hourly') }}" class="flex-1 text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm">
+                            Đặt dịch vụ theo giờ
+                        </a>
+                        {% endif %}
+                        {% if isvc.session_rate %}
+                        <a href="{{ url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type='session') }}" class="flex-1 text-center bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs py-2.5 rounded-xl transition shadow-sm">
+                            Đặt dịch vụ theo ca
+                        </a>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                    <button disabled class="block w-full text-center bg-slate-200 text-slate-500 font-bold text-xs py-2.5 rounded-xl cursor-not-allowed">
+                        Phiên dịch viên chưa được duyệt
+                    </button>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+
+                <!-- Legacy Service Packages Section (nếu có) -->
+                {% if profile.services %}
                 <h3 class="font-bold text-slate-900 text-base tracking-tight pt-2">{{ t('profile_page.packages_heading') }}</h3>
                 
                 {% for service in profile.services %}
@@ -681,14 +737,17 @@
                         </div>
                     </div>
                 </div>
-                {% else %}
+                {% endfor %}
+                {% endif %}
+
+                {% if not active_interpreter_services and not profile.services %}
                 <div class="bg-white rounded-3xl border border-slate-200/90 p-6 text-center shadow-soft">
                     <p class="text-xs sm:text-sm text-slate-500 mb-4">{{ t('auto.phiên_dịch_viên_chưa') }}</p>
                     <a href="{{ url_for('direct_chat', translator_user_id=profile.user_id) }}" class="block w-full text-center border border-brand-600 text-brand-600 font-bold text-xs py-2.5 rounded-xl hover:bg-brand-50 transition">
                         {{ t('auto.nhắn_tin_trao_đổi_tr') }}
                     </a>
                 </div>
-                {% endfor %}
+                {% endif %}
 
             </div>
         </div>

@@ -1149,14 +1149,18 @@
         const reason = prompt('Nhập lý do từ chối (tùy chọn):');
         if (reason === null) return;
         btn.disabled = true;
+        const csrfToken = document.querySelector('input[name="_csrf_token"]')?.value || '';
         fetch('/api/proposals/' + propId + '/reject', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: reason })
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ reason: reason, note: reason, _csrf_token: csrfToken })
         })
         .then(r => r.json())
         .then(d => {
-            alert(d.message);
+            alert(d.message || (d.ok ? 'Đã từ chối báo giá thành công.' : 'Không thể từ chối báo giá.'));
             window.location.reload();
         })
         .catch(() => {

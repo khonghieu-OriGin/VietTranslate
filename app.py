@@ -523,7 +523,9 @@ if os.environ.get('VERCEL') == '1' or _is_memory_db:
 else:
     try:
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    except OSError:
+    except OSError as e:
+        if os.environ.get('FLASK_ENV') == 'production':
+            raise RuntimeError(f"[CRITICAL] Failed to create UPLOAD_FOLDER at {UPLOAD_FOLDER}: {e}")
         UPLOAD_FOLDER = '/tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
@@ -533,7 +535,9 @@ if os.environ.get('VERCEL') == '1' or _is_memory_db:
     AVATAR_UPLOAD_FOLDER = '/tmp/avatars'
 try:
     os.makedirs(AVATAR_UPLOAD_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create AVATAR_UPLOAD_FOLDER at {AVATAR_UPLOAD_FOLDER}: {e}")
     AVATAR_UPLOAD_FOLDER = '/tmp'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
 
@@ -543,7 +547,9 @@ if os.environ.get('VERCEL') == '1' or _is_memory_db:
     PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
 try:
     os.makedirs(PRIVATE_STORAGE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create PRIVATE_STORAGE_FOLDER at {PRIVATE_STORAGE_FOLDER}: {e}")
     PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
 app.config['PRIVATE_STORAGE_FOLDER'] = PRIVATE_STORAGE_FOLDER
 
@@ -1179,15 +1185,18 @@ def _init_db():
         user_count = 1  # Giả định đã có data, không seed
 
     if user_count == 0:
-        # Chỉ seed khi DB thực sự trống
-        try:
-            from seed_data import seed_data as _run_seed
-            _run_seed()
-            print(f"[SEED] Seed hoàn thành. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
-        except Exception as e:
-            # Không để seed failure crash app — user có thể tự đăng ký
-            db.session.rollback()
-            print(f"[SEED ERROR] Seed thất bại (bỏ qua): {e}", file=sys.stderr)
+        # CHẶN TUYỆT ĐỐI SEED DATA TRÊN PRODUCTION
+        if os.getenv('FLASK_ENV') == 'production':
+            print("[SECURITY] Môi trường Production: Tự động seed data bị vô hiệu hóa để bảo vệ an toàn.", file=sys.stderr)
+        else:
+            try:
+                from seed_data import seed_data as _run_seed
+                _run_seed()
+                print(f"[SEED] Seed hoàn thành. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
+            except Exception as e:
+                # Không để seed failure crash app — user có thể tự đăng ký
+                db.session.rollback()
+                print(f"[SEED ERROR] Seed thất bại (bỏ qua): {e}", file=sys.stderr)
     else:
         print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
 
@@ -1215,9 +1224,37 @@ def _static_cache(resp):
 
 @app.errorhandler(500)
 def handle_500(e):
-    import traceback
-    tb = traceback.format_exc()
-    return f"<pre>500 Error:\n{e}\n\nTraceback:\n{tb}</pre>", 500
+    import uuid
+    import logging
+    error_id = uuid.uuid4().hex[:8]
+    logging.error(f"[ERROR 500 - Ref: {error_id}] {e}", exc_info=True)
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.path.startswith('/api/')
+    if is_ajax:
+        return jsonify({
+            'success': False,
+            'error': 'Internal Server Error',
+            'message': 'Đã có lỗi hệ thống phát sinh. Vui lòng thử lại sau ít phút.',
+            'ref': error_id
+        }), 500
+    if os.getenv('FLASK_ENV') == 'development' and app.debug:
+        import traceback
+        tb = traceback.format_exc()
+        return f"<pre>500 Debug Error (Ref {error_id}):\n{e}\n\nTraceback:\n{tb}</pre>", 500
+    try:
+        return render_template('500.html', error_ref=error_id), 500
+    except Exception:
+        return (
+            f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>500 - Lỗi hệ thống</title>"
+            f"<style>body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#1e293b}} "
+            f".box{{background:#fff;padding:2.5rem;border-radius:1rem;box-shadow:0 10px 25px rgba(0,0,0,0.05);max-width:480px;text-align:center}} "
+            f"h1{{font-size:1.8rem;margin-bottom:0.5rem;color:#e11d48}} p{{color:#64748b;line-height:1.6}} "
+            f".code{{font-family:monospace;background:#f1f5f9;padding:0.25rem 0.5rem;border-radius:0.25rem;font-size:0.875rem}} "
+            f"a{{display:inline-block;margin-top:1.5rem;background:#2563eb;color:#fff;padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none;font-weight:bold}}</style></head>"
+            f"<body><div class='box'><h1>500 - Lỗi hệ thống</h1>"
+            f"<p>Hệ thống đang gặp sự cố gián đoạn tạm thời. Vui lòng thử lại sau ít phút.</p>"
+            f"<p>Mã tham chiếu hỗ trợ: <span class='code'>ERR-{error_id.upper()}</span></p>"
+            f"<a href='/'>Về trang chủ</a></div></body></html>"
+        ), 500
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
@@ -7187,12 +7224,14 @@ def send_direct_message(other_user_id):
 CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 CHAT_TEXT_MAX = 2000
-CHAT_IMAGE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'chat_images')
+CHAT_IMAGE_FOLDER = os.getenv('CHAT_IMAGE_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'chat_images')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     CHAT_IMAGE_FOLDER = '/tmp/chat_images'
 try:
     os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create CHAT_IMAGE_FOLDER at {CHAT_IMAGE_FOLDER}: {e}")
     CHAT_IMAGE_FOLDER = '/tmp/chat_images'
     os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
 _CHAT_IMG_URL = re.compile(r'^/chat-image/(\d+)_[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$')
@@ -7465,6 +7504,84 @@ def book_service(service_id):
 
     return render_template('book_service.html', service=service, tier=tier, price=price, fixed_days=fixed_days)
 
+
+@app.route('/book-interpreter/<int:interpreter_service_id>', methods=['GET', 'POST'])
+@login_required
+def book_interpreter(interpreter_service_id):
+    isvc = InterpreterService.query.get_or_404(interpreter_service_id)
+    rate_type = request.args.get('rate_type', 'hourly')
+    
+    if rate_type == 'session' and isvc.session_rate:
+        price = int(isvc.session_rate)
+        rate_label = 'Theo ca / buổi'
+    else:
+        rate_type = 'hourly'
+        price = int(isvc.hourly_rate or isvc.session_rate or 0)
+        rate_label = 'Theo giờ'
+
+    current_user = get_current_user()
+    if not current_user:
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+        
+    translator = isvc.user
+    if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
+        flash(_t('flash.translator_inactive'), 'error')
+        return redirect(url_for('translators'))
+
+    if current_user.id == translator.id:
+        flash(_t('flash.cannot_hire_self'), 'error')
+        profile = getattr(translator, 'translator_profile', None)
+        if profile:
+            return redirect(url_for('translator_profile', profile_id=profile.id))
+        return redirect(url_for('translators'))
+
+    if request.method == 'POST':
+        scheduled_date_str = request.form.get('scheduled_date', '')
+        time_start_str = request.form.get('time_start', '')
+        time_end_str = request.form.get('time_end', '')
+        
+        from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
+        from services.schedule import ScheduleCheckError
+        
+        try:
+            contract = create_contract_booking(
+                hirer_id=session['user_id'],
+                translator_id=translator.id,
+                agreed_price=int(request.form.get('price', price)),
+                scheduled_date=scheduled_date_str,
+                start_time=time_start_str,
+                end_time=time_end_str,
+                location=request.form.get('location', ''),
+                interpreter_service_id=isvc.id
+            )
+            flash(_t('flash.service_booked'), 'success')
+            if contract.status == 'awaiting_translator':
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
+            
+        except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
+            flash(str(e), 'error')
+            return redirect(url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type=rate_type))
+            
+        except Exception as e:
+            import logging
+            logging.exception('Error in book_interpreter: %s', e)
+            flash(_t('flash.system_error'), 'error')
+            return redirect(url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type=rate_type))
+
+    profile = getattr(translator, 'translator_profile', None)
+    return render_template(
+        'book_interpreter.html',
+        isvc=isvc,
+        translator=translator,
+        profile=profile,
+        rate_type=rate_type,
+        rate_label=rate_label,
+        price=price
+    )
+
+
 # ─── FLOW 2: JOB BOARD ─────────────────────────────────────────────────────────
 
 # ─── CLIENT REQUEST MANAGEMENT (Task 02) ───────────────────────────────────────
@@ -7472,21 +7589,25 @@ def book_service(service_id):
 import uuid as _uuid
 from flask import send_from_directory
 
-JOB_FILES_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'job_files')
+JOB_FILES_FOLDER = os.getenv('JOB_FILES_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'job_files')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     JOB_FILES_FOLDER = '/tmp/job_files'
 try:
     os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create JOB_FILES_FOLDER at {JOB_FILES_FOLDER}: {e}")
     JOB_FILES_FOLDER = '/tmp/job_files'
     os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
 
-DELIVERABLE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'deliverables')
+DELIVERABLE_FOLDER = os.getenv('DELIVERABLE_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'deliverables')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     DELIVERABLE_FOLDER = '/tmp/deliverables'
 try:
     os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create DELIVERABLE_FOLDER at {DELIVERABLE_FOLDER}: {e}")
     DELIVERABLE_FOLDER = '/tmp/deliverables'
     os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
 
@@ -8310,41 +8431,45 @@ def api_hirer_select_proposal(proposal_id):
 
 @app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
 @login_required
-def api_hirer_reject_proposal(proposal_id):
-    user = get_current_user()
+def api_reject_proposal(proposal_id):
+    """
+    Hợp nhất luồng từ chối báo giá (Task 2.3).
+    Hỗ trợ cả JSON payload {reason: ..., note: ...} và Form POST {note: ...}.
+    Kiểm tra quyền sở hữu công việc, trạng thái hợp lệ, CSRF token và thông báo cho phiên dịch viên.
+    """
+    user = _require_hirer()
     if not user:
-        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
-    proposal = Proposal.query.get_or_404(proposal_id)
-    job = proposal.job
-    if not job or job.hirer_id != user.id:
-        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên công việc này.'}), 403
-        
-    reason = request.form.get('reason', '').strip()
-    if not reason and request.is_json:
-        reason = request.json.get('reason', '').strip()
-        
-    proposal.status = 'rejected'
-    proposal.client_note = reason or 'Cảm ơn bạn đã quan tâm. Chúng tôi đã chọn ứng viên khác phù hợp hơn.'
-    proposal.updated_at = datetime.utcnow()
+        return jsonify({'ok': False, 'success': False, 'message': 'Chỉ khách thuê mới thực hiện được thao tác này.'}), 403
     
+    token = request.headers.get('X-CSRF-Token') or request.form.get('_csrf_token')
+    if token and not _csrf_ok():
+        return jsonify({'ok': False, 'success': False, 'message': 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.'}), 403
+
+    reason = ''
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        reason = (data.get('reason') or data.get('note') or '').strip()
+    else:
+        reason = (request.form.get('reason') or request.form.get('note') or '').strip()
+
+    from services.proposals import reject_proposal_for_hirer, ProposalError
     try:
-        create_notification(
-            user_id=proposal.translator_id,
-            notification_type='JOB_APPLICATION',
-            title='Thông báo kết quả ứng tuyển',
-            message=f'Bên tuyển dụng đã xem xét đề xuất cho công việc "{job.title}" và quyết định chọn ứng viên khác.',
-            url=url_for('applied_jobs'),
-            related_job_id=job.id,
-            related_proposal_id=proposal.id
-        )
-    except Exception:
-        pass
-        
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'message': 'Đã từ chối đề xuất.'
-    })
+        prop = reject_proposal_for_hirer(proposal_id, user.id, note=reason)
+        if hasattr(prop, 'client_note'):
+            prop.client_note = reason or 'Cảm ơn bạn đã quan tâm. Chúng tôi đã chọn ứng viên khác phù hợp hơn.'
+            db.session.commit()
+        return jsonify({
+            'ok': True,
+            'success': True,
+            'message': 'Đã từ chối đề xuất thành công.'
+        })
+    except ProposalError as e:
+        return jsonify({'ok': False, 'success': False, 'message': e.message}), e.status
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.exception(f"Lỗi khi từ chối proposal #{proposal_id}: {e}")
+        return jsonify({'ok': False, 'success': False, 'message': 'Đã xảy ra lỗi hệ thống khi từ chối đề xuất.'}), 500
 
 
 @app.route('/api/proposals/<int:proposal_id>/request-info', methods=['POST'])
@@ -9227,19 +9352,6 @@ def api_accept_proposal(proposal_id):
     return jsonify({'ok': True, 'message': 'Đã chấp nhận báo giá. Vui lòng thanh toán để bắt đầu.',
                     'redirect': url_for('payment_mockup', contract_id=contract.id)})
 
-
-@app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
-@login_required
-def api_reject_proposal(proposal_id):
-    from services.proposals import reject_proposal_for_hirer, ProposalError
-    user, err = _proposal_api_guard()
-    if err:
-        return err
-    try:
-        reject_proposal_for_hirer(proposal_id, user.id, request.form.get('note', ''))
-    except ProposalError as e:
-        return jsonify({'ok': False, 'message': e.message}), e.status
-    return jsonify({'ok': True, 'message': 'Đã từ chối báo giá.'})
 
 
 @app.route('/api/jobs/<int:job_id>/proposals')
@@ -10407,7 +10519,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_APPROVED',
                 title='Tài khoản đã được xác minh thành công',
                 message='Hồ sơ người đăng tuyển của bạn đã được xác minh. Bạn đã có thể đăng tin tuyển dụng!',
                 url=url_for('post_job')
@@ -10431,7 +10543,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_NEEDS_REVISION',
                 title='Yêu cầu bổ sung hồ sơ người đăng',
                 message=f'Hồ sơ của bạn cần bổ sung: {reason}',
                 url=url_for('account_profile', tab='hirer_verify')
@@ -10455,7 +10567,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_REJECTED',
                 title='Hồ sơ xác minh bị từ chối',
                 message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
                 url=url_for('account_profile', tab='hirer_verify')

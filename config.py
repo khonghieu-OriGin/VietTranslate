@@ -10,6 +10,9 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file upload
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     PRIVATE_STORAGE_FOLDER = os.getenv('PRIVATE_STORAGE_FOLDER', os.path.join('instance', 'storage', 'private_verifications'))
+    CHAT_IMAGE_FOLDER = os.getenv('CHAT_IMAGE_FOLDER', os.path.join('instance', 'chat_images'))
+    JOB_FILES_FOLDER = os.getenv('JOB_FILES_FOLDER', os.path.join('instance', 'job_files'))
+    DELIVERABLE_FOLDER = os.getenv('DELIVERABLE_FOLDER', os.path.join('instance', 'deliverables'))
     
     # Mail Config
     MAIL_SERVER = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
@@ -30,6 +33,14 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     """Production configuration — PostgreSQL only."""
     DEBUG = False
+
+    _secret = os.getenv('SECRET_KEY')
+    if not _secret or _secret == 'dev-secret-key-change-in-production' or len(_secret.strip()) < 16:
+        raise RuntimeError(
+            "[CRITICAL] Production environment requires a strong SECRET_KEY (minimum 16 chars)! "
+            "Please configure SECRET_KEY in your production environment variables."
+        )
+    SECRET_KEY = _secret
 
     # DATABASE_URL takes priority; SUPABASE_DB_URL is a legacy alias
     _db_url = os.getenv('DATABASE_URL') or os.getenv('SUPABASE_DB_URL')

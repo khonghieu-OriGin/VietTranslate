@@ -115,6 +115,36 @@ chmod -R 755 /var/lib/viettranslate/uploads
 
 ---
 
+## 5. Kịch Bản 4: Rollback Bản Phát Hành 15/10/2026 (Audit & Bug Fixes)
+
+Nếu cần quay lại phiên bản code hoặc database ngay trước đợt cập nhật 15/10/2026:
+
+### Bước 1: Dừng dịch vụ Gunicorn
+```bash
+sudo systemctl stop viettranslate.service
+```
+
+### Bước 2: Khôi phục Codebase
+```bash
+# Xóa các file code hiện tại (giữ lại venv và static nặng)
+cd /www/wwwroot/157.66.100.101
+tar -xzf /var/backups/viettranslate/app_pre_deploy_20261015.tar.gz -C /www/wwwroot/157.66.100.101/
+chown -R www:www /www/wwwroot/157.66.100.101
+```
+
+### Bước 3: Khôi phục Database Snapshot
+```bash
+sudo -u postgres pg_restore --clean --if-exists -d viettranslate_db /var/backups/viettranslate/db_pre_deploy_.dump
+```
+
+### Bước 4: Khởi động lại dịch vụ và kiểm tra
+```bash
+sudo systemctl start viettranslate.service
+sudo systemctl status viettranslate.service --no-pager
+```
+
+---
+
 ## 5. Danh Sách Kiểm Tra Sau Khi Rollback
 
 - [ ] `viettranslate.service` có trạng thái `active (running)`.
