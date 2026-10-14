@@ -206,7 +206,12 @@ class TranslatorProfessionalProfileTestCase(unittest.TestCase):
             db.session.commit()
         else:
             self.profile_private = self.trans_private.profile
+            self.profile_private.title = 'Biên phiên dịch Tiếng Nhật'
+            self.profile_private.bio = 'Chuyên dịch hồ sơ kỹ thuật và cơ khí chế tạo.'
+            self.profile_private.languages = 'Tiếng Nhật, Tiếng Việt'
+            self.profile_private.current_position = None
             self.profile_private.is_public = False
+            self.profile_private.is_cv_public = False
             db.session.commit()
 
         # Tạo Translator 4 (Tài khoản bị giới hạn / khóa is_active = False)
