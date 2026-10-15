@@ -237,7 +237,7 @@
     <!-- ═══════════════════════════════════════════════════════════════
      HEADER: Clean, International, Semi-transparent with Blur
      ═══════════════════════════════════════════════════════════════ -->
-    {% set side = current_user and current_user.role in ['hirer', 'translator'] %}
+    {% set side = current_user and current_user.role in ['hirer', 'translator'] and request.endpoint != 'index' %}
     <header
         class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all duration-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -291,6 +291,12 @@
                                 d="M12 4v16m8-8H4" />
                         </svg>
                         {{ t('nav.post_job') }}
+                    </a>
+                    {% elif current_user.role == 'translator' and not side %}
+                    <a href="{{ url_for('interpreter_dashboard') }}"
+                        class="hidden md:inline-flex items-center gap-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200/80 text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-2xs">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                        <span>Tổng quan quản lý</span>
                     </a>
                     {% endif %}
 
@@ -379,6 +385,12 @@
                                             class="flex items-center gap-2.5 px-4 py-2 hover:bg-slate-50 transition">
                                             <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-3a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1v-7z"/></svg>
                                             Tổng quan
+                                        </a>
+                                        {% elif current_user.role == 'translator' %}
+                                        <a href="{{ url_for('interpreter_dashboard') }}"
+                                            class="flex items-center gap-2.5 px-4 py-2 hover:bg-brand-50 transition text-brand-600 font-bold">
+                                            <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                                            Tổng quan quản lý
                                         </a>
                                         {% endif %}
                                         <a href="{{ url_for('account_profile') }}"
@@ -497,6 +509,12 @@
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'post_job' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %}">{{
                     t('nav.mobile_post_job') }}</a>
                 {% elif current_user and current_user.role == 'translator' %}
+                <!-- Mobile: Link về Trang chủ công khai -->
+                <a href="{{ url_for('index') }}"
+                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'index' %}text-brand-600 bg-brand-50 font-bold{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} flex items-center gap-2">
+                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    Trang chủ công khai
+                </a>
                 <!-- Mobile: 1. Tổng quan (accordion) -->
                 {% set overview_active = request.endpoint in ['interpreter_dashboard', 'account_profile', 'account_history', 'notifications_page'] or
                                          (request.endpoint == 'job_list' and request.args.get('recommended')) %}
