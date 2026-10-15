@@ -1332,8 +1332,7 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
             flash(_t('flash.login_required'), 'warning')
-            next_target = request.full_path if request.query_string else request.path
-            return redirect(url_for('login', next=next_target))
+            return redirect(url_for('login'))
         
         user = get_current_user()
         if not user:
@@ -1491,6 +1490,7 @@ def set_language(lang):
 # ─── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
 
 @app.route('/')
+@app.route('/index')
 def index():
     try:
         from sqlalchemy.orm import joinedload
@@ -2363,6 +2363,9 @@ def news_detail(slug):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session and get_current_user():
+        return redirect(url_for('index'))
+
     next_url = request.args.get('next') or request.form.get('next')
 
     def is_safe_redirect(url):
@@ -2406,8 +2409,7 @@ def login():
                         session.clear()
                         flash("Tài khoản Quản trị vui lòng sử dụng cổng đăng nhập riêng.", "warning")
                         return redirect(url_for('admin_login'))
-                    if is_safe_redirect(next_url):
-                        return redirect(next_url)
+                    # Luôn luôn đưa về trang chủ công khai (giao diện khách) sau khi đăng nhập thành công
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
