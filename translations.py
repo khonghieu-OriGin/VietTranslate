@@ -77,11 +77,11 @@ TRANSLATIONS = {
 
         # ─── Home / Stats Bar ───
         'stats': {
-            'translators_count': '5,200+',
+            'translators_count': '11+',
             'translators_label': 'Phiên dịch viên chuyên nghiệp',
-            'satisfaction_rate': '99.4%',
+            'satisfaction_rate': '100%',
             'satisfaction_label': 'Tỷ lệ khách hàng hài lòng',
-            'contracts_count': '12,400+',
+            'contracts_count': '3+',
             'contracts_label': 'Hợp đồng hoàn thành thành công',
             'escrow_amount': '100%',
             'escrow_label': 'Quỹ thanh toán bảo vệ Escrow',
@@ -90,7 +90,7 @@ TRANSLATIONS = {
         # ─── Home / Language Strip ───
         'home_languages': {
             'badge': 'Ngôn ngữ phổ biến',
-            'title': 'Hỗ Trợ Toàn Diện 10+ Ngôn Ngữ Trọng Tâm',
+            'title': 'Hỗ Trợ Toàn Diện 13+ Ngôn Ngữ Trọng Tâm',
             'subtitle': 'Mỗi ngôn ngữ đều có đội ngũ phiên dịch viên đã qua kiểm tra chứng chỉ quốc tế và kinh nghiệm thực chiến.',
             'view_all': 'Xem tất cả phiên dịch viên',
             'translators_suffix': 'chuyên gia',
@@ -216,8 +216,8 @@ TRANSLATIONS = {
             'policy_item1_text': 'Áp dụng nếu phiên dịch viên vắng mặt, hủy ca đột xuất hoặc không bàn giao tài liệu như đã ký kết.',
             'policy_item2_label': 'Hỗ trợ giải quyết tranh chấp:',
             'policy_item2_text': 'Ban quản trị VietTranslate tham gia đối soát chứng từ, ghi âm, bản dịch trong vòng 24 giờ làm việc.',
-            'policy_item3_label': '99.4% tỉ lệ hài lòng:',
-            'policy_item3_text': 'Hơn 12,000+ hợp đồng giao dịch an toàn không phát sinh tranh chấp.',
+            'policy_item3_label': '100% tỉ lệ hài lòng:',
+            'policy_item3_text': 'Toàn bộ hợp đồng giao dịch an toàn không phát sinh tranh chấp.',
         },
 
         # ─── Authentication (Login & Register) ───
@@ -1040,11 +1040,11 @@ TRANSLATIONS = {
 
         # ─── Home / Stats Bar ───
         'stats': {
-            'translators_count': '5,200+',
+            'translators_count': '11+',
             'translators_label': 'Certified Professional Translators',
-            'satisfaction_rate': '99.4%',
+            'satisfaction_rate': '100%',
             'satisfaction_label': 'Client Satisfaction Rate',
-            'contracts_count': '12,400+',
+            'contracts_count': '3+',
             'contracts_label': 'Successfully Completed Contracts',
             'escrow_amount': '100%',
             'escrow_label': 'Escrow-Protected Payment Fund',
@@ -1053,7 +1053,7 @@ TRANSLATIONS = {
         # ─── Home / Language Strip ───
         'home_languages': {
             'badge': 'Popular Languages',
-            'title': 'Comprehensive Support for 10+ Key Languages',
+            'title': 'Comprehensive Support for 13+ Key Languages',
             'subtitle': 'Each language is backed by a verified roster of linguists with recognized international certificates and industry expertise.',
             'view_all': 'View all translators',
             'translators_suffix': 'experts',
@@ -1179,8 +1179,8 @@ TRANSLATIONS = {
             'policy_item1_text': 'Applies if a translator fails to attend an assignment, cancels unexpectedly, or does not deliver agreed files.',
             'policy_item2_label': 'Dispute Resolution Support:',
             'policy_item2_text': 'VietTranslate administrators review recordings, time stamps, and deliverables within 24 business hours.',
-            'policy_item3_label': '99.4% Satisfaction Rate:',
-            'policy_item3_text': 'Over 12,000+ successfully completed transactions without unresolved disputes.',
+            'policy_item3_label': '100% Satisfaction Rate:',
+            'policy_item3_text': 'All completed transactions without unresolved disputes.',
         },
 
         # ─── Authentication (Login & Register) ───
