@@ -10,6 +10,7 @@ Policy:
   - Log all parsing failures to stderr (Flask will capture them in debug mode).
   - Return None for any field that cannot be parsed.
 """
+from typing import Optional
 import logging
 from datetime import date, time, datetime
 
@@ -36,7 +37,7 @@ TIME_FMTS = [
 ]
 
 
-def _parse_date(value) -> date | None:
+def _parse_date(value) -> Optional[date]:
     """Try to parse *value* into a date. Returns None on failure."""
     if value is None:
         return None
@@ -97,7 +98,7 @@ def parse_date_range(value):
     return [d] if d else []
 
 
-def _parse_time(value) -> time | None:
+def _parse_time(value) -> Optional[time]:
     """Try to parse *value* into a time. Returns None on failure."""
     if value is None:
         return None
