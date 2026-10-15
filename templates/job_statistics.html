@@ -1,0 +1,1707 @@
+{% extends "base.html" %}
+
+{% block title %}Thống kê công việc | VietTranslate{% endblock %}
+
+{% block content %}
+<div class="bg-slate-50/70 min-h-screen py-8 md:py-12 border-b border-slate-200/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Breadcrumb & Header -->
+        <div class="mb-8">
+            <nav class="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-3" aria-label="Breadcrumb">
+                <a href="{{ url_for('index') }}" class="hover:text-brand-600 transition">Trang chủ</a>
+                <span>/</span>
+                <span class="text-slate-500">Công việc</span>
+                <span>/</span>
+                <span class="text-brand-600 font-bold">Thống kê công việc</span>
+            </nav>
+
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                        <span class="p-2 rounded-xl bg-brand-50 text-brand-600 border border-brand-100/80 shadow-2xs">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                        </span>
+                        <span>Thống kê & Quản lý vòng đời công việc</span>
+                    </h1>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Theo dõi toàn diện các giai đoạn: từ nộp hồ sơ ứng tuyển, xác nhận nhận việc, thực hiện ca làm việc đến nghiệm thu và thanh toán thù lao.
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-2.5">
+                    <button type="button" onclick="openGuidanceModal()"
+                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-brand-600 hover:border-brand-200 text-xs font-bold shadow-2xs transition">
+                        <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                        <span>Quy chuẩn & Tác phong</span>
+                    </button>
+                    <a href="{{ url_for('job_list') }}"
+                        class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-2xs transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <span>Tìm việc làm mới</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- 3.1. KHU VỰC THỐNG KÊ TỔNG QUAN (METRIC CARDS CHÍNH XÁC TỪ DATABASE) -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
+            
+            <!-- Card 1: Tổng đơn ứng tuyển -->
+            <a href="{{ url_for('job_statistics', tab='applied') }}"
+                class="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-2xs hover:border-brand-400 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 group-hover:text-brand-600 transition">Đơn ứng tuyển</span>
+                    <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">📝</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-slate-900">{{ metrics.total_applications }}</div>
+                <div class="text-[10px] text-slate-400 mt-0.5 truncate">Toàn bộ hồ sơ đã gửi</div>
+            </a>
+
+            <!-- Card 2: Chờ phản hồi / Đang xem xét -->
+            <a href="{{ url_for('job_statistics', tab='applied', status='pending') }}"
+                class="bg-white rounded-2xl p-4 border border-amber-100 shadow-2xs hover:border-amber-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-amber-600 group-hover:text-amber-700 transition">Chờ phản hồi</span>
+                    <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">⏳</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-amber-700">{{ metrics.pending_review }}</div>
+                <div class="text-[10px] text-amber-600/80 mt-0.5 truncate">Đang được xem xét</div>
+            </a>
+
+            <!-- Card 3: Đã nhận việc / Sắp tới -->
+            <a href="{{ url_for('job_statistics', tab='accepted') }}"
+                class="bg-white rounded-2xl p-4 border border-sky-100 shadow-2xs hover:border-sky-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600 group-hover:text-sky-700 transition">Đã nhận việc</span>
+                    <span class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">🤝</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-sky-700">{{ metrics.accepted }}</div>
+                <div class="text-[10px] text-sky-600/80 mt-0.5 truncate">Sắp tới / Ký quỹ</div>
+            </a>
+
+            <!-- Card 4: Đang thực hiện -->
+            <a href="{{ url_for('job_statistics', tab='in_progress') }}"
+                class="bg-white rounded-2xl p-4 border border-emerald-100 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 group-hover:text-emerald-700 transition">Đang làm</span>
+                    <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">⚡</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-emerald-700">{{ metrics.in_progress }}</div>
+                <div class="text-[10px] text-emerald-600/80 mt-0.5 truncate">Ca diễn ra hôm nay</div>
+            </a>
+
+            <!-- Card 5: Chờ nghiệm thu -->
+            <a href="{{ url_for('job_statistics', tab='delivered') }}"
+                class="bg-white rounded-2xl p-4 border border-purple-100 shadow-2xs hover:border-purple-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-purple-600 group-hover:text-purple-700 transition">Chờ nghiệm thu</span>
+                    <span class="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">🎯</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-purple-700">{{ metrics.delivered }}</div>
+                <div class="text-[10px] text-purple-600/80 mt-0.5 truncate">Đã báo hoàn thành ca</div>
+            </a>
+
+            <!-- Card 6: Đã hoàn thành -->
+            <a href="{{ url_for('job_statistics', tab='completed') }}"
+                class="bg-white rounded-2xl p-4 border border-indigo-100 shadow-2xs hover:border-indigo-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-600 group-hover:text-indigo-700 transition">Hoàn thành</span>
+                    <span class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">✓</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-indigo-700">{{ metrics.completed }}</div>
+                <div class="text-[10px] text-indigo-600/80 mt-0.5 truncate">
+                    {{ "{:,.0f}".format(metrics.total_net_earned) }}đ
+                </div>
+            </a>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- 3.2. CÁC TAB QUẢN LÝ CÔNG VIỆC CHUẨN NGHIỆP VỤ VIETTRANSLATE        -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div class="flex items-center gap-1.5 sm:gap-2 mb-6 border-b border-slate-200/90 pb-3 overflow-x-auto no-scrollbar">
+            
+            <!-- Tab 1: Tất cả công việc -->
+            <a href="{{ url_for('job_statistics', tab='all') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'all' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Tất cả công việc</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'all' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.all }}
+                </span>
+            </a>
+
+            <!-- Tab 2: Đang ứng tuyển -->
+            <a href="{{ url_for('job_statistics', tab='applied') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'applied' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Đang ứng tuyển</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'applied' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.applied }}
+                </span>
+            </a>
+
+            <!-- Tab 3: Đã nhận -->
+            <a href="{{ url_for('job_statistics', tab='accepted') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'accepted' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Đã nhận việc</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'accepted' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.accepted }}
+                </span>
+            </a>
+
+            <!-- Tab 4: Đang thực hiện -->
+            <a href="{{ url_for('job_statistics', tab='in_progress') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'in_progress' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Đang thực hiện</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'in_progress' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.in_progress }}
+                </span>
+            </a>
+
+            <!-- Tab 5: Chờ xác nhận hoàn thành -->
+            <a href="{{ url_for('job_statistics', tab='delivered') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'delivered' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Chờ xác nhận</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'delivered' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.delivered }}
+                </span>
+            </a>
+
+            <!-- Tab 6: Đã hoàn thành -->
+            <a href="{{ url_for('job_statistics', tab='completed') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'completed' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Đã hoàn thành</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'completed' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.completed }}
+                </span>
+            </a>
+
+            <!-- Tab 7: Không tiếp tục -->
+            <a href="{{ url_for('job_statistics', tab='cancelled') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'cancelled' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Không tiếp tục</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'cancelled' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.cancelled }}
+                </span>
+            </a>
+
+            <!-- Tab 8: Đã lưu -->
+            <a href="{{ url_for('job_statistics', tab='saved') }}"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
+                {% if tab == 'saved' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
+                <span>Đã lưu</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'saved' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
+                    {{ tab_counts.saved }}
+                </span>
+            </a>
+
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- FINANCIAL SUMMARY FOR COMPLETED TAB                                 -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        {% if tab == 'completed' %}
+        <div class="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 sm:p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <span class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg">💰</span>
+                <div>
+                    <div class="text-xs font-bold text-indigo-900">Tổng thù lao thực nhận đã giải ngân</div>
+                    <div class="text-xl sm:text-2xl font-black text-indigo-700">{{ "{:,.0f}".format(metrics.total_net_earned) }}đ</div>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-4 text-xs text-indigo-900">
+                <div>Thỏa thuận gốc (Gross): <strong class="text-slate-800">{{ "{:,.0f}".format(metrics.total_gross_earned) }}đ</strong></div>
+                <div>·</div>
+                <div>Phí bảo chứng Escrow (10%): <strong class="text-rose-600">-{{ "{:,.0f}".format(metrics.total_platform_fee) }}đ</strong></div>
+                <div>·</div>
+                <div>Đánh giá trung bình: <strong class="text-amber-700">⭐ {{ metrics.avg_rating }} / 5.0 ({{ metrics.total_reviews_count }} lượt)</strong></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- 3.3. FILTER & SEARCH TOOLBAR                                        -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200/90 shadow-2xs mb-6">
+            <form method="GET" action="{{ url_for('job_statistics') }}" id="main-filter-form" class="space-y-3.5">
+                <input type="hidden" name="tab" value="{{ tab }}">
+                {% if status_filter and status_filter != 'all' %}
+                <input type="hidden" name="status" value="{{ status_filter }}">
+                {% endif %}
+
+                <!-- Search and Sort row -->
+                <div class="flex flex-col md:flex-row items-center gap-3">
+                    <div class="relative flex-1 w-full">
+                        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                            <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        </div>
+                        <input type="text" name="q" value="{{ search_query }}"
+                            placeholder="Tìm kiếm theo tên công việc, mã ca (#CA-12), ngôn ngữ, chuyên ngành hoặc địa điểm..."
+                            class="block w-full pl-10 pr-10 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition">
+                        {% if search_query %}
+                        <a href="{{ url_for('job_statistics', tab=tab, status=status_filter, acceptance=acceptance_filter, payment=payment_filter, time_range=time_range, sort=sort_by) }}"
+                            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600" title="Xóa tìm kiếm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </a>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full md:w-auto shrink-0">
+                        <label class="text-xs font-semibold text-slate-500 whitespace-nowrap">Sắp xếp:</label>
+                        <select name="sort" onchange="this.form.submit()"
+                            class="py-2.5 pl-3 pr-8 text-xs bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition w-full md:w-auto cursor-pointer">
+                            <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Mới nhất</option>
+                            <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Cũ nhất</option>
+                            <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Thù lao cao nhất</option>
+                            <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Thù lao thấp nhất</option>
+                            <option value="event_asc" {% if sort_by == 'event_asc' %}selected{% endif %}>Ca diễn ra gần nhất</option>
+                            {% if tab == 'completed' %}
+                            <option value="top_rated" {% if sort_by == 'top_rated' %}selected{% endif %}>Đánh giá sao cao nhất</option>
+                            {% endif %}
+                        </select>
+                        <button type="submit"
+                            class="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-2xs transition shrink-0">
+                            Tìm kiếm
+                        </button>
+                        {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') or (payment_filter and payment_filter != 'all') or (time_range and time_range != 'all') %}
+                        <a href="{{ url_for('job_statistics', tab=tab) }}"
+                            class="px-3 py-2 text-xs text-slate-500 hover:text-red-600 font-semibold transition whitespace-nowrap">
+                            Đặt lại
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Sub-status Pills for Tab 'applied' (8 Business Statuses) -->
+                {% if tab == 'applied' %}
+                <div class="pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    {% set filter_list = [
+                        ('all', 'Tất cả trạng thái', proposal_status_counts.all),
+                        ('pending', 'Chờ phản hồi', proposal_status_counts.pending),
+                        ('reviewing', 'Đang xem xét', proposal_status_counts.reviewing),
+                        ('needs_response', 'Cần phản hồi', proposal_status_counts.needs_response),
+                        ('selected', 'Được chọn', proposal_status_counts.selected),
+                        ('accepted', 'Đã nhận việc', proposal_status_counts.accepted),
+                        ('rejected', 'Không được chọn', proposal_status_counts.rejected),
+                        ('withdrawn', 'Đã rút đơn', proposal_status_counts.withdrawn),
+                        ('job_closed', 'Tin đã đóng', proposal_status_counts.job_closed)
+                    ] %}
+
+                    {% for code, label, cnt in filter_list %}
+                    <a href="{{ url_for('job_statistics', tab='applied', status=code, q=search_query, sort=sort_by) }}"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 shrink-0
+                        {% if status_filter == code %}bg-brand-50 text-brand-700 border border-brand-200 font-bold{% else %}text-slate-600 hover:bg-slate-100 border border-transparent{% endif %}">
+                        <span>{{ label }}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded-full {% if status_filter == code %}bg-brand-200/60 text-brand-800{% else %}bg-slate-100 text-slate-500{% endif %}">
+                            {{ cnt }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Detailed Filters for Tab 'completed' -->
+                {% if tab == 'completed' %}
+                <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="font-bold text-slate-500 mr-1">Nghiệm thu:</span>
+                        <a href="{{ url_for('job_statistics', tab='completed', q=search_query, acceptance='all', payment=payment_filter, time_range=time_range, sort=sort_by) }}"
+                            class="px-2.5 py-1 rounded-lg font-bold transition {% if acceptance_filter == 'all' %}bg-slate-900 text-white shadow-2xs{% else %}bg-slate-100 text-slate-600 hover:bg-slate-200{% endif %}">
+                            Tất cả
+                        </a>
+                        <a href="{{ url_for('job_statistics', tab='completed', q=search_query, acceptance='accepted', payment=payment_filter, time_range=time_range, sort=sort_by) }}"
+                            class="px-2.5 py-1 rounded-lg font-bold transition {% if acceptance_filter == 'accepted' %}bg-emerald-600 text-white shadow-2xs{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-100{% endif %}">
+                            Đã nghiệm thu
+                        </a>
+                        <a href="{{ url_for('job_statistics', tab='completed', q=search_query, acceptance='pending', payment=payment_filter, time_range=time_range, sort=sort_by) }}"
+                            class="px-2.5 py-1 rounded-lg font-bold transition {% if acceptance_filter == 'pending' %}bg-purple-600 text-white shadow-2xs{% else %}bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-100{% endif %}">
+                            Chờ nghiệm thu
+                        </a>
+                    </div>
+
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-500 font-semibold">Thanh toán:</span>
+                            <select name="payment" onchange="this.form.submit()"
+                                class="py-1 pl-2.5 pr-7 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:bg-white focus:ring-1 focus:ring-brand-500 transition cursor-pointer">
+                                <option value="all" {% if payment_filter == 'all' %}selected{% endif %}>Tất cả thanh toán</option>
+                                <option value="paid" {% if payment_filter == 'paid' %}selected{% endif %}>Đã giải ngân Escrow</option>
+                                <option value="escrow_held" {% if payment_filter == 'escrow_held' %}selected{% endif %}>Đang tạm giữ Escrow</option>
+                            </select>
+                        </div>
+
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-slate-500 font-semibold">Thời gian:</span>
+                            <select name="time_range" onchange="this.form.submit()"
+                                class="py-1 pl-2.5 pr-7 text-xs bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:bg-white focus:ring-1 focus:ring-brand-500 transition cursor-pointer">
+                                <option value="all" {% if time_range == 'all' %}selected{% endif %}>Tất cả thời gian</option>
+                                <option value="this_month" {% if time_range == 'this_month' %}selected{% endif %}>Tháng này</option>
+                                <option value="last_month" {% if time_range == 'last_month' %}selected{% endif %}>Tháng trước</option>
+                                <option value="this_year" {% if time_range == 'this_year' %}selected{% endif %}>Năm nay</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+            </form>
+        </div>
+
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        <!-- DANH SÁCH CÔNG VIỆC TỔNG HỢP (UNIFIED WORK LIFECYCLE LIST)         -->
+        <!-- ═══════════════════════════════════════════════════════════════════ -->
+        {% if items %}
+        <div class="space-y-4">
+            {% for item in items %}
+            
+            <!-- ─── THỂ LOẠI 1: ĐƠN ĐỀ XUẤT ỨNG TUYỂN (PROPOSAL) ─────────────── -->
+            {% if item.type == 'proposal' %}
+            {% set prop = item.data %}
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 hover:border-brand-300 p-5 sm:p-6 transition duration-150 relative group" id="proposal-card-{{ prop.id }}">
+                
+                <!-- Top Badges & Meta -->
+                <div class="flex flex-wrap items-center justify-between gap-2.5 mb-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200/60 text-[11px] font-mono font-bold">
+                            Đơn #{{ prop.id }}
+                        </span>
+                        {% if prop.job %}
+                        <span class="text-[11px] font-bold text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-md border border-brand-200/60">
+                            {{ prop.job.source_lang|upper }} → {{ prop.job.target_lang|upper }}
+                        </span>
+                        {% if prop.job.display_category_text %}
+                        <span class="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md font-medium">
+                            {{ prop.job.display_category_text(current_lang) }}
+                        </span>
+                        {% endif %}
+                        {% if prop.job.event_location %}
+                        <span class="text-[11px] text-slate-600 bg-slate-50 px-2 py-0.5 rounded-md font-medium flex items-center gap-1 border border-slate-200">
+                            📍 {{ prop.job.event_location }}
+                        </span>
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div class="flex items-center gap-1.5">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border {{ prop.status_info.badge_class }}">
+                            {{ prop.status_info.icon_svg | safe }}
+                            <span>{{ prop.status_info.label }}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Job Title & Rate Info -->
+                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div class="flex-1 min-w-0">
+                        <a href="{{ url_for('job_detail', job_id=prop.job_id) if prop.job_id else '#' }}" class="text-base sm:text-lg font-bold text-slate-900 hover:text-brand-600 transition block truncate mb-1">
+                            {{ prop.job.title if prop.job else 'Công việc dịch thuật' }}
+                        </a>
+
+                        <div class="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-slate-500 mt-1.5">
+                            <span class="flex items-center gap-1">
+                                <span class="text-slate-400">Khách tuyển dụng:</span>
+                                <span class="font-semibold text-slate-700">{{ prop.job.hirer.name if (prop.job and prop.job.hirer) else 'Ẩn danh' }}</span>
+                            </span>
+                            <span>·</span>
+                            <span class="flex items-center gap-1">
+                                <span class="text-slate-400">Nộp đơn:</span>
+                                <span class="font-medium text-slate-700">{{ prop.created_at.strftime('%d/%m/%Y %H:%M') if prop.created_at else '' }}</span>
+                            </span>
+                            {% if prop.updated_at and prop.updated_at != prop.created_at %}
+                            <span>·</span>
+                            <span class="flex items-center gap-1">
+                                <span class="text-slate-400">Cập nhật:</span>
+                                <span class="font-medium text-slate-700">{{ prop.updated_at.strftime('%d/%m/%Y %H:%M') }}</span>
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Proposed Rate & Time -->
+                    <div class="shrink-0 text-left md:text-right bg-slate-50/90 p-3 rounded-xl border border-slate-100 min-w-[170px]">
+                        <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Thù lao đề xuất</div>
+                        <div class="text-base font-extrabold text-brand-700">{{ "{:,.0f}".format(prop.price) }}đ</div>
+                        <div class="text-xs text-slate-500 mt-0.5">⏱ {{ prop.time_estimate or 'Thỏa thuận' }}</div>
+                    </div>
+                </div>
+
+                <!-- Cover Letter Preview -->
+                {% if prop.cover_letter %}
+                <div class="mt-3.5 p-3 rounded-xl bg-slate-50/50 border border-slate-200/60 text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                    <span class="font-semibold text-slate-700">Đề xuất của bạn:</span> {{ prop.cover_letter }}
+                </div>
+                {% endif %}
+
+                <!-- Special Alerts depending on Status -->
+                {% if prop.effective_status == 'needs_response' %}
+                <div class="mt-3.5 p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-900 flex items-start gap-2.5">
+                    <svg class="w-4 h-4 text-purple-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <div class="flex-1">
+                        <span class="font-bold">Yêu cầu từ bên tuyển dụng:</span>
+                        <p class="mt-0.5 leading-relaxed">{{ prop.client_note or 'Bên tuyển dụng có câu hỏi cần bạn phản hồi thêm.' }}</p>
+                    </div>
+                </div>
+                {% elif prop.effective_status == 'selected' %}
+                <div class="mt-3.5 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2.5">
+                    <svg class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <div class="flex-1">
+                        <span class="font-bold">Bạn đã được chọn cho công việc này!</span>
+                        <p class="mt-0.5 leading-relaxed">Vui lòng kiểm tra lại thời gian và mức thù lao, sau đó bấm <strong>Xác nhận nhận việc</strong> để kích hoạt hợp đồng làm việc.</p>
+                    </div>
+                </div>
+                {% elif prop.effective_status == 'job_closed' %}
+                <div class="mt-3.5 p-3 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600 flex items-center gap-2">
+                    <span>🔒</span>
+                    <span>Công việc này hiện đã kết thúc nhận hồ sơ hoặc đã chốt ứng viên.</span>
+                </div>
+                {% endif %}
+
+                <!-- Action Bar -->
+                <div class="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                    <div class="text-xs text-slate-400 italic">
+                        {{ prop.status_info.desc }}
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Nút xem chi tiết đơn -->
+                        <button type="button" onclick="openDetailModal({{ prop.id }})"
+                            class="text-xs text-slate-700 hover:text-brand-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl transition font-semibold">
+                            Xem chi tiết đơn
+                        </button>
+
+                        <!-- Nút xác nhận nhận việc (khi được chọn) -->
+                        {% if prop.status_info.can_confirm %}
+                        <button type="button" onclick="openConfirmJobModal({{ prop.id }}, '{{ prop.job.title|escape if prop.job else 'Công việc' }}', '{{ '{:,.0f}'.format(prop.price) }}', '{{ prop.job.event_date if prop.job else 'Thỏa thuận' }}')"
+                            class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-1.5 rounded-xl transition font-bold shadow-xs flex items-center gap-1.5 animate-pulse">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Xác nhận nhận việc</span>
+                        </button>
+                        {% endif %}
+
+                        <!-- Nút bổ sung thông tin -->
+                        {% if prop.status_info.can_update %}
+                        <button type="button" onclick="openUpdateModal({{ prop.id }}, '{{ prop.price }}', '{{ prop.time_estimate|escape }}', `{{ prop.cover_letter|escape }}`)"
+                            class="text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3 py-1.5 rounded-xl transition font-semibold">
+                            Bổ sung thông tin
+                        </button>
+                        {% endif %}
+
+                        <!-- Nút rút đơn -->
+                        {% if prop.status_info.can_withdraw %}
+                        <button type="button" onclick="openWithdrawModal({{ prop.id }}, '{{ prop.job.title|escape if prop.job else 'Công việc' }}')"
+                            class="text-xs text-rose-600 hover:text-rose-700 bg-rose-50/60 hover:bg-rose-100 border border-rose-200/80 px-3 py-1.5 rounded-xl transition font-medium">
+                            Rút đơn
+                        </button>
+                        {% endif %}
+
+                        {% if prop.job_id %}
+                        <a href="{{ url_for('job_detail', job_id=prop.job_id) }}"
+                            class="text-xs text-brand-600 hover:text-brand-700 hover:underline font-semibold ml-1">
+                            Xem tin &rarr;
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- ─── THỂ LOẠI 2: HỢP ĐỒNG / CA LÀM VIỆC (CONTRACT) ───────────── -->
+            {% elif item.type == 'contract' %}
+            {% set contract = item.data %}
+            {% set s_info = contract.shift_status_info %}
+            {% set acc_info = contract.acceptance_status_info %}
+            {% set pay_info = contract.payment_status_info %}
+
+            <div class="bg-white rounded-2xl border border-slate-200/90 hover:border-brand-300 shadow-2xs hover:shadow-md transition duration-150 p-5 sm:p-6 relative">
+                
+                <!-- Top Row: Shift Code + Badges -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-xs font-mono font-extrabold tracking-wide">
+                            #CA-{{ contract.id }}
+                        </span>
+                        {% if contract.job and contract.job.working_format %}
+                        <span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-50 text-slate-600 border border-slate-200">
+                            {{ contract.job.working_format }}
+                        </span>
+                        {% endif %}
+                        {% if contract.updated_at %}
+                        <span class="text-[11px] text-slate-400">
+                            Cập nhật: {{ contract.updated_at.strftime('%d/%m/%Y %H:%M') }}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Status Badges -->
+                    <div class="flex items-center gap-2 flex-wrap">
+                        {% if contract.status in ['completed', 'reviewed', 'delivered'] %}
+                        <!-- Tri-Status badges for finished/delivered stages -->
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border {{ acc_info.badge_class }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ acc_info.dot_class }}"></span>
+                            <span>{{ acc_info.label }}</span>
+                        </span>
+                        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border {{ pay_info.badge_class }}">
+                            <span>💳</span>
+                            <span>{{ pay_info.label }}</span>
+                        </span>
+                        {% else %}
+                        <!-- Standard Shift Status Badge -->
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold border {{ s_info.badge_class }}">
+                            <span class="w-1.5 h-1.5 rounded-full {{ s_info.dot_class }}"></span>
+                            <span>{{ s_info.label }}</span>
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Main Info: Title & Rates -->
+                <div class="mt-4 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                            <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}"
+                                class="hover:text-brand-600 transition">
+                                {% if contract.job %}
+                                {{ contract.job.title }}
+                                {% elif contract.service %}
+                                Dịch vụ: {{ contract.service.name }}
+                                {% else %}
+                                Ca làm việc dịch thuật #CA-{{ contract.id }}
+                                {% endif %}
+                            </a>
+                        </h2>
+
+                        <!-- Chips -->
+                        <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                            {% if contract.job and (contract.job.source_language or contract.job.target_language) %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-brand-50 text-brand-700 text-xs font-bold border border-brand-100">
+                                <span>🌐</span>
+                                <span>{{ contract.job.source_language or 'Mặc định' }}</span>
+                                <span class="text-brand-400">➔</span>
+                                <span>{{ contract.job.target_language or 'Mặc định' }}</span>
+                            </span>
+                            {% endif %}
+
+                            {% if contract.job and contract.job.field %}
+                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 text-slate-700 text-xs font-medium border border-slate-200/80">
+                                <span>📑</span>
+                                <span>Chuyên ngành: {{ contract.job.field }}</span>
+                            </span>
+                            {% endif %}
+
+                            {% if contract.job and contract.job.category %}
+                            <span class="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600">
+                                {{ contract.job.category }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Agreed Rate Block -->
+                    <div class="shrink-0 bg-slate-50 p-3.5 rounded-xl border border-slate-100 text-left md:text-right min-w-[180px]">
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            {% if contract.status in ['completed', 'reviewed'] %}Thù lao thực nhận (90%){% else %}Thù lao cam kết{% endif %}
+                        </div>
+                        <div class="text-lg font-black {% if contract.status in ['completed', 'reviewed'] %}text-emerald-700{% else %}text-brand-700{% endif %}">
+                            {% if contract.status in ['completed', 'reviewed'] %}
+                            {{ "{:,.0f}".format(contract.translator_net_amount) }}đ
+                            {% else %}
+                            {{ "{:,.0f}".format(contract.agreed_price) }}đ
+                            {% endif %}
+                        </div>
+                        <div class="text-[11px] text-slate-500 mt-0.5 flex items-center md:justify-end gap-1">
+                            <span class="text-emerald-600 font-semibold">✓ Bảo đảm qua Escrow</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Shift Operational Details Grid -->
+                <div class="mt-4 p-3.5 rounded-xl bg-slate-50/70 border border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    <!-- Date & Time -->
+                    <div class="flex items-start gap-2 text-slate-700">
+                        <span class="text-base leading-none">📅</span>
+                        <div>
+                            <span class="text-slate-400 block text-[11px] font-medium">Thời gian diễn ra ca:</span>
+                            <span class="font-bold text-slate-900">
+                                {{ contract.scheduled_date or 'Theo thỏa thuận' }}
+                            </span>
+                            {% if contract.scheduled_time_start %}
+                            <span class="text-brand-600 font-semibold block text-[11px] mt-0.5">
+                                ⏰ {{ contract.scheduled_time_start }}{% if contract.scheduled_time_end %} – {{ contract.scheduled_time_end }}{% endif %}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Location / Online Platform -->
+                    <div class="flex items-start gap-2 text-slate-700">
+                        <span class="text-base leading-none">📍</span>
+                        <div>
+                            <span class="text-slate-400 block text-[11px] font-medium">Địa điểm / Nền tảng:</span>
+                            <span class="font-semibold text-slate-900 line-clamp-1" title="{{ contract.location or 'Trực tuyến / Thỏa thuận' }}">
+                                {{ contract.location or ('Phòng họp trực tuyến' if contract.job and contract.job.working_format == 'Trực tuyến' else 'Thỏa thuận qua tin nhắn') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Hirer Client info -->
+                    <div class="flex items-start gap-2 text-slate-700 sm:col-span-2 lg:col-span-1">
+                        <span class="text-base leading-none">👤</span>
+                        <div>
+                            <span class="text-slate-400 block text-[11px] font-medium">Bên tuyển dụng:</span>
+                            <span class="font-bold text-slate-900">{{ contract.hirer.name if contract.hirer else 'Bên tuyển dụng' }}</span>
+                            <span class="text-slate-400 block text-[11px] mt-0.5">ID: #{{ contract.hirer_id }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Client Review if exists -->
+                {% if contract.client_review %}
+                <div class="mt-3 p-3 rounded-xl bg-amber-50/50 border border-amber-100 flex items-start gap-2.5 text-xs">
+                    <span class="text-sm">⭐</span>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-800">Đánh giá từ khách hàng:</span>
+                            <span class="font-extrabold text-amber-700">{{ contract.client_review.rating }} / 5 sao</span>
+                            {% if contract.client_review.created_at %}
+                            <span class="text-[11px] text-slate-400">· {{ contract.client_review.created_at.strftime('%d/%m/%Y') }}</span>
+                            {% endif %}
+                        </div>
+                        {% if contract.client_review.comment %}
+                        <p class="mt-1 text-slate-600 italic">“{{ contract.client_review.comment }}”</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Action Button Toolbar -->
+                <div class="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2.5">
+                    <div class="flex items-center gap-2">
+                        <button type="button" onclick="openGuidanceModal()"
+                            class="text-xs text-slate-600 hover:text-brand-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1">
+                            <span>📖</span>
+                            <span>Tác phong</span>
+                        </button>
+
+                        {% if s_info.can_report_issue %}
+                        <button type="button" onclick="openReportIssueModal({{ contract.id }}, '{{ contract.job.title|escape if contract.job else 'Ca #' ~ contract.id }}')"
+                            class="text-xs text-rose-600 hover:text-rose-700 bg-rose-50/80 hover:bg-rose-100 border border-rose-200/80 px-3 py-1.5 rounded-xl font-bold transition flex items-center gap-1">
+                            <span>⚠️</span>
+                            <span>Báo sự cố</span>
+                        </button>
+                        {% endif %}
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Check-in Button -->
+                        {% if s_info.can_checkin %}
+                        <button type="button" onclick="executeCheckin({{ contract.id }})"
+                            class="text-xs text-white bg-emerald-600 hover:bg-emerald-700 px-3.5 py-1.5 rounded-xl font-bold transition shadow-2xs flex items-center gap-1.5 animate-pulse">
+                            <span>📍</span>
+                            <span>Check-in ca làm</span>
+                        </button>
+                        {% endif %}
+
+                        <!-- Complete Shift Button -->
+                        {% if s_info.can_deliver %}
+                        <button type="button" onclick="openCompleteShiftModal({{ contract.id }}, '{{ contract.job.title|escape if contract.job else 'Ca #' ~ contract.id }}')"
+                            class="text-xs text-white bg-brand-600 hover:bg-brand-700 px-3.5 py-1.5 rounded-xl font-bold transition shadow-2xs flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Báo kết thúc ca</span>
+                        </button>
+                        {% endif %}
+
+                        <!-- Receipt Detail Modal Button -->
+                        {% if contract.status in ['completed', 'reviewed', 'delivered'] %}
+                        <button type="button" onclick="openReceiptModal({{ contract.id }})"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition">
+                            <span>🧾</span>
+                            <span>Biên nhận thù lao</span>
+                        </button>
+                        {% endif %}
+
+                        <!-- Main Room Link -->
+                        <a href="{{ url_for('transaction_detail', contract_id=contract.id) }}"
+                            class="text-xs text-slate-800 hover:text-brand-600 bg-white hover:bg-slate-50 border border-slate-300 hover:border-brand-300 px-3.5 py-1.5 rounded-xl font-bold transition shadow-2xs flex items-center gap-1.5">
+                            <span>Phòng làm việc & Chi tiết</span>
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ─── THỂ LOẠI 3: CÔNG VIỆC ĐÃ LƯU (SAVED JOB) ──────────────────── -->
+            {% elif item.type == 'saved_job' %}
+            {% set s_job = item.data %}
+            <div class="bg-white rounded-2xl shadow-soft border border-slate-200/90 p-5 sm:p-6 transition hover:border-brand-300 flex items-center justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                    <span class="px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200 text-[11px] font-bold">
+                        {{ s_job.source_lang|upper }} → {{ s_job.target_lang|upper }}
+                    </span>
+                    <h3 class="text-base font-bold text-slate-900 mt-2 truncate">
+                        <a href="{{ url_for('job_detail', job_id=s_job.id) }}" class="hover:text-brand-600 transition">
+                            {{ s_job.title }}
+                        </a>
+                    </h3>
+                    <div class="text-xs text-slate-500 mt-1 flex items-center gap-3">
+                        <span>💰 Ngân sách: <strong class="text-slate-800">{{ "{:,.0f}".format(s_job.budget) if s_job.budget else 'Thỏa thuận' }}đ</strong></span>
+                        {% if s_job.event_location %}
+                        <span>· 📍 {{ s_job.event_location }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="shrink-0 flex items-center gap-2">
+                    <a href="{{ url_for('job_detail', job_id=s_job.id) }}"
+                        class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-2xs">
+                        Ứng tuyển ngay
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <!-- Empty State -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-8 sm:p-12 text-center max-w-lg mx-auto shadow-2xs">
+            <div class="w-16 h-16 rounded-2xl bg-brand-50 text-brand-500 mx-auto flex items-center justify-center text-3xl mb-4">
+                💼
+            </div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">
+                {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') %}
+                Không tìm thấy công việc nào phù hợp với bộ lọc
+                {% else %}
+                Chưa có công việc nào trong mục này
+                {% endif %}
+            </h3>
+            <p class="text-xs sm:text-sm text-slate-500 mt-1">
+                {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') %}
+                Vui lòng thử xóa từ khóa tìm kiếm hoặc bấm "Đặt lại bộ lọc" để xem danh sách đầy đủ.
+                {% else %}
+                Khám phá thị trường việc làm dịch thuật để nộp đề xuất và bắt đầu thực hiện ca làm.
+                {% endif %}
+            </p>
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                {% if search_query or (status_filter and status_filter != 'all') or (acceptance_filter and acceptance_filter != 'all') %}
+                <a href="{{ url_for('job_statistics', tab=tab) }}"
+                    class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition">
+                    Đặt lại bộ lọc
+                </a>
+                {% endif %}
+                <a href="{{ url_for('job_list') }}"
+                    class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold rounded-xl transition shadow-2xs">
+                    Tìm kiếm việc làm
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 1: CHI TIẾT ĐƠN ỨNG TUYỂN & TIMELINE LỊCH SỬ                         -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="detail-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                <span>📄</span> Chi tiết đơn ứng tuyển
+            </h3>
+            <button type="button" onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div class="p-6 space-y-5" id="detail-modal-body">
+            <div class="text-center py-8 text-slate-400 text-xs">Đang tải thông tin...</div>
+        </div>
+        <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            <button type="button" onclick="closeDetailModal()" class="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 2: XÁC NHẬN RÚT ĐƠN                                                  -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="withdraw-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-6">
+            <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900 mb-1">Xác nhận rút đơn ứng tuyển?</h3>
+            <p class="text-xs text-slate-500 mb-4" id="withdraw-job-title">Bạn có chắc chắn muốn rút đơn ứng tuyển cho công việc này? Hành động này sẽ được ghi nhận vào lịch sử.</p>
+            
+            <form id="withdraw-form" onsubmit="submitWithdraw(event)">
+                <input type="hidden" id="withdraw-proposal-id">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Lý do rút đơn (tùy chọn):</label>
+                <textarea id="withdraw-reason" rows="2" placeholder="Ví dụ: Bận lịch đột xuất, thay đổi kế hoạch..." class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-rose-500"></textarea>
+
+                <div class="flex items-center justify-end gap-2.5 mt-5">
+                    <button type="button" onclick="closeWithdrawModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                        Hủy
+                    </button>
+                    <button type="submit" id="withdraw-submit-btn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                        Xác nhận rút đơn
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 3: BỔ SUNG THÔNG TIN / CẬP NHẬT ĐỀ XUẤT                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="update-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-6 border-b border-slate-100 flex items-center justify-between">
+            <h3 class="font-extrabold text-slate-900 text-base">✏️ Bổ sung thông tin đề xuất</h3>
+            <button type="button" onclick="closeUpdateModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form id="update-form" onsubmit="submitUpdate(event)" class="p-6 space-y-4">
+            <input type="hidden" id="update-proposal-id">
+            
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Mức thù lao (VND):</label>
+                    <input type="number" id="update-price" min="0" required class="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Thời gian cam kết:</label>
+                    <input type="text" id="update-time-estimate" required class="w-full text-xs p-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Thư ngỏ / Thông tin bổ sung:</label>
+                <textarea id="update-cover-letter" rows="4" required class="w-full text-xs p-3 rounded-xl border border-slate-200 focus:outline-none focus:border-brand-500 leading-relaxed"></textarea>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5 pt-2">
+                <button type="button" onclick="closeUpdateModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Hủy
+                </button>
+                <button type="submit" id="update-submit-btn" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                    Lưu thông tin
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 4: XÁC NHẬN NHẬN VIỆC (KHI ĐƯỢC CHỌN)                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="confirm-job-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+        <div class="p-6">
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-4">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <h3 class="text-base font-extrabold text-slate-900 mb-1">Xác nhận nhận việc chính thức</h3>
+            <p class="text-xs text-slate-500 mb-4">Bên tuyển dụng đã chọn bạn cho công việc này. Vui lòng kiểm tra lại điều khoản trước khi xác nhận:</p>
+
+            <div class="bg-slate-50 rounded-xl p-3.5 space-y-2 text-xs border border-slate-200/80 mb-5">
+                <div class="flex justify-between"><span class="text-slate-500">Công việc:</span> <span class="font-bold text-slate-900 truncate max-w-[200px]" id="confirm-modal-job-title">—</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Mức thù lao:</span> <span class="font-extrabold text-brand-700" id="confirm-modal-price">—</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Lịch thực hiện:</span> <span class="font-medium text-slate-700" id="confirm-modal-date">—</span></div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeConfirmJobModal()" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">
+                    Xem xét lại
+                </button>
+                <button type="button" id="confirm-job-btn" onclick="executeConfirmJob()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5">
+                    <span>Đồng ý nhận việc</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 5: HƯỚNG DẪN TÁC PHONG & QUY CHUẨN                                   -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-guidance" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 border border-slate-200 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-brand-600">📖</span>
+                <span>Quy chuẩn & Tác phong phiên dịch</span>
+            </h3>
+            <button type="button" onclick="closeGuidanceModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <div class="mt-4 space-y-4 text-xs text-slate-600 leading-relaxed">
+            <div class="p-3 bg-brand-50/60 rounded-xl border border-brand-100">
+                <div class="font-bold text-brand-900 mb-1 flex items-center gap-1.5">
+                    <span>⏰</span>
+                    <span>1. Thời gian & Check-in</span>
+                </div>
+                <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                    <li><strong>Ca trực tiếp:</strong> Có mặt tại điểm hẹn trước ít nhất <strong>20 - 30 phút</strong> để làm quen ban tổ chức và thiết bị cabin / mic.</li>
+                    <li><strong>Ca trực tuyến (Online):</strong> Đăng nhập link họp trước ít nhất <strong>10 - 15 phút</strong> để test âm thanh và đường truyền internet.</li>
+                    <li>Bấm nút <strong>"Check-in ca làm"</strong> ngay khi có mặt để hệ thống và bên tuyển dụng ghi nhận.</li>
+                </ul>
+            </div>
+
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <div class="font-bold text-slate-900 mb-1 flex items-center gap-1.5">
+                    <span>👔</span>
+                    <span>2. Trang phục & Tác phong</span>
+                </div>
+                <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                    <li>Hội nghị / Đàm phán kinh doanh: Trang phục công sở lịch sự (Business Formal).</li>
+                    <li>Giữ thái độ trung lập, bảo mật tuyệt đối thông tin kinh doanh của khách hàng theo cam kết NDA.</li>
+                </ul>
+            </div>
+
+            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900">
+                <div class="font-bold mb-1 flex items-center gap-1.5">
+                    <span>🚨</span>
+                    <span>3. Hỗ trợ sự cố khẩn cấp</span>
+                </div>
+                <p>Nếu gặp vấn đề giao thông hoặc sự cố mạng, bấm ngay nút <strong>"Báo sự cố"</strong> hoặc gọi hotline hỗ trợ: <strong>1900-VIETTRANSLATE</strong>.</p>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-3 border-t border-slate-100 flex justify-end">
+            <button type="button" onclick="closeGuidanceModal()"
+                class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition">
+                Đã hiểu quy chuẩn
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 6: BÁO SỰ CỐ KHẨN CẤP                                                -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-report-issue" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-rose-600">⚠️</span>
+                <span>Báo sự cố ca làm</span>
+            </h3>
+            <button type="button" onclick="closeReportIssueModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <form id="form-report-issue" onsubmit="executeReportIssue(event)" class="mt-4 space-y-4">
+            <input type="hidden" id="report-contract-id" value="">
+            <div>
+                <span class="text-xs text-slate-500 font-medium block">Công việc:</span>
+                <span id="report-job-title" class="text-xs font-bold text-slate-900 block line-clamp-1"></span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Loại sự cố phát sinh <span class="text-rose-500">*</span></label>
+                <select id="report-reason" required
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-medium focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500">
+                    <option value="">-- Chọn loại sự cố --</option>
+                    <option value="Trễ giờ do giao thông / kẹt xe">Trễ giờ do giao thông / kẹt xe ngoài ý muốn</option>
+                    <option value="Sự cố kỹ thuật / Thiết bị kết nối">Sự cố kỹ thuật / Mất điện / Mất kết nối internet</option>
+                    <option value="Khách hàng vắng mặt / Không liên hệ được">Khách hàng vắng mặt / Không liên hệ được tại điểm hẹn</option>
+                    <option value="Thay đổi địa điểm / Nội dung chưa báo trước">Thay đổi địa điểm hoặc nội dung ca làm chưa thống nhất trước</option>
+                    <option value="Sự cố sức khỏe đột xuất">Sự cố sức khỏe đột xuất</option>
+                    <option value="Khác">Sự cố khác</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Mô tả chi tiết và hướng xử lý đề xuất</label>
+                <textarea id="report-desc" rows="3" placeholder="Nhập chi tiết tình hình thực tế, thời gian dự kiến giải quyết hoặc yêu cầu hỗ trợ từ điều phối viên..."
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-rose-500 focus:border-rose-500"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeReportIssueModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Đóng
+                </button>
+                <button type="submit" id="btn-submit-report"
+                    class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-2xs transition">
+                    Gửi báo cáo sự cố
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 7: BÁO HOÀN THÀNH CA LÀM                                              -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="modal-complete-shift" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 border border-slate-200">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span class="text-brand-600">✅</span>
+                <span>Xác nhận kết thúc ca làm</span>
+            </h3>
+            <button type="button" onclick="closeCompleteShiftModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        </div>
+
+        <form id="form-complete-shift" onsubmit="executeCompleteShift(event)" class="mt-4 space-y-4">
+            <input type="hidden" id="complete-contract-id" value="">
+            <div>
+                <span class="text-xs text-slate-500 font-medium block">Công việc:</span>
+                <span id="complete-job-title" class="text-xs font-bold text-slate-900 block line-clamp-1"></span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Ghi chú hoàn thành / Báo cáo tóm tắt</label>
+                <textarea id="complete-note" rows="3" placeholder="Nhập tóm tắt thời lượng thực hiện hoặc gửi lời cảm ơn tới khách hàng..."
+                    class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl p-3 focus:bg-white focus:ring-2 focus:ring-brand-500 focus:border-brand-500"></textarea>
+            </div>
+
+            <div class="p-3 bg-brand-50 rounded-xl border border-brand-100 text-[11px] text-brand-900">
+                Sau khi gửi báo cáo, ca làm sẽ chuyển sang trạng thái <strong>"Chờ xác nhận hoàn thành"</strong>. Bên tuyển dụng sẽ tiến hành nghiệm thu và giải ngân tiền Escrow.
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button type="button" onclick="closeCompleteShiftModal()"
+                    class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                    Để sau
+                </button>
+                <button type="submit" id="btn-submit-complete"
+                    class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow-2xs transition">
+                    Xác nhận kết thúc ca
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- MODAL 8: BIÊN NHẬN THÙ LAO & CHI TIẾT NGHIỆM THU (RECEIPT DETAIL)           -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="receiptModal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-slate-100 relative my-8 max-h-[90vh] overflow-y-auto">
+        <button type="button" onclick="closeReceiptModal()"
+            class="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+
+        <div id="receiptModalLoading" class="py-12 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-500 border-t-transparent"></div>
+            <p class="mt-3 text-xs text-slate-500 font-semibold">Đang tải biên nhận & chi tiết nghiệm thu...</p>
+        </div>
+
+        <div id="receiptModalContent" class="hidden space-y-6">
+            <div class="border-b border-slate-100 pb-5">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-black tracking-widest uppercase text-brand-600 bg-brand-50 px-2.5 py-1 rounded-lg">
+                        VIETTRANSLATE · BIÊN NHẬN DỊCH THUẬT
+                    </span>
+                    <span id="modalJobCode" class="text-xs font-mono font-extrabold text-slate-500">
+                        #CA-00
+                    </span>
+                </div>
+                <h3 id="modalJobTitle" class="mt-2 text-xl font-black text-slate-900 leading-snug">
+                    Tên công việc
+                </h3>
+                <div class="mt-2 flex flex-wrap gap-2 text-xs">
+                    <span id="modalLanguages" class="text-slate-600 font-semibold"></span>
+                    <span id="modalField" class="text-slate-400"></span>
+                </div>
+            </div>
+
+            <!-- Group 1: Shift & Client Info -->
+            <div class="bg-slate-50/80 rounded-2xl p-4 border border-slate-200/60 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                    <span class="text-slate-400 block font-medium">Bên tuyển dụng:</span>
+                    <span id="modalHirerName" class="font-bold text-slate-900"></span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Ngày thực hiện:</span>
+                    <span id="modalScheduledDate" class="font-bold text-slate-900"></span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Khung giờ ca làm:</span>
+                    <span id="modalScheduledTime" class="font-semibold text-slate-800"></span>
+                </div>
+                <div>
+                    <span class="text-slate-400 block font-medium">Địa điểm / Nền tảng:</span>
+                    <span id="modalLocation" class="font-semibold text-slate-800"></span>
+                </div>
+            </div>
+
+            <!-- Group 2: Financial Breakdown -->
+            <div>
+                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                    <span>💵</span>
+                    <span>Chi tiết đối soát thù lao</span>
+                </h4>
+                <div class="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100 overflow-hidden text-xs">
+                    <div class="p-3.5 flex justify-between items-center">
+                        <span class="text-slate-600 font-medium">Thù lao cam kết ban đầu (Gross):</span>
+                        <span id="modalGrossPrice" class="font-bold text-slate-900 text-sm">0đ</span>
+                    </div>
+                    <div class="p-3.5 flex justify-between items-center bg-slate-50/50">
+                        <div>
+                            <span class="text-slate-600 font-medium">Phí dịch vụ bảo đảm Escrow & Nền tảng (10%):</span>
+                            <span class="block text-[11px] text-slate-400">Bao gồm bảo đảm thanh toán và hỗ trợ điều phối ca</span>
+                        </div>
+                        <span id="modalPlatformFee" class="font-bold text-rose-600 text-sm">-0đ</span>
+                    </div>
+                    <div class="p-4 flex justify-between items-center bg-emerald-50/50">
+                        <div>
+                            <span class="text-emerald-900 font-extrabold text-sm">Thù lao thực nhận cuối cùng (Net 90%):</span>
+                            <span class="block text-[11px] text-emerald-700">Khoản thu nhập giải ngân vào tài khoản của bạn</span>
+                        </div>
+                        <span id="modalNetAmount" class="font-black text-emerald-700 text-lg">0đ</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group 3: Acceptance Details -->
+            <div>
+                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                    <span>📋</span>
+                    <span>Kết quả nghiệm thu</span>
+                </h4>
+                <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-xs space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Trạng thái phê duyệt:</span>
+                        <span id="modalAcceptanceBadge" class="font-extrabold px-2.5 py-0.5 rounded-full text-[11px]"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Mô tả nghiệm thu:</span>
+                        <span id="modalAcceptanceDesc" class="text-slate-700 font-semibold text-right"></span>
+                    </div>
+                    <div id="modalDeliverablesContainer" class="pt-2 border-t border-slate-200/60 hidden">
+                        <span class="text-slate-400 block mb-1">Tài liệu / Biên bản ca đã nộp:</span>
+                        <div id="modalDeliverablesList" class="space-y-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group 4: Payment Details -->
+            <div>
+                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                    <span>🔒</span>
+                    <span>Thông tin thanh toán & Giao dịch</span>
+                </h4>
+                <div class="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/60 text-xs space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Trạng thái thanh toán:</span>
+                        <span id="modalPaymentBadge" class="font-extrabold px-2.5 py-0.5 rounded-full text-[11px]"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Mã tham chiếu thanh toán:</span>
+                        <span id="modalTransactionRef" class="font-mono font-bold text-slate-800"></span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-500 font-medium">Phương thức:</span>
+                        <span id="modalPaymentMethod" class="font-semibold text-slate-700"></span>
+                    </div>
+                    <div id="modalPaymentNote" class="text-[11px] text-slate-400 italic pt-1"></div>
+                </div>
+            </div>
+
+            <!-- Group 5: Review Section -->
+            <div id="modalReviewSection" class="hidden">
+                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                    <span>⭐</span>
+                    <span>Đánh giá từ bên tuyển dụng</span>
+                </h4>
+                <div class="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/70 text-xs">
+                    <div class="flex items-center gap-2">
+                        <span id="modalReviewStars" class="font-black text-amber-700 text-sm"></span>
+                        <span id="modalReviewDate" class="text-slate-400"></span>
+                    </div>
+                    <p id="modalReviewComment" class="mt-1 text-slate-700 italic"></p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <button type="button" onclick="window.print()"
+                    class="px-3.5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-brand-600 hover:border-brand-200 text-xs font-bold transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                    <span>In / Tải phiếu thù lao</span>
+                </button>
+
+                <div class="flex items-center gap-2">
+                    <a id="modalRoomLink" href="#"
+                        class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold shadow-2xs transition flex items-center gap-1.5">
+                        <span>Mở phòng làm & hồ sơ ca</span>
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </a>
+                    <button type="button" onclick="closeReceiptModal()"
+                        class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS CHO TOÀN BỘ MODAL VÀ HÀNH ĐỘNG                                     -->
+<!-- ═══════════════════════════════════════════════════════════════════════════ -->
+<script>
+    // ─── Modal 1: Chi tiết đơn & Timeline ──────────────────────────────────
+    function openDetailModal(proposalId) {
+        const modal = document.getElementById('detail-modal');
+        const body = document.getElementById('detail-modal-body');
+        modal.classList.remove('hidden');
+        body.innerHTML = '<div class="text-center py-8 text-slate-400 text-xs">Đang tải thông tin...</div>';
+
+        fetch('/api/proposals/' + proposalId + '/detail')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    body.innerHTML = '<div class="text-red-500 text-xs py-4">Lỗi: ' + (data.message || 'Không thể tải chi tiết.') + '</div>';
+                    return;
+                }
+                const p = data.proposal;
+                const j = data.job;
+
+                let timelineHtml = '<div class="relative pl-6 space-y-4 border-l-2 border-slate-200 ml-2">';
+                p.timeline.forEach(t => {
+                    timelineHtml += `
+                        <div class="relative">
+                            <span class="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-brand-600 ring-4 ring-white"></span>
+                            <div class="text-xs font-bold text-slate-900">${t.title}</div>
+                            <div class="text-[11px] text-slate-400">${t.time || ''}</div>
+                            <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${t.desc || ''}</div>
+                        </div>
+                    `;
+                });
+                timelineHtml += '</div>';
+
+                body.innerHTML = `
+                    <div class="space-y-4">
+                        <div>
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${p.status_info.badge_class}">
+                                ${p.status_info.label}
+                            </span>
+                            <h4 class="text-base font-bold text-slate-900 mt-1">${j.title}</h4>
+                            <div class="text-xs text-slate-500 mt-0.5">
+                                Cặp ngôn ngữ: <strong>${(j.source_lang || '').toUpperCase()} → ${(j.target_lang || '').toUpperCase()}</strong>
+                                ${j.event_date ? ' · 📅 ' + j.event_date : ''}
+                                ${j.event_location ? ' · 📍 ' + j.event_location : ''}
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
+                            <div><span class="text-slate-400">Thù lao đề xuất:</span> <div class="font-extrabold text-brand-700 text-sm">${Number(p.price).toLocaleString()}đ</div></div>
+                            <div><span class="text-slate-400">Thời gian cam kết:</span> <div class="font-semibold text-slate-800">${p.time_estimate || 'Thỏa thuận'}</div></div>
+                        </div>
+
+                        <div>
+                            <span class="text-xs font-bold text-slate-700 block mb-1">Thư ngỏ / Đề xuất:</span>
+                            <div class="text-xs text-slate-600 p-3.5 bg-slate-50/70 rounded-xl border border-slate-200/80 whitespace-pre-line leading-relaxed">
+                                ${p.cover_letter || 'Không có thư ngỏ.'}
+                            </div>
+                        </div>
+
+                        ${p.client_note ? `
+                        <div class="p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-xs">
+                            <span class="font-bold text-purple-900">Yêu cầu/Ghi chú từ khách hàng:</span>
+                            <p class="text-purple-800 mt-0.5 leading-relaxed">${p.client_note}</p>
+                        </div>
+                        ` : ''}
+
+                        <div>
+                            <span class="text-xs font-bold text-slate-800 block mb-2.5">Lịch sử xử lý đơn:</span>
+                            ${timelineHtml}
+                        </div>
+                    </div>
+                `;
+            })
+            .catch(() => {
+                body.innerHTML = '<div class="text-red-500 text-xs py-4">Lỗi kết nối khi tải dữ liệu.</div>';
+            });
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detail-modal').classList.add('hidden');
+    }
+
+    // ─── Modal 2: Rút đơn ──────────────────────────────────────────────────
+    function openWithdrawModal(proposalId, jobTitle) {
+        document.getElementById('withdraw-proposal-id').value = proposalId;
+        document.getElementById('withdraw-job-title').textContent = 'Bạn có chắc chắn muốn rút đơn ứng tuyển cho công việc: "' + jobTitle + '"?';
+        document.getElementById('withdraw-reason').value = '';
+        document.getElementById('withdraw-modal').classList.remove('hidden');
+    }
+
+    function closeWithdrawModal() {
+        document.getElementById('withdraw-modal').classList.add('hidden');
+    }
+
+    function submitWithdraw(e) {
+        e.preventDefault();
+        const btn = document.getElementById('withdraw-submit-btn');
+        const id = document.getElementById('withdraw-proposal-id').value;
+        const reason = document.getElementById('withdraw-reason').value;
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang xử lý...';
+
+        fetch('/api/proposals/' + id + '/withdraw', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận rút đơn';
+            if (data.success) {
+                closeWithdrawModal();
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận rút đơn';
+            alert('Lỗi kết nối.');
+        });
+    }
+
+    // ─── Modal 3: Bổ sung thông tin ─────────────────────────────────────────
+    function openUpdateModal(id, price, timeEstimate, coverLetter) {
+        document.getElementById('update-proposal-id').value = id;
+        document.getElementById('update-price').value = price || '';
+        document.getElementById('update-time-estimate').value = timeEstimate || '';
+        document.getElementById('update-cover-letter').value = coverLetter || '';
+        document.getElementById('update-modal').classList.remove('hidden');
+    }
+
+    function closeUpdateModal() {
+        document.getElementById('update-modal').classList.add('hidden');
+    }
+
+    function submitUpdate(e) {
+        e.preventDefault();
+        const btn = document.getElementById('update-submit-btn');
+        const id = document.getElementById('update-proposal-id').value;
+        const price = document.getElementById('update-price').value;
+        const timeEstimate = document.getElementById('update-time-estimate').value;
+        const coverLetter = document.getElementById('update-cover-letter').value;
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang lưu...';
+
+        const form = new FormData();
+        form.append('price', price);
+        form.append('time_estimate', timeEstimate);
+        form.append('cover_letter', coverLetter);
+
+        fetch('/api/proposals/' + id + '/update', {
+            method: 'POST',
+            body: form
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Lưu thông tin';
+            if (data.success) {
+                closeUpdateModal();
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Lưu thông tin';
+            alert('Lỗi kết nối.');
+        });
+    }
+
+    // ─── Modal 4: Xác nhận nhận việc ──────────────────────────────────────
+    let activeConfirmProposalId = null;
+
+    function openConfirmJobModal(id, title, priceStr, dateStr) {
+        activeConfirmProposalId = id;
+        document.getElementById('confirm-modal-job-title').textContent = title;
+        document.getElementById('confirm-modal-price').textContent = priceStr + 'đ';
+        document.getElementById('confirm-modal-date').textContent = dateStr;
+        document.getElementById('confirm-job-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmJobModal() {
+        document.getElementById('confirm-job-modal').classList.add('hidden');
+    }
+
+    function executeConfirmJob() {
+        if (!activeConfirmProposalId) return;
+        const btn = document.getElementById('confirm-job-btn');
+        btn.disabled = true;
+        btn.innerHTML = 'Đang xác nhận...';
+
+        fetch('/api/proposals/' + activeConfirmProposalId + '/confirm-job', {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Đồng ý nhận việc';
+            if (data.success) {
+                closeConfirmJobModal();
+                alert(data.message);
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    window.location.reload();
+                }
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Đồng ý nhận việc';
+            alert('Lỗi kết nối mạng.');
+        });
+    }
+
+    // ─── Modal 5: Guidance ──────────────────────────────────────────────────
+    function openGuidanceModal() {
+        document.getElementById('modal-guidance').classList.remove('hidden');
+    }
+    function closeGuidanceModal() {
+        document.getElementById('modal-guidance').classList.add('hidden');
+    }
+
+    // ─── Modal 6: Report Issue ──────────────────────────────────────────────
+    function openReportIssueModal(contractId, jobTitle) {
+        document.getElementById('report-contract-id').value = contractId;
+        document.getElementById('report-job-title').textContent = jobTitle;
+        document.getElementById('report-reason').value = '';
+        document.getElementById('report-desc').value = '';
+        document.getElementById('modal-report-issue').classList.remove('hidden');
+    }
+    function closeReportIssueModal() {
+        document.getElementById('modal-report-issue').classList.add('hidden');
+    }
+    function executeReportIssue(e) {
+        e.preventDefault();
+        const contractId = document.getElementById('report-contract-id').value;
+        const reason = document.getElementById('report-reason').value;
+        const description = document.getElementById('report-desc').value;
+        const btn = document.getElementById('btn-submit-report');
+
+        if (!reason) {
+            alert('Vui lòng chọn loại sự cố.');
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang gửi...';
+
+        fetch('/api/contracts/' + contractId + '/report-issue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: reason, description: description })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi báo cáo sự cố';
+            if (data.success) {
+                closeReportIssueModal();
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Gửi báo cáo sự cố';
+            alert('Lỗi kết nối máy chủ.');
+        });
+    }
+
+    // ─── Modal 7: Complete Shift ────────────────────────────────────────────
+    function openCompleteShiftModal(contractId, jobTitle) {
+        document.getElementById('complete-contract-id').value = contractId;
+        document.getElementById('complete-job-title').textContent = jobTitle;
+        document.getElementById('complete-note').value = '';
+        document.getElementById('modal-complete-shift').classList.remove('hidden');
+    }
+    function closeCompleteShiftModal() {
+        document.getElementById('modal-complete-shift').classList.add('hidden');
+    }
+    function executeCompleteShift(e) {
+        e.preventDefault();
+        const contractId = document.getElementById('complete-contract-id').value;
+        const note = document.getElementById('complete-note').value;
+        const btn = document.getElementById('btn-submit-complete');
+
+        btn.disabled = true;
+        btn.innerHTML = 'Đang ghi nhận...';
+
+        fetch('/api/contracts/' + contractId + '/complete-shift', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note: note })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận kết thúc ca';
+            if (data.success) {
+                closeCompleteShiftModal();
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            btn.disabled = false;
+            btn.innerHTML = 'Xác nhận kết thúc ca';
+            alert('Lỗi kết nối máy chủ.');
+        });
+    }
+
+    // ─── Direct Action: Check-in ────────────────────────────────────────────
+    function executeCheckin(contractId) {
+        if (!confirm('Xác nhận bạn đã có mặt tại điểm hẹn hoặc đã sẵn sàng online cho ca làm việc này?')) {
+            return;
+        }
+
+        fetch('/api/contracts/' + contractId + '/checkin', {
+            method: 'POST'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Lỗi: ' + data.message);
+            }
+        })
+        .catch(() => {
+            alert('Lỗi kết nối mạng.');
+        });
+    }
+
+    // ─── Modal 8: Receipt Detail Modal ───────────────────────────────────────
+    function openReceiptModal(contractId) {
+        const modal = document.getElementById('receiptModal');
+        const loading = document.getElementById('receiptModalLoading');
+        const content = document.getElementById('receiptModalContent');
+
+        modal.classList.remove('hidden');
+        loading.classList.remove('hidden');
+        content.classList.add('hidden');
+
+        fetch(`/api/contracts/${contractId}/receipt-detail`)
+            .then(res => {
+                if (!res.ok) throw new Error('Không thể tải chi tiết ca làm.');
+                return res.json();
+            })
+            .then(data => {
+                if (!data.success) throw new Error(data.message || 'Lỗi dữ liệu');
+                const c = data.contract;
+
+                document.getElementById('modalJobCode').textContent = `#${c.job_code}`;
+                document.getElementById('modalJobTitle').textContent = c.job_title;
+                document.getElementById('modalLanguages').textContent = c.source_lang && c.target_lang ? `🌐 ${c.source_lang} ➔ ${c.target_lang}` : '';
+                document.getElementById('modalField').textContent = c.field ? `· Chuyên ngành: ${c.field}` : '';
+
+                document.getElementById('modalHirerName').textContent = `${c.hirer_name} (ID: #${c.hirer_id})`;
+                document.getElementById('modalScheduledDate').textContent = c.scheduled_date;
+                document.getElementById('modalScheduledTime').textContent = c.scheduled_time || 'Thỏa thuận';
+                document.getElementById('modalLocation').textContent = c.location;
+
+                // Finance
+                document.getElementById('modalGrossPrice').textContent = `${(c.agreed_price || 0).toLocaleString('vi-VN')}đ`;
+                document.getElementById('modalPlatformFee').textContent = `-${(c.platform_fee || 0).toLocaleString('vi-VN')}đ`;
+                document.getElementById('modalNetAmount').textContent = `${(c.translator_net_amount || 0).toLocaleString('vi-VN')}đ`;
+
+                // Acceptance
+                const accBadge = document.getElementById('modalAcceptanceBadge');
+                accBadge.textContent = c.acceptance_status.label;
+                accBadge.className = `font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border ${c.acceptance_status.badge_class}`;
+                document.getElementById('modalAcceptanceDesc').textContent = c.acceptance_status.desc;
+
+                // Deliverables
+                const delContainer = document.getElementById('modalDeliverablesContainer');
+                const delList = document.getElementById('modalDeliverablesList');
+                if (c.deliverables && c.deliverables.length > 0) {
+                    delContainer.classList.remove('hidden');
+                    delList.innerHTML = c.deliverables.map(d => `
+                        <div class="flex items-center justify-between p-1.5 rounded-lg bg-white border border-slate-100 text-[11px]">
+                            <span class="font-medium text-slate-700 truncate max-w-[280px]">📄 ${d.filename}</span>
+                            <span class="text-slate-400">${d.created_at}</span>
+                        </div>
+                    `).join('');
+                } else {
+                    delContainer.classList.add('hidden');
+                    delList.innerHTML = '';
+                }
+
+                // Payment
+                const payBadge = document.getElementById('modalPaymentBadge');
+                payBadge.textContent = c.payment_status.label;
+                payBadge.className = `font-extrabold px-2.5 py-0.5 rounded-full text-[11px] border ${c.payment_status.badge_class}`;
+                document.getElementById('modalTransactionRef').textContent = c.transaction_ref;
+                document.getElementById('modalPaymentMethod').textContent = c.payment_method;
+                document.getElementById('modalPaymentNote').textContent = c.has_payment_record
+                    ? 'Đã đối soát thành công qua bản ghi thanh toán hệ thống.'
+                    : 'Giao dịch được đối soát và giải ngân trực tiếp qua Ký quỹ Escrow Hợp đồng.';
+
+                // Review
+                const revSection = document.getElementById('modalReviewSection');
+                if (c.review) {
+                    revSection.classList.remove('hidden');
+                    document.getElementById('modalReviewStars').textContent = `⭐ ${c.review.rating} / 5 sao`;
+                    document.getElementById('modalReviewDate').textContent = c.review.created_at ? `· ${c.review.created_at}` : '';
+                    document.getElementById('modalReviewComment').textContent = c.review.comment ? `“${c.review.comment}”` : '(Khách hàng không để lại nhận xét văn bản)';
+                } else {
+                    revSection.classList.add('hidden');
+                }
+
+                // Room link
+                document.getElementById('modalRoomLink').href = c.transaction_url;
+
+                loading.classList.add('hidden');
+                content.classList.remove('hidden');
+            })
+            .catch(err => {
+                alert(err.message || 'Không thể tải thông tin.');
+                closeReceiptModal();
+            });
+    }
+
+    function closeReceiptModal() {
+        document.getElementById('receiptModal').classList.add('hidden');
+    }
+
+    document.getElementById('receiptModal')?.addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeReceiptModal();
+        }
+    });
+</script>
+{% endblock %}
