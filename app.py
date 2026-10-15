@@ -2623,13 +2623,26 @@ def register():
 
             db.session.commit()
             
-            # Gửi email xác minh
-            from services.email import send_verification_email
-            verify_url = url_for('verify_email', token=token_str, email=email, _external=True)
-            send_verification_email(new_user.email, verify_url)
+            # Gửi email xác minh (không để lỗi gửi email làm chặn đăng ký)
+            try:
+                from services.email import send_verification_email
+                verify_url = url_for('verify_email', token=token_str, email=email, _external=True)
+                send_verification_email(new_user.email, verify_url)
+            except Exception as mail_err:
+                print(f"[VERIFY EMAIL SEND ERROR] {mail_err}")
             
-            flash("Đăng ký thành công! Vui lòng kiểm tra hộp thư email của bạn để xác minh tài khoản trước khi tiếp tục.", 'success')
-            return redirect(url_for('login'))
+            # Tự động đăng nhập cho tài khoản vừa đăng ký để hiện ngay trang chủ có thanh điều hướng
+            session.clear()
+            session.permanent = True
+            session['user_id'] = new_user.id
+            try:
+                from services.account_security import register_user_session
+                register_user_session(new_user, request)
+            except Exception as sess_err:
+                print(f"[REGISTER SESSION WARNING] {sess_err}")
+            
+            flash("Đăng ký thành công! Chào mừng bạn đến với VietTranslate.", 'success')
+            return redirect(url_for('index'))
         except SQLAlchemyError as e:
             db.session.rollback()
             print(f"[REGISTER SQL ERROR] {e}")
