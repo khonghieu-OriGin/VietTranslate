@@ -1517,7 +1517,7 @@ def index():
 @app.route('/interpreter/dashboard')
 @login_required
 def interpreter_dashboard():
-    """Trang Tổng quan dành riêng cho phiên dịch viên."""
+    """Trang Tß╗òng quan d├ánh ri├¬ng cho phi├¬n dß╗ïch vi├¬n."""
     from datetime import date as date_cls, timedelta
     user = get_current_user()
     if not user:
@@ -1527,58 +1527,58 @@ def interpreter_dashboard():
 
     uid = user.id
 
-    # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
+    # ΓöÇΓöÇ 1. Hß╗ô s╞í & x├íc minh ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     profile = user.profile
     preference = getattr(user, 'preference', None)
 
-    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế (100% tổng thể):
-    # 1. Họ và tên: 15% (user.name)
-    # 2. Ảnh đại diện: 10% (user.avatar hoặc user.avatar_url)
-    # 3. Số điện thoại: 10% (user.phone)
-    # 4. Tiêu đề chuyên môn: 15% (profile.title)
-    # 5. Ngôn ngữ thông thạo: 20% (profile.languages)
-    # 6. Giới thiệu bản thân: 15% (profile.bio)
-    # 7. Cài đặt nhận việc / Dịch vụ: 15% (preference.service_types hoặc profile.services)
+    # Ti├¬u ch├¡ ho├án thiß╗çn hß╗ô s╞í c├│ c─ân cß╗⌐ r├╡ r├áng tß╗½ c├íc tr╞░ß╗¥ng dß╗» liß╗çu thß╗▒c tß║┐ (100% tß╗òng thß╗â):
+    # 1. Hß╗ì v├á t├¬n: 15% (user.name)
+    # 2. ß║ónh ─æß║íi diß╗çn: 10% (user.avatar hoß║╖c user.avatar_url)
+    # 3. Sß╗æ ─æiß╗çn thoß║íi: 10% (user.phone)
+    # 4. Ti├¬u ─æß╗ü chuy├¬n m├┤n: 15% (profile.title)
+    # 5. Ng├┤n ngß╗» th├┤ng thß║ío: 20% (profile.languages)
+    # 6. Giß╗¢i thiß╗çu bß║ún th├ón: 15% (profile.bio)
+    # 7. C├ái ─æß║╖t nhß║¡n viß╗çc / Dß╗ïch vß╗Ñ: 15% (preference.service_types hoß║╖c profile.services)
     profile_completeness = 0
     profile_missing = []
 
-    # 1. Họ và tên
+    # 1. Hß╗ì v├á t├¬n
     if user.name and user.name.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Họ và tên')
+        profile_missing.append('Hß╗ì v├á t├¬n')
 
-    # 2. Ảnh đại diện cá nhân
+    # 2. ß║ónh ─æß║íi diß╗çn c├í nh├ón
     if getattr(user, 'avatar', None) or getattr(user, 'avatar_url', None):
         profile_completeness += 10
     else:
-        profile_missing.append('Ảnh đại diện')
+        profile_missing.append('ß║ónh ─æß║íi diß╗çn')
 
-    # 3. Số điện thoại
+    # 3. Sß╗æ ─æiß╗çn thoß║íi
     if user.phone and user.phone.strip():
         profile_completeness += 10
     else:
-        profile_missing.append('Số điện thoại')
+        profile_missing.append('Sß╗æ ─æiß╗çn thoß║íi')
 
-    # 4. Tiêu đề chuyên môn
+    # 4. Ti├¬u ─æß╗ü chuy├¬n m├┤n
     if profile and profile.title and profile.title.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Tiêu đề chuyên môn')
+        profile_missing.append('Ti├¬u ─æß╗ü chuy├¬n m├┤n')
 
-    # 5. Ngôn ngữ thông thạo
+    # 5. Ng├┤n ngß╗» th├┤ng thß║ío
     if profile and profile.languages and profile.languages.strip():
         profile_completeness += 20
     else:
-        profile_missing.append('Ngôn ngữ thông thạo')
+        profile_missing.append('Ng├┤n ngß╗» th├┤ng thß║ío')
 
-    # 6. Giới thiệu bản thân
+    # 6. Giß╗¢i thiß╗çu bß║ún th├ón
     if profile and profile.bio and profile.bio.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Giới thiệu bản thân')
+        profile_missing.append('Giß╗¢i thiß╗çu bß║ún th├ón')
 
-    # 7. Cài đặt nhận việc / Dịch vụ
+    # 7. C├ái ─æß║╖t nhß║¡n viß╗çc / Dß╗ïch vß╗Ñ
     has_services = False
     if profile and getattr(profile, 'services', None) and len(profile.services) > 0:
         has_services = True
@@ -1588,12 +1588,12 @@ def interpreter_dashboard():
     if has_services:
         profile_completeness += 15
     else:
-        profile_missing.append('Dịch vụ / Cài đặt nhận việc')
+        profile_missing.append('Dß╗ïch vß╗Ñ / C├ái ─æß║╖t nhß║¡n viß╗çc')
 
-    # Đảm bảo phần trăm nằm chính xác trong khoảng 0 - 100
+    # ─Éß║úm bß║úo phß║ºn tr─âm nß║▒m ch├¡nh x├íc trong khoß║úng 0 - 100
     profile_completeness = max(0, min(100, int(profile_completeness)))
 
-    # Xác định trạng thái xác minh thực tế (dựa trên hồ sơ và yêu cầu thẩm định):
+    # X├íc ─æß╗ïnh trß║íng th├íi x├íc minh thß╗▒c tß║┐ (dß╗▒a tr├¬n hß╗ô s╞í v├á y├¬u cß║ºu thß║⌐m ─æß╗ïnh):
     verif_req = None
     try:
         verif_req = getattr(user, 'latest_verification', None)
@@ -1603,71 +1603,71 @@ def interpreter_dashboard():
     if not profile:
         verification_status = {
             'code': 'no_profile',
-            'label': 'Chưa tạo hồ sơ',
+            'label': 'Ch╞░a tß║ío hß╗ô s╞í',
             'color': 'slate',
             'badge_bg': 'bg-slate-100',
             'badge_text': 'text-slate-600',
             'badge_border': 'border-slate-200',
-            'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
-            'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
+            'tooltip': 'Ch╞░a c├│ th├┤ng tin hß╗ô s╞í phi├¬n dß╗ïch vi├¬n.',
+            'action_hint': 'Vui l├▓ng khß╗ƒi tß║ío hß╗ô s╞í c├í nh├ón.',
         }
     elif profile.is_verified or (verif_req and getattr(verif_req, 'status', None) in ('approved', 'verified')):
         verification_status = {
             'code': 'verified',
-            'label': 'Đã xác minh',
+            'label': '─É├ú x├íc minh',
             'color': 'emerald',
             'badge_bg': 'bg-emerald-50',
             'badge_text': 'text-emerald-700',
             'badge_border': 'border-emerald-200',
-            'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
-            'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
+            'tooltip': 'Hß╗ô s╞í v├á chß╗⌐ng chß╗ë ─æ├ú ─æ╞░ß╗úc Ban quß║ún trß╗ï VietTranslate kiß╗âm duyß╗çt & chß╗⌐ng nhß║¡n.',
+            'action_hint': 'Hß╗ô s╞í ─æ├ú ─æ╞░ß╗úc cß║Ñp huy hiß╗çu uy t├¡n.',
         }
     elif verif_req and getattr(verif_req, 'status', None) in ('needs_revision', 'revision_requested'):
         verification_status = {
             'code': 'needs_revision',
-            'label': 'Cần bổ sung',
+            'label': 'Cß║ºn bß╗ò sung',
             'color': 'amber',
             'badge_bg': 'bg-amber-50',
             'badge_text': 'text-amber-700',
             'badge_border': 'border-amber-200',
-            'tooltip': 'Ban quản trị yêu cầu bổ sung thông tin hoặc tài liệu xác minh.',
-            'action_hint': 'Cần bổ sung tài liệu theo yêu cầu của Admin.',
+            'tooltip': 'Ban quß║ún trß╗ï y├¬u cß║ºu bß╗ò sung th├┤ng tin hoß║╖c t├ái liß╗çu x├íc minh.',
+            'action_hint': 'Cß║ºn bß╗ò sung t├ái liß╗çu theo y├¬u cß║ºu cß╗ºa Admin.',
         }
     elif verif_req and getattr(verif_req, 'status', None) == 'rejected':
         verification_status = {
             'code': 'rejected',
-            'label': 'Bị từ chối',
+            'label': 'Bß╗ï tß╗½ chß╗æi',
             'color': 'rose',
             'badge_bg': 'bg-rose-50',
             'badge_text': 'text-rose-700',
             'badge_border': 'border-rose-200',
-            'tooltip': 'Hồ sơ xác minh chưa đạt yêu cầu của Ban quản trị.',
-            'action_hint': 'Xem lý do từ chối và nộp lại hồ sơ.',
+            'tooltip': 'Hß╗ô s╞í x├íc minh ch╞░a ─æß║ít y├¬u cß║ºu cß╗ºa Ban quß║ún trß╗ï.',
+            'action_hint': 'Xem l├╜ do tß╗½ chß╗æi v├á nß╗Öp lß║íi hß╗ô s╞í.',
         }
     elif (verif_req and getattr(verif_req, 'status', None) in ('pending', 'in_review')) or (profile.badges and profile.badges.strip()):
         verification_status = {
             'code': 'pending',
-            'label': 'Đang chờ duyệt',
+            'label': '─Éang chß╗¥ duyß╗çt',
             'color': 'blue',
             'badge_bg': 'bg-blue-50',
             'badge_text': 'text-blue-700',
             'badge_border': 'border-blue-200',
-            'tooltip': 'Bạn đã cung cấp chứng chỉ. Hồ sơ đang trong danh sách chờ Ban quản trị xét duyệt.',
-            'action_hint': 'Đang chờ Ban quản trị duyệt chứng chỉ.',
+            'tooltip': 'Bß║ín ─æ├ú cung cß║Ñp chß╗⌐ng chß╗ë. Hß╗ô s╞í ─æang trong danh s├ích chß╗¥ Ban quß║ún trß╗ï x├⌐t duyß╗çt.',
+            'action_hint': '─Éang chß╗¥ Ban quß║ún trß╗ï duyß╗çt chß╗⌐ng chß╗ë.',
         }
     else:
         verification_status = {
             'code': 'unverified',
-            'label': 'Chưa xác minh',
+            'label': 'Ch╞░a x├íc minh',
             'color': 'amber',
             'badge_bg': 'bg-amber-50',
             'badge_text': 'text-amber-700',
             'badge_border': 'border-amber-200',
-            'tooltip': 'Chưa nộp chứng chỉ. Nhấn để bổ sung chứng chỉ (IELTS, JLPT, HSK...) và gửi duyệt.',
-            'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
+            'tooltip': 'Ch╞░a nß╗Öp chß╗⌐ng chß╗ë. Nhß║Ñn ─æß╗â bß╗ò sung chß╗⌐ng chß╗ë (IELTS, JLPT, HSK...) v├á gß╗¡i duyß╗çt.',
+            'action_hint': 'Cß║ºn bß╗ò sung chß╗⌐ng chß╗ë ─æß╗â x├íc minh.',
         }
 
-    # ── 2. Thống kê công việc (Đồng bộ 100% với trang Thống kê công việc /job-statistics) ─────────
+    # ΓöÇΓöÇ 2. Thß╗æng k├¬ c├┤ng viß╗çc (─Éß╗ông bß╗Ö 100% vß╗¢i trang Thß╗æng k├¬ c├┤ng viß╗çc /job-statistics) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     today = date_cls.today()
 
     all_user_proposals = Proposal.query.filter_by(translator_id=uid).all()
@@ -1680,23 +1680,23 @@ def interpreter_dashboard():
         db.session.rollback()
         saved_jobs_count = 0
 
-    # 4 chỉ số chính đồng bộ chuẩn xác với trang Thống kê công việc:
-    # 1. Đang ứng tuyển: Đang chờ phản hồi / đang xem xét / cần phản hồi / được chọn chờ xác nhận
+    # 4 chß╗ë sß╗æ ch├¡nh ─æß╗ông bß╗Ö chuß║⌐n x├íc vß╗¢i trang Thß╗æng k├¬ c├┤ng viß╗çc:
+    # 1. ─Éang ß╗⌐ng tuyß╗ân: ─Éang chß╗¥ phß║ún hß╗ôi / ─æang xem x├⌐t / cß║ºn phß║ún hß╗ôi / ─æ╞░ß╗úc chß╗ìn chß╗¥ x├íc nhß║¡n
     pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
     pending_review_count = len(pending_review_proposals)
 
-    # 2. Đã nhận: Hợp đồng đã tạo và sẵn sàng / ký quỹ
+    # 2. ─É├ú nhß║¡n: Hß╗úp ─æß╗ông ─æ├ú tß║ío v├á sß║╡n s├áng / k├╜ quß╗╣
     accepted_upcoming_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] in ['escrow_pending', 'upcoming']]
     accepted_count = len(accepted_upcoming_contracts)
 
-    # 3. Đang thực hiện: Ca đang diễn ra & ca chờ xác nhận hoàn thành (delivered)
+    # 3. ─Éang thß╗▒c hiß╗çn: Ca ─æang diß╗àn ra & ca chß╗¥ x├íc nhß║¡n ho├án th├ánh (delivered)
     in_progress_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == 'in_progress']
     in_progress_count = len(in_progress_contracts)
     delivered_contracts = [c for c in all_user_contracts if c.status == 'delivered']
     delivered_count = len(delivered_contracts)
     in_progress_total = in_progress_count + delivered_count
 
-    # 4. Đã hoàn thành: Đã nghiệm thu xong
+    # 4. ─É├ú ho├án th├ánh: ─É├ú nghiß╗çm thu xong
     completed_contracts = [c for c in all_user_contracts if c.status in ['completed', 'reviewed']]
     completed_count = len(completed_contracts)
 
@@ -1705,13 +1705,13 @@ def interpreter_dashboard():
     proposals_accepted = [p for p in all_user_proposals if p.status == 'accepted']
     pending_proposals_count = pending_review_count
 
-    # Hợp đồng của interpreter phục vụ các phần khác
+    # Hß╗úp ─æß╗ông cß╗ºa interpreter phß╗Ñc vß╗Ñ c├íc phß║ºn kh├íc
     contracts_all = all_user_contracts
     contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
     contracts_done = [c for c in contracts_all if c.status in ('completed', 'reviewed')]
     contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
 
-    # translator schedules cho ca làm sắp tới
+    # translator schedules cho ca l├ám sß║»p tß╗¢i
     all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
     upcoming_schedules_all = [
         s for s in all_schedules
@@ -1732,6 +1732,7 @@ def interpreter_dashboard():
         'saved':              saved_jobs_count,
     }
 
+
     job_stats = {
         'pending_review':     pending_review_count,
         'accepted':           accepted_count,
@@ -1749,28 +1750,28 @@ def interpreter_dashboard():
         'total_reviews':      profile.total_reviews if profile else 0,
     }
 
-    # ── 3. Thống kê thu nhập (từ contracts completed có agreed_price) ─────────
+    # ΓöÇΓöÇ 3. Thß╗æng k├¬ thu nhß║¡p (tß╗½ contracts completed c├│ agreed_price) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     import calendar
     first_of_month = today.replace(day=1)
     _, last_day = calendar.monthrange(today.year, today.month)
     end_of_month = today.replace(day=last_day)
-    period_label = f"Tháng {today.month:02d}/{today.year}"
+    period_label = f"Th├íng {today.month:02d}/{today.year}"
     period_range = f"01/{today.month:02d} - {last_day:02d}/{today.month:02d}/{today.year}"
 
-    # 1. Thu nhập trong kỳ hiện tại: Hợp đồng hoàn tất (nghiệm thu giải ngân) trong tháng hiện tại
+    # 1. Thu nhß║¡p trong kß╗│ hiß╗çn tß║íi: Hß╗úp ─æß╗ông ho├án tß║Ñt (nghiß╗çm thu giß║úi ng├ón) trong th├íng hiß╗çn tß║íi
     monthly_contracts = [
         c for c in contracts_done
         if c.updated_at and c.updated_at.date() >= first_of_month and c.updated_at.date() <= end_of_month
     ]
     monthly_earned = sum(c.agreed_price for c in monthly_contracts if c.agreed_price)
 
-    # 2. Thu nhập đã thanh toán: Tổng các khoản thực sự đã thanh toán (nghiệm thu/giải ngân tích lũy)
+    # 2. Thu nhß║¡p ─æ├ú thanh to├ín: Tß╗òng c├íc khoß║ún thß╗▒c sß╗▒ ─æ├ú thanh to├ín (nghiß╗çm thu/giß║úi ng├ón t├¡ch l┼⌐y)
     total_earned = sum(c.agreed_price for c in contracts_done if c.agreed_price)
 
-    # 3. Khoản thu nhập đang chờ xử lý:
-    # - Tiền đang giữ an toàn trong Escrow cho các hợp đồng đang thực hiện (in_progress, active, escrow_held)
+    # 3. Khoß║ún thu nhß║¡p ─æang chß╗¥ xß╗¡ l├╜:
+    # - Tiß╗ün ─æang giß╗» an to├án trong Escrow cho c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn (in_progress, active, escrow_held)
     pending_payout = sum(c.agreed_price for c in contracts_active if c.agreed_price)
-    # - Khoản chờ khách nạp tiền ký quỹ Escrow (escrow_pending)
+    # - Khoß║ún chß╗¥ kh├ích nß║íp tiß╗ün k├╜ quß╗╣ Escrow (escrow_pending)
     escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
 
     income_stats = {
@@ -1788,30 +1789,30 @@ def interpreter_dashboard():
         'escrow_pending_count':      len(contracts_pending_payment),
     }
 
-    # ── 4. Ca làm sắp tới (Sắp xếp tăng dần theo thời điểm bắt đầu) ────────
+    # ΓöÇΓöÇ 4. Ca l├ám sß║»p tß╗¢i (Sß║»p xß║┐p t─âng dß║ºn theo thß╗¥i ─æiß╗âm bß║»t ─æß║ºu) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     from datetime import datetime as dt_cls, time as time_cls
     from services.schedule import _parse_date, _parse_time
     now = dt_cls.now()
     now_time = now.time()
 
     WEEKDAYS_VN = {
-        0: 'Thứ Hai',
-        1: 'Thứ Ba',
-        2: 'Thứ Tư',
-        3: 'Thứ Năm',
-        4: 'Thứ Sáu',
-        5: 'Thứ Bảy',
-        6: 'Chủ Nhật'
+        0: 'Thß╗⌐ Hai',
+        1: 'Thß╗⌐ Ba',
+        2: 'Thß╗⌐ T╞░',
+        3: 'Thß╗⌐ N─âm',
+        4: 'Thß╗⌐ S├íu',
+        5: 'Thß╗⌐ Bß║úy',
+        6: 'Chß╗º Nhß║¡t'
     }
 
     upcoming_shifts_list = []
     seen_contract_ids = set()
 
-    # Nguồn 1: Các lịch đặt trong TranslatorSchedule (status reserved hoặc active)
+    # Nguß╗ôn 1: C├íc lß╗ïch ─æß║╖t trong TranslatorSchedule (status reserved hoß║╖c active)
     for sch in upcoming_schedules_all:
         if not sch.scheduled_date:
             continue
-        # Bỏ qua ca đã qua trong ngày hôm nay nếu end_time đã kết thúc và không còn active
+        # Bß╗Å qua ca ─æ├ú qua trong ng├áy h├┤m nay nß║┐u end_time ─æ├ú kß║┐t th├║c v├á kh├┤ng c├▓n active
         if sch.scheduled_date == today and sch.end_time and sch.end_time < now_time and sch.status != 'active':
             continue
 
@@ -1822,32 +1823,32 @@ def interpreter_dashboard():
         if c:
             seen_contract_ids.add(c.id)
 
-        # Tiêu đề ca làm việc
+        # Ti├¬u ─æß╗ü ca l├ám viß╗çc
         title = None
         if j and j.title:
             title = j.title
         elif s and s.name:
             title = s.name
         elif c:
-            title = f"Hợp đồng phiên dịch #{c.id}"
+            title = f"Hß╗úp ─æß╗ông phi├¬n dß╗ïch #{c.id}"
         else:
-            title = f"Ca phiên dịch #{sch.id}"
+            title = f"Ca phi├¬n dß╗ïch #{sch.id}"
 
-        # Hình thức làm việc & Địa điểm
+        # H├¼nh thß╗⌐c l├ám viß╗çc & ─Éß╗ïa ─æiß╗âm
         raw_location = (c.location if c and c.location else (j.event_location if j and j.event_location else '')).strip()
-        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
         work_mode = {
             'type': 'onsite' if is_onsite else 'online',
-            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
-            'location': raw_location if is_onsite else 'Online / Từ xa'
+            'label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
+            'location': raw_location if is_onsite else 'Online / Tß╗½ xa'
         }
 
-        # Trạng thái ca làm việc
+        # Trß║íng th├íi ca l├ám viß╗çc
         is_active_now = (sch.status == 'active' or (sch.scheduled_date == today and sch.start_time and sch.start_time <= now_time and sch.end_time and sch.end_time >= now_time))
         if is_active_now:
             status_meta = {
                 'code': 'active',
-                'label': 'Đang diễn ra',
+                'label': '─Éang diß╗àn ra',
                 'badge_bg': 'bg-emerald-50',
                 'badge_text': 'text-emerald-700',
                 'badge_border': 'border-emerald-200',
@@ -1856,7 +1857,7 @@ def interpreter_dashboard():
         elif sch.status == 'active':
             status_meta = {
                 'code': 'confirmed',
-                'label': 'Đã xác nhận',
+                'label': '─É├ú x├íc nhß║¡n',
                 'badge_bg': 'bg-blue-50',
                 'badge_text': 'text-blue-700',
                 'badge_border': 'border-blue-200',
@@ -1865,31 +1866,31 @@ def interpreter_dashboard():
         else:
             status_meta = {
                 'code': 'reserved',
-                'label': 'Chờ bắt đầu',
+                'label': 'Chß╗¥ bß║»t ─æß║ºu',
                 'badge_bg': 'bg-amber-50',
                 'badge_text': 'text-amber-700',
                 'badge_border': 'border-amber-200',
                 'dot_color': 'bg-amber-500'
             }
 
-        # Nhãn thời gian tương đối
+        # Nh├ún thß╗¥i gian t╞░╞íng ─æß╗æi
         delta_days = (sch.scheduled_date - today).days
         if delta_days == 0:
-            relative_badge = 'Hôm nay'
+            relative_badge = 'H├┤m nay'
             badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
         elif delta_days == 1:
-            relative_badge = 'Ngày mai'
+            relative_badge = 'Ng├áy mai'
             badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
         elif delta_days <= 3:
-            relative_badge = f'Trong {delta_days} ngày'
+            relative_badge = f'Trong {delta_days} ng├áy'
             badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
         else:
-            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ngày')
+            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ng├áy')
             badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
 
         start_str = sch.start_time.strftime('%H:%M') if sch.start_time else ''
         end_str = sch.end_time.strftime('%H:%M') if sch.end_time else ''
-        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoß║ít')
 
         if c:
             detail_url = url_for('transaction_detail', contract_id=c.id)
@@ -1899,7 +1900,7 @@ def interpreter_dashboard():
             detail_url = url_for('account_history')
 
         client_name = c.hirer.name if (c and c.hirer) else (j.hirer.name if (j and j.hirer) else None)
-        category_name = j.display_category_text() if j else (s.name if s else 'Phiên dịch')
+        category_name = j.display_category_text() if j else (s.name if s else 'Phi├¬n dß╗ïch')
 
         upcoming_shifts_list.append({
             'id': sch.id,
@@ -1921,7 +1922,7 @@ def interpreter_dashboard():
             'price': c.agreed_price if c else None
         })
 
-    # Nguồn 2: Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa tạo TranslatorSchedule
+    # Nguß╗ôn 2: Bß╗ò sung c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn c├│ lß╗ïch l├ám m├á ch╞░a tß║ío TranslatorSchedule
     for c in contracts_active + contracts_pending_payment:
         if c.id in seen_contract_ids:
             continue
@@ -1938,20 +1939,20 @@ def interpreter_dashboard():
         seen_contract_ids.add(c.id)
         j = c.job
         s = c.service
-        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hợp đồng phiên dịch #{c.id}")
+        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hß╗úp ─æß╗ông phi├¬n dß╗ïch #{c.id}")
 
         raw_location = (c.location or (j.event_location if j else '') or '').strip()
-        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
         work_mode = {
             'type': 'onsite' if is_onsite else 'online',
-            'label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
-            'location': raw_location if is_onsite else 'Online / Từ xa'
+            'label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
+            'location': raw_location if is_onsite else 'Online / Tß╗½ xa'
         }
 
         if c.status in ('in_progress', 'active', 'escrow_held'):
             status_meta = {
                 'code': 'confirmed',
-                'label': 'Đang thực hiện (Escrow)',
+                'label': '─Éang thß╗▒c hiß╗çn (Escrow)',
                 'badge_bg': 'bg-emerald-50',
                 'badge_text': 'text-emerald-700',
                 'badge_border': 'border-emerald-200',
@@ -1960,7 +1961,7 @@ def interpreter_dashboard():
         else:
             status_meta = {
                 'code': 'pending_escrow',
-                'label': 'Chờ ký quỹ Escrow',
+                'label': 'Chß╗¥ k├╜ quß╗╣ Escrow',
                 'badge_bg': 'bg-amber-50',
                 'badge_text': 'text-amber-700',
                 'badge_border': 'border-amber-200',
@@ -1969,21 +1970,21 @@ def interpreter_dashboard():
 
         delta_days = (raw_d - today).days
         if delta_days == 0:
-            relative_badge = 'Hôm nay'
+            relative_badge = 'H├┤m nay'
             badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
         elif delta_days == 1:
-            relative_badge = 'Ngày mai'
+            relative_badge = 'Ng├áy mai'
             badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
         elif delta_days <= 3:
-            relative_badge = f'Trong {delta_days} ngày'
+            relative_badge = f'Trong {delta_days} ng├áy'
             badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
         else:
-            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ngày')
+            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ng├áy')
             badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
 
         start_str = start_t.strftime('%H:%M') if start_t else (c.scheduled_time_start or '')
         end_str = end_t.strftime('%H:%M') if end_t else (c.scheduled_time_end or '')
-        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoạt')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoß║ít')
 
         upcoming_shifts_list.append({
             'id': c.id,
@@ -2001,17 +2002,17 @@ def interpreter_dashboard():
             'status': status_meta,
             'detail_url': url_for('transaction_detail', contract_id=c.id),
             'client_name': c.hirer.name if c.hirer else None,
-            'category_name': j.display_category_text() if j else 'Phiên dịch',
+            'category_name': j.display_category_text() if j else 'Phi├¬n dß╗ïch',
             'price': c.agreed_price
         })
 
-    # Sắp xếp tăng dần theo thời gian bắt đầu
+    # Sß║»p xß║┐p t─âng dß║ºn theo thß╗¥i gian bß║»t ─æß║ºu
     upcoming_shifts_list.sort(key=lambda x: (x['scheduled_date'], x['start_time'] or time_cls(0, 0)))
     total_upcoming_shifts = len(upcoming_shifts_list)
     upcoming_shifts = upcoming_shifts_list[:6]
     upcoming_schedules = upcoming_shifts
 
-    # ── 5. Việc làm đề xuất (dùng matching service hiện có) ──────────────────
+    # ΓöÇΓöÇ 5. Viß╗çc l├ám ─æß╗ü xuß║Ñt (d├╣ng matching service hiß╗çn c├│) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     has_profile_languages = bool(
         (profile and profile.languages and profile.languages.strip()) or
         (preference and preference.languages and preference.languages.strip()) or
@@ -2030,250 +2031,22 @@ def interpreter_dashboard():
                 j = jobs_map.get(r['job_id'])
                 if j and j.status == 'open' and not j.is_flagged:
                     loc = (j.event_location or '').strip()
-                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'từ xa', 'remote', 'zoom', 'teams', 'google meet']))
+                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
 
                     recommended_jobs.append({
                         'job': j,
                         'match_score': r.get('match_score', 0),
                         'reasons': r.get('reasons', []),
                         'is_matched': True,
-                        'work_mode_label': 'Trực tiếp' if is_onsite else 'Trực tuyến',
+                        'work_mode_label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
                         'work_mode_type': 'onsite' if is_onsite else 'online',
-                        'location_display': loc if is_onsite else 'Online / Từ xa',
+                        'location_display': loc if is_onsite else 'Online / Tß╗½ xa',
                         'applicant_count': j.applicant_count,
                         'category_text': j.display_category_text(current_lang),
                     })
     except Exception as e:
         print(f"[interpreter_dashboard] recommended jobs error: {e}")
         recommended_jobs = []
-
-    # ── 6. Việc cần xử lý (Tasks & Action Items) ─────────────────────────────
-    action_items = []
-
-    # 1. Phản hồi lời mời làm việc từ khách hàng (Ưu tiên cao nhất)
-    try:
-        invitation_notifs = Notification.query.filter_by(
-            user_id=uid,
-            type='JOB_INVITATION'
-        ).order_by(Notification.created_at.desc()).all()
-
-        for notif in invitation_notifs:
-            if notif.related_job_id:
-                inv_job = Job.query.get(notif.related_job_id)
-                if inv_job and inv_job.status == 'open' and not inv_job.is_flagged:
-                    has_applied = Proposal.query.filter_by(job_id=inv_job.id, translator_id=uid).first()
-                    if not has_applied:
-                        action_items.append({
-                            'id': f"invitation_{inv_job.id}",
-                            'type': 'job_invitation',
-                            'title': f"Phản hồi lời mời: {inv_job.title}",
-                            'description': f"Khách hàng {inv_job.hirer.name if inv_job.hirer else ''} đã gửi lời mời bạn tham gia phiên dịch ({inv_job.source_lang} → {inv_job.target_lang}). Hãy xem mô tả và gửi báo giá.",
-                            'status_label': 'Chờ phản hồi',
-                            'priority_label': 'Khẩn cấp',
-                            'priority_badge': 'bg-rose-50 text-rose-700 border-rose-200',
-                            'icon_type': 'invitation',
-                            'url': url_for('job_detail', job_id=inv_job.id),
-                            'action_text': 'Phản hồi lời mời →',
-                        })
-    except Exception as e:
-        print(f"[interpreter_dashboard] invitation action error: {e}")
-
-    # 2. Hoàn thiện hồ sơ cá nhân (Nếu profile_completeness < 100%)
-    if profile_completeness < 100:
-        missing_str = ', '.join(profile_missing) if profile_missing else 'thông tin cần thiết'
-        action_items.append({
-            'id': 'profile_incomplete',
-            'type': 'profile_completion',
-            'title': 'Hoàn thiện hồ sơ cá nhân',
-            'description': f"Hồ sơ hiện đạt {profile_completeness}%. Bạn cần bổ sung: {missing_str} để tăng uy tín và cơ hội nhận việc.",
-            'status_label': f"Còn thiếu ({profile_completeness}%)",
-            'priority_label': 'Quan trọng',
-            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
-            'icon_type': 'profile',
-            'url': url_for('account_profile'),
-            'action_text': 'Hoàn thiện hồ sơ →',
-        })
-
-    # 3. Bổ sung chứng chỉ xác minh hồ sơ (Nếu chưa nộp chứng chỉ)
-    if verification_status and verification_status.get('code') in ('unverified', 'no_profile'):
-        action_items.append({
-            'id': 'profile_verification',
-            'type': 'verification',
-            'title': 'Bổ sung chứng chỉ để xác minh hồ sơ',
-            'description': 'Bạn chưa nộp chứng chỉ ngoại ngữ. Hãy bổ sung bằng cấp/chứng chỉ (IELTS, JLPT, HSK...) để được Ban quản trị duyệt cấp huy hiệu uy tín.',
-            'status_label': 'Chưa xác minh',
-            'priority_label': 'Khuyên dùng',
-            'priority_badge': 'bg-blue-50 text-blue-700 border-blue-200',
-            'icon_type': 'verification',
-            'url': url_for('account_verification'),
-            'action_text': 'Nộp chứng chỉ →',
-        })
-
-    # 4. Hợp đồng đang thực hiện cần bàn giao / tiến độ
-    for c in contracts_active:
-        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
-        price_str = f"{c.agreed_price:,} VND".replace(',', '.') if c.agreed_price else ""
-        action_items.append({
-            'id': f"contract_{c.id}",
-            'type': 'contract_in_progress',
-            'title': f"Bàn giao & Thực hiện: {job_title}",
-            'description': f"Hợp đồng trị giá {price_str} đang được Escrow bảo chứng. Vui lòng theo dõi tiến độ, trao đổi với khách và hoàn tất ca dịch.",
-            'status_label': 'Đang thực hiện',
-            'priority_label': 'Cần bàn giao',
-            'priority_badge': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-            'icon_type': 'contract',
-            'url': url_for('transaction_detail', contract_id=c.id),
-            'action_text': 'Vào phòng làm việc →',
-        })
-
-    # 5. Hợp đồng chờ khách nạp Escrow
-    for c in contracts_pending_payment:
-        job_title = c.job.title if c.job else (c.service.name if c.service else f"Hợp đồng #{c.id}")
-        action_items.append({
-            'id': f"escrow_{c.id}",
-            'type': 'escrow_pending',
-            'title': f"Theo dõi nạp ký quỹ: {job_title}",
-            'description': "Đề xuất đã được khách chấp thuận nhưng chưa hoàn tất nạp tiền vào Escrow. Lưu ý chỉ bắt đầu phiên dịch khi tiền đã vào Escrow an toàn.",
-            'status_label': 'Chờ khách nạp tiền',
-            'priority_label': 'Lưu ý',
-            'priority_badge': 'bg-amber-50 text-amber-700 border-amber-200',
-            'icon_type': 'escrow',
-            'url': url_for('transaction_detail', contract_id=c.id),
-            'action_text': 'Chi tiết hợp đồng →',
-        })
-
-    # ── 7. Thông báo gần đây (5 thông báo mới nhất) ──────────────────────────
-    recent_notifications_raw = []
-    unread_notifications_count = 0
-    try:
-        recent_notifications_raw = Notification.query.filter_by(user_id=uid).order_by(
-            Notification.created_at.desc()
-        ).limit(5).all()
-
-        unread_notifications_count = Notification.query.filter_by(
-            user_id=uid, is_read=False
-        ).count()
-    except Exception as e:
-        print(f"[interpreter_dashboard] notification query error: {e}", file=sys.stderr)
-
-    from datetime import datetime as dt_cls
-    now_dt = dt_cls.utcnow()
-
-    recent_notifications = []
-    for n in recent_notifications_raw:
-        # Xác định target_url an toàn và chuẩn xác
-        target_url = None
-        if n.url and n.url.strip() and n.url != '#':
-            target_url = n.url.strip()
-        elif n.related_contract_id:
-            target_url = url_for('transaction_detail', contract_id=n.related_contract_id)
-        elif n.related_job_id:
-            target_url = url_for('job_detail', job_id=n.related_job_id)
-        elif n.type in ('CONTRACT_CREATED', 'CONTRACT_COMPLETED', 'PAYMENT'):
-            target_url = url_for('account_history')
-        elif n.type == 'NEW_MESSAGE':
-            target_url = url_for('messages_page')
-        elif n.type in ('JOB_MATCH', 'JOB_INVITATION', 'JOB_APPLICATION'):
-            target_url = url_for('job_list')
-        else:
-            target_url = url_for('notifications_page')
-
-        # Thời gian tương đối
-        time_ago_str = ""
-        if n.created_at:
-            delta_seconds = int((now_dt - n.created_at).total_seconds())
-            if delta_seconds < 60:
-                time_ago_str = "Vừa xong"
-            elif delta_seconds < 3600:
-                time_ago_str = f"{max(1, delta_seconds // 60)} phút trước"
-            elif delta_seconds < 86400:
-                time_ago_str = f"{delta_seconds // 3600} giờ trước"
-            elif delta_seconds < 172800:
-                time_ago_str = "Hôm qua"
-            else:
-                time_ago_str = n.created_at.strftime('%d/%m/%Y %H:%M')
-
-        # Phân loại và icon/badge meta
-        ntype = n.type or ''
-        if 'VERIFICATION' in ntype:
-            cat_label = 'Xác minh hồ sơ'
-            icon_kind = 'verification'
-            if 'APPROVED' in ntype:
-                cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                icon_bg = 'bg-emerald-100 text-emerald-600'
-            elif 'NEEDS_REVISION' in ntype or 'REVISE' in ntype:
-                cat_badge = 'bg-orange-50 text-orange-700 border-orange-200'
-                icon_bg = 'bg-orange-100 text-orange-600'
-            elif 'REJECTED' in ntype:
-                cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
-                icon_bg = 'bg-rose-100 text-rose-600'
-            elif 'POLICY' in ntype:
-                cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
-                icon_bg = 'bg-purple-100 text-purple-600'
-            else:
-                cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
-                icon_bg = 'bg-blue-100 text-blue-600'
-        elif 'INVITATION' in ntype:
-            cat_label = 'Lời mời việc'
-            icon_kind = 'invitation'
-            cat_badge = 'bg-rose-50 text-rose-700 border-rose-200'
-            icon_bg = 'bg-rose-100 text-rose-600'
-        elif 'MATCH' in ntype:
-            cat_label = 'Việc phù hợp'
-            icon_kind = 'match'
-            cat_badge = 'bg-blue-50 text-blue-700 border-blue-200'
-            icon_bg = 'bg-blue-100 text-blue-600'
-        elif 'PROPOSAL_ACCEPTED' in ntype:
-            cat_label = 'Đã chấp thuận'
-            icon_kind = 'accepted'
-            cat_badge = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            icon_bg = 'bg-emerald-100 text-emerald-600'
-        elif 'PROPOSAL_REJECTED' in ntype:
-            cat_label = 'Từ chối'
-            icon_kind = 'rejected'
-            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
-            icon_bg = 'bg-slate-100 text-slate-600'
-        elif 'CONTRACT' in ntype:
-            cat_label = 'Hợp đồng'
-            icon_kind = 'contract'
-            cat_badge = 'bg-indigo-50 text-indigo-700 border-indigo-200'
-            icon_bg = 'bg-indigo-100 text-indigo-600'
-        elif 'PAYMENT' in ntype:
-            cat_label = 'Ký quỹ / Tiền'
-            icon_kind = 'payment'
-            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
-            icon_bg = 'bg-amber-100 text-amber-600'
-        elif 'MESSAGE' in ntype:
-            cat_label = 'Tin nhắn'
-            icon_kind = 'message'
-            cat_badge = 'bg-purple-50 text-purple-700 border-purple-200'
-            icon_bg = 'bg-purple-100 text-purple-600'
-        elif 'REVIEW' in ntype:
-            cat_label = 'Đánh giá'
-            icon_kind = 'review'
-            cat_badge = 'bg-amber-50 text-amber-700 border-amber-200'
-            icon_bg = 'bg-amber-100 text-amber-600'
-        else:
-            cat_label = 'Hệ thống'
-            icon_kind = 'bell'
-            cat_badge = 'bg-slate-100 text-slate-700 border-slate-200'
-            icon_bg = 'bg-slate-100 text-slate-600'
-
-        recent_notifications.append({
-            'id': n.id,
-            'type': n.type,
-            'title': n.title,
-            'message': n.message,
-            'is_read': n.is_read,
-            'created_at': n.created_at,
-            'created_at_display': n.created_at.strftime('%d/%m/%Y %H:%M') if n.created_at else '',
-            'time_ago': time_ago_str,
-            'target_url': target_url,
-            'cat_label': cat_label,
-            'icon_kind': icon_kind,
-            'cat_badge': cat_badge,
-            'icon_bg': icon_bg,
-        })
 
     return render_template(
         'interpreter_dashboard.html',
@@ -2290,9 +2063,6 @@ def interpreter_dashboard():
         total_upcoming_shifts=total_upcoming_shifts,
         recommended_jobs=recommended_jobs,
         has_profile_languages=has_profile_languages,
-        action_items=action_items,
-        recent_notifications=recent_notifications,
-        unread_notifications_count=unread_notifications_count,
         today=today,
     )
 

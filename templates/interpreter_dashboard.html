@@ -1,23 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}Tổng quan Phiên dịch viên | VietTranslate{% endblock %}
+{% block title %}Tß╗òng quan Phi├¬n dß╗ïch vi├¬n | VietTranslate{% endblock %}
 
 {% block content %}
 <div class="bg-slate-50/70 min-h-screen py-8 sm:py-12">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
 
-        <!-- ═══════════════════════════════════════════════════════════════
-             1. HEADER: HỒ SƠ & TRẠNG THÁI XÁC MINH (ID: section-profile)
-             ═══════════════════════════════════════════════════════════════ -->
+        <!-- ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+             1. HEADER: Hß╗Æ S╞á & TRß║áNG TH├üI X├üC MINH (ID: section-profile)
+             ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ -->
         <div id="section-profile" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
             <div class="flex flex-col 2xl:flex-row items-stretch 2xl:items-center justify-between gap-6">
-                <!-- Avatar & Thông tin nhận diện tài khoản -->
+                <!-- Avatar & Th├┤ng tin nhß║¡n diß╗çn t├ái khoß║ún -->
                 <div class="flex items-start sm:items-center gap-4 sm:gap-5 w-full 2xl:flex-1 min-w-0">
-                    <!-- Ảnh đại diện (Click điều hướng sang trang Hồ sơ cá nhân) -->
-                    <a href="{{ url_for('account_profile') }}" class="relative block group/avatar flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-2xl" title="Nhấn để xem và chỉnh sửa ảnh đại diện, hồ sơ cá nhân">
+                    <!-- ß║ónh ─æß║íi diß╗çn (Click ─æiß╗üu h╞░ß╗¢ng sang trang Hß╗ô s╞í c├í nh├ón) -->
+                    <a href="{{ url_for('account_profile') }}" class="relative block group/avatar flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-2xl" title="Nhß║Ñn ─æß╗â xem v├á chß╗ënh sß╗¡a ß║únh ─æß║íi diß╗çn, hß╗ô s╞í c├í nh├ón">
                         <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-brand-500 shadow-md bg-slate-100 transition-transform duration-200 group-hover/avatar:scale-105">
                             {% if user.avatar_url %}
-                            <img src="{{ user.avatar_url }}" alt="{{ user.name if user.name else 'Phiên dịch viên' }}"
+                            <img src="{{ user.avatar_url }}" alt="{{ user.name if user.name else 'Phi├¬n dß╗ïch vi├¬n' }}"
                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                 class="w-full h-full object-cover object-top">
                             {% endif %}
@@ -27,31 +27,31 @@
                             </div>
                         </div>
 
-                        <!-- Huy hiệu trạng thái nhỏ gắn góc avatar -->
+                        <!-- Huy hiß╗çu trß║íng th├íi nhß╗Å gß║»n g├│c avatar -->
                         <span class="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-xs text-white shadow-sm
                             {% if verification_status.code == 'verified' %}bg-emerald-500
                             {% elif verification_status.code == 'pending' %}bg-blue-500
                             {% elif verification_status.code == 'unverified' %}bg-amber-500
                             {% else %}bg-slate-400{% endif %}"
                             title="{{ verification_status.tooltip }}">
-                            {% if verification_status.code == 'verified' %}✓
-                            {% elif verification_status.code == 'pending' %}⌛
+                            {% if verification_status.code == 'verified' %}Γ£ô
+                            {% elif verification_status.code == 'pending' %}Γî¢
                             {% elif verification_status.code == 'unverified' %}!
                             {% else %}?{% endif %}
                         </span>
                     </a>
 
-                    <!-- Tên, danh xưng & Trạng thái xác minh -->
+                    <!-- T├¬n, danh x╞░ng & Trß║íng th├íi x├íc minh -->
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2 sm:gap-2.5">
-                            <!-- Tên phiên dịch viên (Click điều hướng sang trang Hồ sơ cá nhân) -->
-                            <a href="{{ url_for('account_profile') }}" class="group/name focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg inline-block" title="Nhấn để cập nhật thông tin tài khoản">
+                            <!-- T├¬n phi├¬n dß╗ïch vi├¬n (Click ─æiß╗üu h╞░ß╗¢ng sang trang Hß╗ô s╞í c├í nh├ón) -->
+                            <a href="{{ url_for('account_profile') }}" class="group/name focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg inline-block" title="Nhß║Ñn ─æß╗â cß║¡p nhß║¡t th├┤ng tin t├ái khoß║ún">
                                 <h1 class="text-xl sm:text-2xl font-black transition group-hover/name:text-brand-600 {% if user.name and user.name.strip() %}text-slate-900{% else %}text-slate-400 italic font-semibold{% endif %}">
-                                    {{ user.name if (user.name and user.name.strip()) else 'Chưa cập nhật tên' }}
+                                    {{ user.name if (user.name and user.name.strip()) else 'Ch╞░a cß║¡p nhß║¡t t├¬n' }}
                                 </h1>
                             </a>
 
-                            <!-- Trạng thái xác minh hồ sơ (Click điều hướng sang trang Xác minh hồ sơ) -->
+                            <!-- Trß║íng th├íi x├íc minh hß╗ô s╞í (Click ─æiß╗üu h╞░ß╗¢ng sang trang X├íc minh hß╗ô s╞í) -->
                             <a href="{{ url_for('account_verification') }}"
                                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition focus:outline-none focus:ring-2 focus:ring-brand-500 hover:opacity-90 shadow-2xs border
                                 {% if verification_status.code == 'verified' %}bg-emerald-50 text-emerald-700 border-emerald-200
@@ -59,7 +59,7 @@
                                 {% elif verification_status.code == 'unverified' or verification_status.code == 'needs_revision' %}bg-amber-50 text-amber-700 border-amber-200
                                 {% elif verification_status.code == 'rejected' %}bg-rose-50 text-rose-700 border-rose-200
                                 {% else %}bg-slate-100 text-slate-600 border-slate-200{% endif %}"
-                                title="{{ verification_status.tooltip }} - Nhấn để quản lý xác minh">
+                                title="{{ verification_status.tooltip }} - Nhß║Ñn ─æß╗â quß║ún l├╜ x├íc minh">
                                 {% if verification_status.code == 'verified' %}
                                 <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
@@ -88,55 +88,55 @@
                             </a>
 
                             <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-                                Phiên dịch viên
+                                Phi├¬n dß╗ïch vi├¬n
                             </span>
                         </div>
 
-                        <!-- Tiêu đề chuyên môn & gợi ý hành động xác minh -->
+                        <!-- Ti├¬u ─æß╗ü chuy├¬n m├┤n & gß╗úi ├╜ h├ánh ─æß╗Öng x├íc minh -->
                         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <p class="text-sm font-semibold {% if profile and profile.title %}text-slate-700{% else %}text-slate-400 italic{% endif %}">
-                                {{ profile.title if (profile and profile.title) else 'Chưa cập nhật tiêu đề chuyên môn' }}
+                                {{ profile.title if (profile and profile.title) else 'Ch╞░a cß║¡p nhß║¡t ti├¬u ─æß╗ü chuy├¬n m├┤n' }}
                             </p>
-                            <span class="text-slate-300 hidden sm:inline">•</span>
+                            <span class="text-slate-300 hidden sm:inline">ΓÇó</span>
                             <span class="text-xs {% if verification_status.code == 'verified' %}text-emerald-600{% elif verification_status.code == 'pending' %}text-blue-600{% else %}text-amber-600 font-medium{% endif %}">
                                 {{ verification_status.action_hint }}
                             </span>
                         </div>
 
-                        <!-- Email, SĐT và Đánh giá -->
+                        <!-- Email, S─ÉT v├á ─É├ính gi├í -->
                         <div class="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs text-slate-500">
                             {% if profile and profile.rating %}
-                            <div class="flex items-center gap-1 text-amber-500 font-bold" title="Điểm đánh giá từ khách hàng">
-                                <span>★</span>
+                            <div class="flex items-center gap-1 text-amber-500 font-bold" title="─Éiß╗âm ─æ├ính gi├í tß╗½ kh├ích h├áng">
+                                <span>Γÿà</span>
                                 <span>{{ "%.1f"|format(profile.rating) }}</span>
-                                <span class="text-slate-400 font-normal">({{ profile.total_reviews or 0 }} đánh giá)</span>
+                                <span class="text-slate-400 font-normal">({{ profile.total_reviews or 0 }} ─æ├ính gi├í)</span>
                             </div>
-                            <span>•</span>
+                            <span>ΓÇó</span>
                             {% endif %}
                             <span class="truncate max-w-[200px]" title="{{ user.email }}">{{ user.email }}</span>
-                            <span>•</span>
+                            <span>ΓÇó</span>
                             {% if user.phone and user.phone.strip() %}
                             <span>{{ user.phone }}</span>
                             {% else %}
-                            <a href="{{ url_for('account_profile') }}" class="text-brand-600 hover:underline">Thêm SĐT</a>
+                            <a href="{{ url_for('account_profile') }}" class="text-brand-600 hover:underline">Th├¬m S─ÉT</a>
                             {% endif %}
                         </div>
                     </div>
                 </div>
 
-                <!-- Mức độ hoàn thiện hồ sơ & Tác vụ tiếp theo (Click điều hướng sang trang Hồ sơ cá nhân) -->
+                <!-- Mß╗⌐c ─æß╗Ö ho├án thiß╗çn hß╗ô s╞í & T├íc vß╗Ñ tiß║┐p theo (Click ─æiß╗üu h╞░ß╗¢ng sang trang Hß╗ô s╞í c├í nh├ón) -->
                 <div class="w-full 2xl:w-[24rem] 2xl:flex-shrink-0 bg-slate-50/90 rounded-2xl p-4 sm:p-5 border border-slate-200/70 hover:border-brand-200 transition">
                     <div class="flex items-center justify-between text-xs font-bold mb-2">
-                        <a href="{{ url_for('account_profile') }}" class="text-slate-700 hover:text-brand-600 transition flex items-center gap-1" title="Nhấn để cập nhật các thông tin còn thiếu">
-                            <span>Mức độ hoàn thiện hồ sơ</span>
+                        <a href="{{ url_for('account_profile') }}" class="text-slate-700 hover:text-brand-600 transition flex items-center gap-1" title="Nhß║Ñn ─æß╗â cß║¡p nhß║¡t c├íc th├┤ng tin c├▓n thiß║┐u">
+                            <span>Mß╗⌐c ─æß╗Ö ho├án thiß╗çn hß╗ô s╞í</span>
                         </a>
-                        <a href="{{ url_for('account_profile') }}" class="text-brand-600 font-extrabold text-sm hover:underline" title="Xem danh sách thông tin cần bổ sung">
+                        <a href="{{ url_for('account_profile') }}" class="text-brand-600 font-extrabold text-sm hover:underline" title="Xem danh s├ích th├┤ng tin cß║ºn bß╗ò sung">
                             {{ profile_completeness }}%
                         </a>
                     </div>
 
-                    <!-- Thanh tiến trình (Có thể click để sang trang hồ sơ) -->
-                    <a href="{{ url_for('account_profile') }}" class="block w-full bg-slate-200 rounded-full h-2.5 overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500" title="Tiến độ hoàn thiện: {{ profile_completeness }}% - Nhấn để bổ sung">
+                    <!-- Thanh tiß║┐n tr├¼nh (C├│ thß╗â click ─æß╗â sang trang hß╗ô s╞í) -->
+                    <a href="{{ url_for('account_profile') }}" class="block w-full bg-slate-200 rounded-full h-2.5 overflow-hidden focus:outline-none focus:ring-2 focus:ring-brand-500" title="Tiß║┐n ─æß╗Ö ho├án thiß╗çn: {{ profile_completeness }}% - Nhß║Ñn ─æß╗â bß╗ò sung">
                         <div class="h-2.5 rounded-full transition-all duration-700
                             {% if profile_completeness == 100 %}bg-gradient-to-r from-emerald-500 to-teal-600
                             {% elif profile_completeness >= 50 %}bg-gradient-to-r from-brand-500 to-indigo-600
@@ -144,60 +144,60 @@
                             style="width: {{ profile_completeness }}%"></div>
                     </a>
 
-                    <!-- Danh sách các trường còn thiếu hoặc trạng thái 100% -->
+                    <!-- Danh s├ích c├íc tr╞░ß╗¥ng c├▓n thiß║┐u hoß║╖c trß║íng th├íi 100% -->
                     {% if profile_missing %}
                     <div class="mt-2.5 text-[11px] text-slate-500">
-                        <span class="text-amber-600 font-bold">Cần bổ sung:</span>
-                        <a href="{{ url_for('account_profile') }}" class="hover:text-brand-600 hover:underline transition ml-1" title="Bổ sung ngay">
+                        <span class="text-amber-600 font-bold">Cß║ºn bß╗ò sung:</span>
+                        <a href="{{ url_for('account_profile') }}" class="hover:text-brand-600 hover:underline transition ml-1" title="Bß╗ò sung ngay">
                             {{ profile_missing|join(', ') }}
                         </a>
                     </div>
                     {% else %}
                     <div class="mt-2.5 text-[11px] text-emerald-600 font-bold flex items-center gap-1">
                         <svg class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        <span>Hồ sơ đã đầy đủ 100% thông tin cần thiết!</span>
+                        <span>Hß╗ô s╞í ─æ├ú ─æß║ºy ─æß╗º 100% th├┤ng tin cß║ºn thiß║┐t!</span>
                     </div>
                     {% endif %}
 
-                    <!-- Nút thao tác nhanh -->
+                    <!-- N├║t thao t├íc nhanh -->
                     <div class="flex items-center gap-2 mt-3.5 pt-3 border-t border-slate-200/60">
                         {% if profile_completeness == 100 %}
-                        <a href="{{ url_for('account_profile') }}" class="flex-1 text-center text-xs font-semibold text-slate-700 hover:text-brand-600 bg-white hover:bg-slate-100 px-3 py-2 rounded-xl transition border border-slate-200 focus:ring-2 focus:ring-brand-500 shadow-2xs" title="Chỉnh sửa hoặc cập nhật lại thông tin hồ sơ">
-                            Chỉnh sửa hồ sơ
+                        <a href="{{ url_for('account_profile') }}" class="flex-1 text-center text-xs font-semibold text-slate-700 hover:text-brand-600 bg-white hover:bg-slate-100 px-3 py-2 rounded-xl transition border border-slate-200 focus:ring-2 focus:ring-brand-500 shadow-2xs" title="Chß╗ënh sß╗¡a hoß║╖c cß║¡p nhß║¡t lß║íi th├┤ng tin hß╗ô s╞í">
+                            Chß╗ënh sß╗¡a hß╗ô s╞í
                         </a>
                         {% else %}
-                        <a href="{{ url_for('account_profile') }}" class="flex-1 text-center text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-3 py-2 rounded-xl transition shadow-xs focus:ring-2 focus:ring-brand-500" title="Bổ sung các thông tin còn thiếu để hoàn thiện hồ sơ">
-                            Hoàn thiện hồ sơ
+                        <a href="{{ url_for('account_profile') }}" class="flex-1 text-center text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-3 py-2 rounded-xl transition shadow-xs focus:ring-2 focus:ring-brand-500" title="Bß╗ò sung c├íc th├┤ng tin c├▓n thiß║┐u ─æß╗â ho├án thiß╗çn hß╗ô s╞í">
+                            Ho├án thiß╗çn hß╗ô s╞í
                         </a>
                         {% endif %}
                         {% if verification_status.code == 'verified' %}
-                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 px-3 py-2 rounded-xl transition border border-emerald-200 shadow-2xs flex items-center gap-1" title="Hồ sơ đã xác minh chính thức - Nhấn để xem chứng nhận">
+                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800 bg-emerald-50/80 hover:bg-emerald-100 px-3 py-2 rounded-xl transition border border-emerald-200 shadow-2xs flex items-center gap-1" title="Hß╗ô s╞í ─æ├ú x├íc minh ch├¡nh thß╗⌐c - Nhß║Ñn ─æß╗â xem chß╗⌐ng nhß║¡n">
                             <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            <span>Đã xác minh</span>
+                            <span>─É├ú x├íc minh</span>
                         </a>
                         {% elif verification_status.code == 'pending' %}
-                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100 px-3 py-2 rounded-xl transition border border-blue-200 shadow-2xs flex items-center gap-1.5" title="Hồ sơ đang chờ Ban quản trị duyệt chứng chỉ - Nhấn để theo dõi tiến độ">
+                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-blue-700 hover:text-blue-800 bg-blue-50/80 hover:bg-blue-100 px-3 py-2 rounded-xl transition border border-blue-200 shadow-2xs flex items-center gap-1.5" title="Hß╗ô s╞í ─æang chß╗¥ Ban quß║ún trß╗ï duyß╗çt chß╗⌐ng chß╗ë - Nhß║Ñn ─æß╗â theo d├╡i tiß║┐n ─æß╗Ö">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
-                            <span>Tiến độ duyệt</span>
+                            <span>Tiß║┐n ─æß╗Ö duyß╗çt</span>
                         </a>
                         {% elif verification_status.code == 'needs_revision' %}
-                        <a href="{{ url_for('verification_revision_page') }}" class="text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl transition border border-amber-300 shadow-2xs flex items-center gap-1" title="Ban quản trị yêu cầu bổ sung thông tin hoặc chứng chỉ - Nhấn để cập nhật ngay">
+                        <a href="{{ url_for('verification_revision_page') }}" class="text-xs font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl transition border border-amber-300 shadow-2xs flex items-center gap-1" title="Ban quß║ún trß╗ï y├¬u cß║ºu bß╗ò sung th├┤ng tin hoß║╖c chß╗⌐ng chß╗ë - Nhß║Ñn ─æß╗â cß║¡p nhß║¡t ngay">
                             <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                            <span>Bổ sung hồ sơ</span>
+                            <span>Bß╗ò sung hß╗ô s╞í</span>
                         </a>
                         {% elif verification_status.code == 'rejected' %}
-                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl transition border border-rose-200 shadow-2xs flex items-center gap-1" title="Hồ sơ chưa đạt yêu cầu - Nhấn để xem lý do và nộp lại">
+                        <a href="{{ url_for('verification_status_page') }}" class="text-xs font-semibold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-xl transition border border-rose-200 shadow-2xs flex items-center gap-1" title="Hß╗ô s╞í ch╞░a ─æß║ít y├¬u cß║ºu - Nhß║Ñn ─æß╗â xem l├╜ do v├á nß╗Öp lß║íi">
                             <svg class="w-3.5 h-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span>Xem phản hồi</span>
+                            <span>Xem phß║ún hß╗ôi</span>
                         </a>
                         {% else %}
-                        <a href="{{ url_for('account_verification') }}" class="text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-3 py-2 rounded-xl transition border border-slate-200 shadow-2xs" title="Quản lý bằng cấp & xác minh hồ sơ nhận tích xanh">
-                            Xác minh
+                        <a href="{{ url_for('account_verification') }}" class="text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-3 py-2 rounded-xl transition border border-slate-200 shadow-2xs" title="Quß║ún l├╜ bß║▒ng cß║Ñp & x├íc minh hß╗ô s╞í nhß║¡n t├¡ch xanh">
+                            X├íc minh
                         </a>
                         {% endif %}
                         {% if profile %}
-                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" class="text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-2.5 py-2 rounded-xl transition border border-slate-200" title="Xem trang hồ sơ công khai của bạn" target="_blank">
-                            Xem hồ sơ
+                        <a href="{{ url_for('translator_profile', profile_id=profile.id) }}" class="text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-2.5 py-2 rounded-xl transition border border-slate-200" title="Xem trang hß╗ô s╞í c├┤ng khai cß╗ºa bß║ín" target="_blank">
+                            Xem hß╗ô s╞í
                         </a>
                         {% endif %}
                     </div>
@@ -205,149 +205,149 @@
             </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════════════
-             2. THỐNG KÊ CÔNG VIỆC (ID: section-jobs) - Đồng bộ 100% với trang Thống kê công việc
-             ═══════════════════════════════════════════════════════════════ -->
+        <!-- ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+             2. THß╗ÉNG K├è C├öNG VIß╗åC (ID: section-jobs) - ─Éß╗ông bß╗Ö 100% vß╗¢i trang Thß╗æng k├¬ c├┤ng viß╗çc
+             ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ -->
         <div id="section-jobs" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-brand-600"></span>
-                        Thống kê công việc
+                        Thß╗æng k├¬ c├┤ng viß╗çc
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Theo dõi đơn ứng tuyển, công việc đã nhận và lịch sử hoàn thành.</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Theo d├╡i ─æ╞ín ß╗⌐ng tuyß╗ân, c├┤ng viß╗çc ─æ├ú nhß║¡n v├á lß╗ïch sß╗¡ ho├án th├ánh.</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ url_for('job_statistics') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem chi tiết Thống kê công việc">
-                        Xem chi tiết Thống kê công việc →
+                    <a href="{{ url_for('job_statistics') }}" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem chi tiß║┐t Thß╗æng k├¬ c├┤ng viß╗çc">
+                        Xem chi tiß║┐t Thß╗æng k├¬ c├┤ng viß╗çc ΓåÆ
                     </a>
                 </div>
             </div>
 
-            <!-- Grid 4 thẻ chỉ số chính đồng bộ chuẩn xác với trang Thống kê công việc -->
+            <!-- Grid 4 thß║╗ chß╗ë sß╗æ ch├¡nh ─æß╗ông bß╗Ö chuß║⌐n x├íc vß╗¢i trang Thß╗æng k├¬ c├┤ng viß╗çc -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                <!-- Chỉ số 1: Đang ứng tuyển -->
+                <!-- Chß╗ë sß╗æ 1: ─Éang ß╗⌐ng tuyß╗ân -->
                 <a href="{{ url_for('job_statistics', tab='applied') }}"
                     class="group relative block p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-2xs transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    title="Xem danh sách đơn đang ứng tuyển">
-                    <div class="text-xs font-medium text-slate-500">Đang ứng tuyển</div>
+                    title="Xem danh s├ích ─æ╞ín ─æang ß╗⌐ng tuyß╗ân">
+                    <div class="text-xs font-medium text-slate-500">─Éang ß╗⌐ng tuyß╗ân</div>
                     <div class="mt-1.5 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight group-hover:text-brand-600 transition">
                         {{ metrics.pending_review if metrics is defined else (job_stats.pending_review if job_stats and job_stats.pending_review is defined else 0) }}
                     </div>
-                    <div class="mt-1 text-[11px] text-slate-400 truncate">Hồ sơ chờ phản hồi / xem xét</div>
+                    <div class="mt-1 text-[11px] text-slate-400 truncate">Hß╗ô s╞í chß╗¥ phß║ún hß╗ôi / xem x├⌐t</div>
                     <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-medium text-slate-500 group-hover:text-brand-600">
-                        <span>Chi tiết ứng tuyển</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Chi tiß║┐t ß╗⌐ng tuyß╗ân</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
 
-                <!-- Chỉ số 2: Đã nhận -->
+                <!-- Chß╗ë sß╗æ 2: ─É├ú nhß║¡n -->
                 <a href="{{ url_for('job_statistics', tab='accepted') }}"
                     class="group relative block p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-2xs transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    title="Xem danh sách ca đã nhận">
-                    <div class="text-xs font-medium text-slate-500">Đã nhận</div>
+                    title="Xem danh s├ích ca ─æ├ú nhß║¡n">
+                    <div class="text-xs font-medium text-slate-500">─É├ú nhß║¡n</div>
                     <div class="mt-1.5 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight group-hover:text-brand-600 transition">
                         {{ metrics.accepted if metrics is defined else (job_stats.accepted if job_stats and job_stats.accepted is defined else 0) }}
                     </div>
-                    <div class="mt-1 text-[11px] text-slate-400 truncate">Ca đã xác nhận / ký quỹ</div>
+                    <div class="mt-1 text-[11px] text-slate-400 truncate">Ca ─æ├ú x├íc nhß║¡n / k├╜ quß╗╣</div>
                     <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-medium text-slate-500 group-hover:text-brand-600">
-                        <span>Chi tiết ca đã nhận</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Chi tiß║┐t ca ─æ├ú nhß║¡n</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
 
-                <!-- Chỉ số 3: Đang thực hiện -->
+                <!-- Chß╗ë sß╗æ 3: ─Éang thß╗▒c hiß╗çn -->
                 <a href="{{ url_for('job_statistics', tab='in_progress') }}"
                     class="group relative block p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-2xs transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    title="Xem danh sách ca đang thực hiện">
-                    <div class="text-xs font-medium text-slate-500">Đang thực hiện</div>
+                    title="Xem danh s├ích ca ─æang thß╗▒c hiß╗çn">
+                    <div class="text-xs font-medium text-slate-500">─Éang thß╗▒c hiß╗çn</div>
                     <div class="mt-1.5 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight group-hover:text-brand-600 transition">
                         {{ metrics.in_progress_total if metrics is defined else (job_stats.in_progress_total if job_stats and job_stats.in_progress_total is defined else 0) }}
                     </div>
-                    <div class="mt-1 text-[11px] text-slate-400 truncate">Ca đang diễn ra & chờ xác nhận</div>
+                    <div class="mt-1 text-[11px] text-slate-400 truncate">Ca ─æang diß╗àn ra & chß╗¥ x├íc nhß║¡n</div>
                     <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-medium text-slate-500 group-hover:text-brand-600">
-                        <span>Chi tiết đang thực hiện</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Chi tiß║┐t ─æang thß╗▒c hiß╗çn</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
 
-                <!-- Chỉ số 4: Đã hoàn thành -->
+                <!-- Chß╗ë sß╗æ 4: ─É├ú ho├án th├ánh -->
                 <a href="{{ url_for('job_statistics', tab='completed') }}"
                     class="group relative block p-4 sm:p-5 rounded-2xl bg-white border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50/50 hover:shadow-2xs transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500"
-                    title="Xem lịch sử hoàn thành">
-                    <div class="text-xs font-medium text-slate-500">Đã hoàn thành</div>
+                    title="Xem lß╗ïch sß╗¡ ho├án th├ánh">
+                    <div class="text-xs font-medium text-slate-500">─É├ú ho├án th├ánh</div>
                     <div class="mt-1.5 text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight group-hover:text-brand-600 transition">
                         {{ metrics.completed if metrics is defined else (job_stats.completed if job_stats and job_stats.completed is defined else 0) }}
                     </div>
-                    <div class="mt-1 text-[11px] text-slate-400 truncate">Đã nghiệm thu xong</div>
+                    <div class="mt-1 text-[11px] text-slate-400 truncate">─É├ú nghiß╗çm thu xong</div>
                     <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] font-medium text-slate-500 group-hover:text-brand-600">
-                        <span>Chi tiết đã hoàn thành</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Chi tiß║┐t ─æ├ú ho├án th├ánh</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
             </div>
 
-            <!-- Thanh liên kết tab nhanh đồng bộ với Thống kê công việc -->
+            <!-- Thanh li├¬n kß║┐t tab nhanh ─æß╗ông bß╗Ö vß╗¢i Thß╗æng k├¬ c├┤ng viß╗çc -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4 text-xs text-slate-500">
                 <div class="flex flex-wrap items-center gap-3 sm:gap-5">
                     <a href="{{ url_for('job_statistics', tab='all') }}" class="hover:text-brand-600 transition flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                        <span>Tất cả:</span>
+                        <span>Tß║Ñt cß║ú:</span>
                         <strong class="text-slate-800">{{ (metrics.total_applications + metrics.accepted + metrics.in_progress_total + metrics.completed) if metrics is defined else (job_stats.total_contracts or 0) }}</strong>
                     </a>
                     <a href="{{ url_for('job_statistics', tab='applied') }}" class="hover:text-brand-600 transition flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span>Đang ứng tuyển:</span>
+                        <span>─Éang ß╗⌐ng tuyß╗ân:</span>
                         <strong class="text-amber-700">{{ metrics.pending_review if metrics is defined else (job_stats.pending_review or 0) }}</strong>
                     </a>
                     <a href="{{ url_for('job_statistics', tab='accepted') }}" class="hover:text-brand-600 transition flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <span>Đã nhận:</span>
+                        <span>─É├ú nhß║¡n:</span>
                         <strong class="text-emerald-700">{{ metrics.accepted if metrics is defined else (job_stats.accepted or 0) }}</strong>
                     </a>
                     <a href="{{ url_for('job_statistics', tab='in_progress') }}" class="hover:text-brand-600 transition flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                        <span>Đang thực hiện:</span>
+                        <span>─Éang thß╗▒c hiß╗çn:</span>
                         <strong class="text-blue-700">{{ metrics.in_progress_total if metrics is defined else (job_stats.in_progress_total or 0) }}</strong>
                     </a>
                     <a href="{{ url_for('job_statistics', tab='completed') }}" class="hover:text-brand-600 transition flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-slate-500"></span>
-                        <span>Đã hoàn thành:</span>
+                        <span>─É├ú ho├án th├ánh:</span>
                         <strong class="text-slate-700">{{ metrics.completed if metrics is defined else (job_stats.completed or 0) }}</strong>
                     </a>
                 </div>
                 <a href="{{ url_for('job_statistics') }}" class="font-semibold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1">
-                    <span>Mở trang Thống kê công việc đầy đủ</span>
-                    <span>→</span>
+                    <span>Mß╗ƒ trang Thß╗æng k├¬ c├┤ng viß╗çc ─æß║ºy ─æß╗º</span>
+                    <span>ΓåÆ</span>
                 </a>
             </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════════════
-             3. THỐNG KÊ THU NHẬP (ID: section-income)
-             ═══════════════════════════════════════════════════════════════ -->
+        <!-- ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+             3. THß╗ÉNG K├è THU NHß║¼P (ID: section-income)
+             ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ -->
         <div id="section-income" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                        Thống kê thu nhập
+                        Thß╗æng k├¬ thu nhß║¡p
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Theo dõi doanh thu thực tế, tiền đã giải ngân và ký quỹ Escrow theo kỳ (Múi giờ UTC+7)</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Theo d├╡i doanh thu thß╗▒c tß║┐, tiß╗ün ─æ├ú giß║úi ng├ón v├á k├╜ quß╗╣ Escrow theo kß╗│ (M├║i giß╗¥ UTC+7)</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
-                        Xem chi tiết lịch sử ví →
+                    <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem to├án bß╗Ö lß╗ïch sß╗¡ giao dß╗ïch v├á v├¡">
+                        Xem chi tiß║┐t lß╗ïch sß╗¡ v├¡ ΓåÆ
                     </a>
                 </div>
             </div>
 
-            <!-- Grid 3 thẻ chỉ số thu nhập chính -->
+            <!-- Grid 3 thß║╗ chß╗ë sß╗æ thu nhß║¡p ch├¡nh -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-                <!-- Thẻ 1: Thu nhập trong kỳ hiện tại -->
+                <!-- Thß║╗ 1: Thu nhß║¡p trong kß╗│ hiß╗çn tß║íi -->
                 <a href="{{ url_for('account_history', period='current_month', status='completed') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-amber-50/30 border border-slate-200/90 hover:border-amber-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
-                    title="Nhấn để xem danh sách hợp đồng hoàn tất giải ngân trong {{ income_stats.period_label }}">
+                    title="Nhß║Ñn ─æß╗â xem danh s├ích hß╗úp ─æß╗ông ho├án tß║Ñt giß║úi ng├ón trong {{ income_stats.period_label }}">
                     <div class="flex items-start justify-between">
                         <div class="w-12 h-12 rounded-2xl bg-amber-100/80 text-amber-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-600 group-hover:text-white transition duration-200 shadow-2xs">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -362,7 +362,7 @@
 
                     <div class="mt-4">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                            Thu nhập kỳ hiện tại
+                            Thu nhß║¡p kß╗│ hiß╗çn tß║íi
                         </span>
                         <div class="mt-1 flex items-baseline gap-2">
                             <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-amber-600 transition">
@@ -371,20 +371,20 @@
                             <span class="text-xs font-extrabold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
-                            Kỳ: {{ income_stats.period_range }} ({{ income_stats.monthly_contracts_count }} hợp đồng hoàn tất)
+                            Kß╗│: {{ income_stats.period_range }} ({{ income_stats.monthly_contracts_count }} hß╗úp ─æß╗ông ho├án tß║Ñt)
                         </p>
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-700 group-hover:text-amber-800">
-                        <span>Xem sao kê kỳ này</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Xem sao k├¬ kß╗│ n├áy</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
 
-                <!-- Thẻ 2: Thu nhập đã thanh toán (Tích lũy) -->
+                <!-- Thß║╗ 2: Thu nhß║¡p ─æ├ú thanh to├ín (T├¡ch l┼⌐y) -->
                 <a href="{{ url_for('account_history', status='completed') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-emerald-50/30 border border-slate-200/90 hover:border-emerald-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                    title="Nhấn để xem toàn bộ danh sách hợp đồng đã giải ngân hoàn tất">
+                    title="Nhß║Ñn ─æß╗â xem to├án bß╗Ö danh s├ích hß╗úp ─æß╗ông ─æ├ú giß║úi ng├ón ho├án tß║Ñt">
                     <div class="flex items-start justify-between">
                         <div class="w-12 h-12 rounded-2xl bg-emerald-100/80 text-emerald-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-emerald-600 group-hover:text-white transition duration-200 shadow-2xs">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,13 +393,13 @@
                         </div>
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            Đã giải ngân
+                            ─É├ú giß║úi ng├ón
                         </span>
                     </div>
 
                     <div class="mt-4">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                            Thu nhập đã thanh toán
+                            Thu nhß║¡p ─æ├ú thanh to├ín
                         </span>
                         <div class="mt-1 flex items-baseline gap-2">
                             <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-emerald-600 transition">
@@ -408,20 +408,20 @@
                             <span class="text-xs font-extrabold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
-                            Tổng tích lũy từ {{ income_stats.completed_contracts_count }} hợp đồng đã hoàn tất
+                            Tß╗òng t├¡ch l┼⌐y tß╗½ {{ income_stats.completed_contracts_count }} hß╗úp ─æß╗ông ─æ├ú ho├án tß║Ñt
                         </p>
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-emerald-700 group-hover:text-emerald-800">
-                        <span>Xem lịch sử giải ngân</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Xem lß╗ïch sß╗¡ giß║úi ng├ón</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
 
-                <!-- Thẻ 3: Khoản thu nhập đang chờ xử lý -->
+                <!-- Thß║╗ 3: Khoß║ún thu nhß║¡p ─æang chß╗¥ xß╗¡ l├╜ -->
                 <a href="{{ url_for('account_history', status='in_progress') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-blue-50/30 border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    title="Nhấn để xem các hợp đồng đang thực hiện với tiền được ký quỹ Escrow bảo đảm">
+                    title="Nhß║Ñn ─æß╗â xem c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn vß╗¢i tiß╗ün ─æ╞░ß╗úc k├╜ quß╗╣ Escrow bß║úo ─æß║úm">
                     <div class="flex items-start justify-between">
                         <div class="w-12 h-12 rounded-2xl bg-blue-100/80 text-blue-600 flex items-center justify-center group-hover:scale-110 group-hover:bg-blue-600 group-hover:text-white transition duration-200 shadow-2xs">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,13 +430,13 @@
                         </div>
                         <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200/80">
                             <span class="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                            Escrow đang giữ
+                            Escrow ─æang giß╗»
                         </span>
                     </div>
 
                     <div class="mt-4">
                         <span class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                            Khoản thu nhập đang chờ xử lý
+                            Khoß║ún thu nhß║¡p ─æang chß╗¥ xß╗¡ l├╜
                         </span>
                         <div class="mt-1 flex items-baseline gap-2">
                             <span class="text-2xl sm:text-3xl font-black text-slate-900 group-hover:text-blue-600 transition">
@@ -445,58 +445,58 @@
                             <span class="text-xs font-extrabold text-slate-400">VND</span>
                         </div>
                         <p class="text-xs text-slate-500 mt-1 line-clamp-1">
-                            Tiền ký quỹ an toàn từ {{ income_stats.active_contracts_count }} hợp đồng đang triển khai
+                            Tiß╗ün k├╜ quß╗╣ an to├án tß╗½ {{ income_stats.active_contracts_count }} hß╗úp ─æß╗ông ─æang triß╗ân khai
                         </p>
                     </div>
 
                     <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-700 group-hover:text-blue-800">
-                        <span>Xem hợp đồng đang ký quỹ</span>
-                        <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                        <span>Xem hß╗úp ─æß╗ông ─æang k├╜ quß╗╣</span>
+                        <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                     </div>
                 </a>
             </div>
 
-            <!-- Box bảo chứng thanh toán Escrow & liên kết nhanh -->
+            <!-- Box bß║úo chß╗⌐ng thanh to├ín Escrow & li├¬n kß║┐t nhanh -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs text-slate-500">
                 <div class="flex items-start sm:items-center gap-2.5">
                     <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5 sm:mt-0">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                     </div>
                     <span>
-                        Mọi khoản thanh toán được đảm bảo 100% qua hệ thống ký quỹ <strong>Escrow VietTranslate</strong> trước khi bắt đầu công việc. Tiền tự động giải ngân ngay khi hoàn tất nghiệm thu.
+                        Mß╗ìi khoß║ún thanh to├ín ─æ╞░ß╗úc ─æß║úm bß║úo 100% qua hß╗ç thß╗æng k├╜ quß╗╣ <strong>Escrow VietTranslate</strong> tr╞░ß╗¢c khi bß║»t ─æß║ºu c├┤ng viß╗çc. Tiß╗ün tß╗▒ ─æß╗Öng giß║úi ng├ón ngay khi ho├án tß║Ñt nghiß╗çm thu.
                         {% if income_stats.escrow_pending_count > 0 %}
-                        <span class="block sm:inline sm:ml-1 text-amber-700 font-semibold">• Có {{ income_stats.escrow_pending_count }} hợp đồng ({{ income_stats.escrow_pending_amount|vnd }} VND) chờ khách nạp Escrow.</span>
+                        <span class="block sm:inline sm:ml-1 text-amber-700 font-semibold">ΓÇó C├│ {{ income_stats.escrow_pending_count }} hß╗úp ─æß╗ông ({{ income_stats.escrow_pending_amount|vnd }} VND) chß╗¥ kh├ích nß║íp Escrow.</span>
                         {% endif %}
                     </span>
                 </div>
                 <a href="{{ url_for('account_history') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
-                    Xem toàn bộ lịch sử giao dịch →
+                    Xem to├án bß╗Ö lß╗ïch sß╗¡ giao dß╗ïch ΓåÆ
                 </a>
             </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════════════
-             4. CA LÀM SẮP TỚI (ID: section-schedule)
-             ═══════════════════════════════════════════════════════════════ -->
+        <!-- ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+             4. CA L├ÇM Sß║«P Tß╗ÜI (ID: section-schedule)
+             ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ -->
         <div id="section-schedule" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                        <span>Ca làm sắp tới</span>
+                        <span>Ca l├ám sß║»p tß╗¢i</span>
                         {% if total_upcoming_shifts is defined and total_upcoming_shifts > 0 %}
                         <span class="ml-1 text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-blue-50 text-blue-700 border border-blue-200">
                             {{ total_upcoming_shifts }} ca
                         </span>
                         {% endif %}
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Danh sách các ca trực & phiên dịch sắp diễn ra, sắp xếp theo thời gian sớm nhất</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Danh s├ích c├íc ca trß╗▒c & phi├¬n dß╗ïch sß║»p diß╗àn ra, sß║»p xß║┐p theo thß╗¥i gian sß╗¢m nhß║Ñt</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <a href="{{ url_for('account_history', status='in_progress') }}"
                         class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1"
-                        title="Xem toàn bộ danh sách hợp đồng & ca làm đang thực hiện">
-                        Xem tất cả ca làm việc →
+                        title="Xem to├án bß╗Ö danh s├ích hß╗úp ─æß╗ông & ca l├ám ─æang thß╗▒c hiß╗çn">
+                        Xem tß║Ñt cß║ú ca l├ám viß╗çc ΓåÆ
                     </a>
                 </div>
             </div>
@@ -506,9 +506,9 @@
                 {% for sch in upcoming_shifts %}
                 <a href="{{ sch.detail_url }}"
                     class="group relative flex flex-col justify-between p-5 rounded-2xl bg-gradient-to-b from-white to-slate-50/60 border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    title="Nhấn để xem chi tiết ca làm & phòng làm việc hợp đồng">
+                    title="Nhß║Ñn ─æß╗â xem chi tiß║┐t ca l├ám & ph├▓ng l├ám viß╗çc hß╗úp ─æß╗ông">
                     <div>
-                        <!-- Header ca: Badge ngày, thời gian tương đối & Trạng thái -->
+                        <!-- Header ca: Badge ng├áy, thß╗¥i gian t╞░╞íng ─æß╗æi & Trß║íng th├íi -->
                         <div class="flex items-start justify-between gap-2 mb-3">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <span class="px-2.5 py-1 rounded-lg text-xs font-black border {{ sch.badge_color }}">
@@ -524,14 +524,14 @@
                             </span>
                         </div>
 
-                        <!-- 1. Tên công việc (Nổi bật nhất) -->
+                        <!-- 1. T├¬n c├┤ng viß╗çc (Nß╗òi bß║¡t nhß║Ñt) -->
                         <h3 class="text-sm sm:text-base font-bold text-slate-900 group-hover:text-blue-600 transition line-clamp-2 leading-snug">
                             {{ sch.title }}
                         </h3>
 
-                        <!-- Thông tin chi tiết: Giờ, Hình thức, Khách hàng -->
+                        <!-- Th├┤ng tin chi tiß║┐t: Giß╗¥, H├¼nh thß╗⌐c, Kh├ích h├áng -->
                         <div class="mt-3.5 space-y-2 text-xs text-slate-600">
-                            <!-- 2. Giờ bắt đầu & kết thúc -->
+                            <!-- 2. Giß╗¥ bß║»t ─æß║ºu & kß║┐t th├║c -->
                             <div class="flex items-center gap-2">
                                 <span class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -542,7 +542,7 @@
                                 <span class="text-slate-400">({{ sch.day_of_week }})</span>
                             </div>
 
-                            <!-- 3. Hình thức làm việc & Địa điểm -->
+                            <!-- 3. H├¼nh thß╗⌐c l├ám viß╗çc & ─Éß╗ïa ─æiß╗âm -->
                             <div class="flex items-start gap-2">
                                 <span class="w-6 h-6 rounded-lg {% if sch.work_mode.type == 'onsite' %}bg-amber-50 text-amber-600{% else %}bg-emerald-50 text-emerald-600{% endif %} flex items-center justify-center flex-shrink-0 mt-0.5">
                                     {% if sch.work_mode.type == 'onsite' %}
@@ -556,28 +556,28 @@
                                     {% if sch.work_mode.type == 'onsite' and sch.work_mode.location %}
                                     <span class="text-slate-500 truncate block text-[11px]">{{ sch.work_mode.location }}</span>
                                     {% else %}
-                                    <span class="text-slate-400 block text-[11px]">Qua nền tảng trực tuyến</span>
+                                    <span class="text-slate-400 block text-[11px]">Qua nß╗ün tß║úng trß╗▒c tuyß║┐n</span>
                                     {% endif %}
                                 </div>
                             </div>
 
-                            <!-- Khách hàng & Dịch vụ nếu có -->
+                            <!-- Kh├ích h├áng & Dß╗ïch vß╗Ñ nß║┐u c├│ -->
                             {% if sch.client_name %}
                             <div class="flex items-center gap-2 pt-1 border-t border-slate-100/80">
                                 <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center flex-shrink-0">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                                 </span>
-                                <span class="text-slate-500 truncate">Khách hàng: <strong class="text-slate-700 font-semibold">{{ sch.client_name }}</strong></span>
+                                <span class="text-slate-500 truncate">Kh├ích h├áng: <strong class="text-slate-700 font-semibold">{{ sch.client_name }}</strong></span>
                             </div>
                             {% endif %}
                         </div>
                     </div>
 
-                    <!-- Footer thẻ: Thù lao & Nút chi tiết -->
+                    <!-- Footer thß║╗: Th├╣ lao & N├║t chi tiß║┐t -->
                     <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
                         {% if sch.price %}
                         <div class="text-xs">
-                            <span class="text-[10px] uppercase font-bold text-slate-400 block">Thù lao ca</span>
+                            <span class="text-[10px] uppercase font-bold text-slate-400 block">Th├╣ lao ca</span>
                             <span class="font-extrabold text-brand-700">{{ sch.price|vnd }} VND</span>
                         </div>
                         {% else %}
@@ -585,69 +585,69 @@
                         {% endif %}
 
                         <span class="inline-flex items-center gap-1 text-xs font-bold text-blue-600 group-hover:text-blue-700">
-                            <span>Chi tiết ca</span>
-                            <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                            <span>Chi tiß║┐t ca</span>
+                            <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                         </span>
                     </div>
                 </a>
                 {% endfor %}
             </div>
 
-            <!-- Footer thanh thông tin khi có ca làm -->
+            <!-- Footer thanh th├┤ng tin khi c├│ ca l├ám -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                    <span>Hiển thị {{ upcoming_shifts|length }}/{{ total_upcoming_shifts or upcoming_shifts|length }} ca làm sắp tới gần nhất.</span>
+                    <span>Hiß╗ân thß╗ï {{ upcoming_shifts|length }}/{{ total_upcoming_shifts or upcoming_shifts|length }} ca l├ám sß║»p tß╗¢i gß║ºn nhß║Ñt.</span>
                 </span>
                 <a href="{{ url_for('account_history', status='in_progress') }}" class="font-semibold text-slate-700 hover:text-brand-600 hover:underline">
-                    Xem tất cả lịch trình & hợp đồng đang thực hiện →
+                    Xem tß║Ñt cß║ú lß╗ïch tr├¼nh & hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn ΓåÆ
                 </a>
             </div>
             {% else %}
-            <!-- Trạng thái rỗng: Không có ca làm sắp tới -->
+            <!-- Trß║íng th├íi rß╗ùng: Kh├┤ng c├│ ca l├ám sß║»p tß╗¢i -->
             <div class="text-center py-12 px-4 rounded-2xl bg-gradient-to-b from-slate-50/50 to-slate-50 border border-dashed border-slate-200">
                 <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-500 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                     </svg>
                 </div>
-                <h3 class="text-sm sm:text-base font-bold text-slate-800">Bạn chưa có ca làm sắp tới</h3>
+                <h3 class="text-sm sm:text-base font-bold text-slate-800">Bß║ín ch╞░a c├│ ca l├ám sß║»p tß╗¢i</h3>
                 <p class="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">
-                    Hiện tại bạn không có ca phiên dịch nào được lên lịch trong thời gian tới. Hãy khám phá các việc làm mới đang mở tuyển hoặc kiểm tra các đơn chào giá đang chờ duyệt.
+                    Hiß╗çn tß║íi bß║ín kh├┤ng c├│ ca phi├¬n dß╗ïch n├áo ─æ╞░ß╗úc l├¬n lß╗ïch trong thß╗¥i gian tß╗¢i. H├úy kh├ím ph├í c├íc viß╗çc l├ám mß╗¢i ─æang mß╗ƒ tuyß╗ân hoß║╖c kiß╗âm tra c├íc ─æ╞ín ch├áo gi├í ─æang chß╗¥ duyß╗çt.
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
                     <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2.5 rounded-xl transition shadow-xs">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
-                        Khám phá việc làm mới
+                        Kh├ím ph├í viß╗çc l├ám mß╗¢i
                     </a>
                     <a href="{{ url_for('account_history') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-4 py-2.5 rounded-xl transition border border-slate-200 bg-slate-50">
-                        Xem lịch sử hợp đồng
+                        Xem lß╗ïch sß╗¡ hß╗úp ─æß╗ông
                     </a>
                 </div>
             </div>
             {% endif %}
         </div>
 
-        <!-- ═══════════════════════════════════════════════════════════════
-             5. VIỆC LÀM ĐỀ XUẤT (ID: section-recommended)
-             ═══════════════════════════════════════════════════════════════ -->
+        <!-- ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+             5. VIß╗åC L├ÇM ─Éß╗Ç XUß║ñT (ID: section-recommended)
+             ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ -->
         <div id="section-recommended" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80 transition-all">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
                 <div>
                     <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
                         <span class="w-3 h-3 rounded-full bg-brand-500"></span>
-                        <span>Việc làm đề xuất phù hợp</span>
+                        <span>Viß╗çc l├ám ─æß╗ü xuß║Ñt ph├╣ hß╗úp</span>
                         {% if recommended_jobs %}
                         <span class="ml-1 text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-brand-50 text-brand-700 border border-brand-200">
-                            {{ recommended_jobs|length }} việc làm
+                            {{ recommended_jobs|length }} viß╗çc l├ám
                         </span>
                         {% endif %}
                     </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Khám phá cơ hội công việc được gợi ý dựa trên cặp ngôn ngữ, chuyên môn và lịch rảnh của bạn</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Kh├ím ph├í c╞í hß╗Öi c├┤ng viß╗çc ─æ╞░ß╗úc gß╗úi ├╜ dß╗▒a tr├¬n cß║╖p ng├┤n ngß╗», chuy├¬n m├┤n v├á lß╗ïch rß║únh cß╗ºa bß║ín</p>
                 </div>
                 <div class="flex items-center gap-3">
                     <a href="{{ url_for('job_list', recommended=1) }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1">
-                        Xem tất cả việc làm phù hợp →
+                        Xem tß║Ñt cß║ú viß╗çc l├ám ph├╣ hß╗úp ΓåÆ
                     </a>
                 </div>
             </div>
@@ -658,13 +658,13 @@
                 {% set j = r.job %}
                 <a href="{{ url_for('job_detail', job_id=j.id) }}"
                     class="group relative flex flex-col justify-between p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-slate-50/60 border border-slate-200/90 hover:border-brand-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
-                    title="Nhấn để xem chi tiết công việc và gửi báo giá">
+                    title="Nhß║Ñn ─æß╗â xem chi tiß║┐t c├┤ng viß╗çc v├á gß╗¡i b├ío gi├í">
                     <div>
-                        <!-- Header thẻ: Cặp ngôn ngữ, Mức độ phù hợp, Ngân sách -->
+                        <!-- Header thß║╗: Cß║╖p ng├┤n ngß╗», Mß╗⌐c ─æß╗Ö ph├╣ hß╗úp, Ng├ón s├ích -->
                         <div class="flex items-start justify-between gap-3 mb-3">
                             <div class="flex flex-wrap items-center gap-1.5">
                                 <span class="px-2.5 py-1 rounded-lg text-xs font-black bg-brand-50 text-brand-700 border border-brand-200">
-                                    {{ j.source_lang }} → {{ j.target_lang }}
+                                    {{ j.source_lang }} ΓåÆ {{ j.target_lang }}
                                 </span>
                                 {% if r.match_score %}
                                 <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold
@@ -672,7 +672,7 @@
                                     {% elif r.match_score >= 40 %}bg-blue-50 text-blue-700 border border-blue-200
                                     {% else %}bg-amber-50 text-amber-700 border border-amber-200{% endif %}">
                                     <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.381z" clip-rule="evenodd"/></svg>
-                                    {{ r.match_score }}% phù hợp
+                                    {{ r.match_score }}% ph├╣ hß╗úp
                                 </span>
                                 {% endif %}
                             </div>
@@ -683,58 +683,58 @@
                                 {% elif j.budget_min %}
                                 {{ j.budget_min|vnd }} VND
                                 {% else %}
-                                Thỏa thuận
+                                Thß╗Åa thuß║¡n
                                 {% endif %}
                             </span>
                         </div>
 
-                        <!-- 1. Tên công việc (Nổi bật nhất) -->
+                        <!-- 1. T├¬n c├┤ng viß╗çc (Nß╗òi bß║¡t nhß║Ñt) -->
                         <h3 class="text-sm sm:text-base font-bold text-slate-900 group-hover:text-brand-600 transition line-clamp-2 leading-snug">
                             {{ j.title }}
                         </h3>
 
-                        <!-- Mô tả tóm tắt -->
+                        <!-- M├┤ tß║ú t├│m tß║»t -->
                         <p class="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">
                             {{ j.description }}
                         </p>
 
-                        <!-- Thông tin chi tiết: Chuyên ngành, Hình thức, Thời gian -->
+                        <!-- Th├┤ng tin chi tiß║┐t: Chuy├¬n ng├ánh, H├¼nh thß╗⌐c, Thß╗¥i gian -->
                         <div class="mt-3.5 space-y-1.5 text-xs text-slate-600">
-                            <!-- Chuyên ngành & Dịch vụ -->
+                            <!-- Chuy├¬n ng├ánh & Dß╗ïch vß╗Ñ -->
                             <div class="flex items-center gap-2">
-                                <span class="text-slate-400 font-medium">Chuyên môn:</span>
-                                <span class="font-semibold text-slate-800 truncate">{{ r.category_text or j.category or 'Phiên dịch' }}</span>
+                                <span class="text-slate-400 font-medium">Chuy├¬n m├┤n:</span>
+                                <span class="font-semibold text-slate-800 truncate">{{ r.category_text or j.category or 'Phi├¬n dß╗ïch' }}</span>
                             </div>
 
-                            <!-- Hình thức & Địa điểm -->
+                            <!-- H├¼nh thß╗⌐c & ─Éß╗ïa ─æiß╗âm -->
                             <div class="flex items-center gap-2">
-                                <span class="text-slate-400 font-medium">Hình thức:</span>
+                                <span class="text-slate-400 font-medium">H├¼nh thß╗⌐c:</span>
                                 <span class="font-semibold text-slate-800 flex items-center gap-1 truncate">
                                     {% if r.work_mode_type == 'onsite' %}
-                                    <span class="text-amber-600">📍 Trực tiếp</span>
+                                    <span class="text-amber-600">≡ƒôì Trß╗▒c tiß║┐p</span>
                                     <span class="text-slate-500 font-normal truncate">({{ r.location_display }})</span>
                                     {% else %}
-                                    <span class="text-emerald-600">🌐 Trực tuyến (Online / Từ xa)</span>
+                                    <span class="text-emerald-600">≡ƒîÉ Trß╗▒c tuyß║┐n (Online / Tß╗½ xa)</span>
                                     {% endif %}
                                 </span>
                             </div>
 
-                            <!-- Lịch diễn ra hoặc Hạn nộp -->
+                            <!-- Lß╗ïch diß╗àn ra hoß║╖c Hß║ín nß╗Öp -->
                             {% if j.event_date or j.deadline %}
                             <div class="flex items-center gap-2">
-                                <span class="text-slate-400 font-medium">Thời gian:</span>
+                                <span class="text-slate-400 font-medium">Thß╗¥i gian:</span>
                                 <span class="font-semibold text-slate-800">
                                     {% if j.event_date %}
                                     {{ j.event_date }}{% if j.event_time_start %} ({{ j.event_time_start }}{% if j.event_time_end %} - {{ j.event_time_end }}{% endif %}){% endif %}
                                     {% elif j.deadline %}
-                                    Hạn nộp: {{ j.deadline.strftime('%d/%m/%Y') }}
+                                    Hß║ín nß╗Öp: {{ j.deadline.strftime('%d/%m/%Y') }}
                                     {% endif %}
                                 </span>
                             </div>
                             {% endif %}
                         </div>
 
-                        <!-- 2. Lý do đề xuất từ thuật toán matching -->
+                        <!-- 2. L├╜ do ─æß╗ü xuß║Ñt tß╗½ thuß║¡t to├ín matching -->
                         {% if r.reasons %}
                         <div class="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100">
                             {% for reason in r.reasons[:3] %}
@@ -747,408 +747,82 @@
                         {% endif %}
                     </div>
 
-                    <!-- Footer thẻ: Trạng thái & Nút hành động -->
+                    <!-- Footer thß║╗: Trß║íng th├íi & N├║t h├ánh ─æß╗Öng -->
                     <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between text-xs">
                         <div class="flex items-center gap-2">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Đang mở tuyển
+                                ─Éang mß╗ƒ tuyß╗ân
                             </span>
                             <span class="text-[11px] text-slate-400">
-                                {{ r.applicant_count or 0 }} hồ sơ đã nộp
+                                {{ r.applicant_count or 0 }} hß╗ô s╞í ─æ├ú nß╗Öp
                             </span>
                         </div>
                         <span class="font-bold text-brand-600 group-hover:text-brand-700 inline-flex items-center gap-1">
-                            <span>Xem & Báo giá</span>
-                            <span class="transition-transform duration-200 group-hover:translate-x-1">→</span>
+                            <span>Xem & B├ío gi├í</span>
+                            <span class="transition-transform duration-200 group-hover:translate-x-1">ΓåÆ</span>
                         </span>
                     </div>
                 </a>
                 {% endfor %}
             </div>
 
-            <!-- Footer thanh thông tin khi có việc đề xuất -->
+            <!-- Footer thanh th├┤ng tin khi c├│ viß╗çc ─æß╗ü xuß║Ñt -->
             <div class="mt-6 pt-5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
                 <span class="flex items-center gap-1.5">
                     <span class="w-2 h-2 rounded-full bg-brand-500"></span>
-                    <span>Hệ thống tự động phân tích và xếp hạng cơ hội công việc dựa trên năng lực và lịch trống thực tế của bạn.</span>
+                    <span>Hß╗ç thß╗æng tß╗▒ ─æß╗Öng ph├ón t├¡ch v├á xß║┐p hß║íng c╞í hß╗Öi c├┤ng viß╗çc dß╗▒a tr├¬n n─âng lß╗▒c v├á lß╗ïch trß╗æng thß╗▒c tß║┐ cß╗ºa bß║ín.</span>
                 </span>
                 <a href="{{ url_for('job_list', recommended=1) }}" class="font-semibold text-slate-700 hover:text-brand-600 hover:underline">
-                    Xem tất cả việc làm phù hợp →
+                    Xem tß║Ñt cß║ú viß╗çc l├ám ph├╣ hß╗úp ΓåÆ
                 </a>
             </div>
 
             {% elif not has_profile_languages %}
-            <!-- Tình huống: Thiếu dữ liệu hồ sơ (chưa cài đặt ngôn ngữ) -->
+            <!-- T├¼nh huß╗æng: Thiß║┐u dß╗» liß╗çu hß╗ô s╞í (ch╞░a c├ái ─æß║╖t ng├┤n ngß╗») -->
             <div class="text-center py-12 px-4 rounded-2xl bg-gradient-to-b from-amber-50/40 to-slate-50 border border-dashed border-amber-200">
                 <div class="w-14 h-14 rounded-2xl bg-amber-100/80 text-amber-600 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 </div>
-                <h3 class="text-sm sm:text-base font-bold text-slate-800">Cập nhật ngôn ngữ & sở thích để nhận đề xuất việc làm</h3>
+                <h3 class="text-sm sm:text-base font-bold text-slate-800">Cß║¡p nhß║¡t ng├┤n ngß╗» & sß╗ƒ th├¡ch ─æß╗â nhß║¡n ─æß╗ü xuß║Ñt viß╗çc l├ám</h3>
                 <p class="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">
-                    Hồ sơ của bạn chưa có thông tin về ngôn ngữ thông thạo hoặc cài đặt nhận việc. Hãy cập nhật ngay để hệ thống tự động lọc và đề xuất các cơ hội phù hợp nhất với bạn.
+                    Hß╗ô s╞í cß╗ºa bß║ín ch╞░a c├│ th├┤ng tin vß╗ü ng├┤n ngß╗» th├┤ng thß║ío hoß║╖c c├ái ─æß║╖t nhß║¡n viß╗çc. H├úy cß║¡p nhß║¡t ngay ─æß╗â hß╗ç thß╗æng tß╗▒ ─æß╗Öng lß╗ìc v├á ─æß╗ü xuß║Ñt c├íc c╞í hß╗Öi ph├╣ hß╗úp nhß║Ñt vß╗¢i bß║ín.
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
                     <a href="{{ url_for('account_profile', tab='translator') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2.5 rounded-xl transition shadow-xs">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                        Cập nhật hồ sơ ngôn ngữ
+                        Cß║¡p nhß║¡t hß╗ô s╞í ng├┤n ngß╗»
                     </a>
                     <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-4 py-2.5 rounded-xl transition border border-slate-200 bg-slate-50">
-                        Khám phá tất cả việc làm
+                        Kh├ím ph├í tß║Ñt cß║ú viß╗çc l├ám
                     </a>
                 </div>
             </div>
 
             {% else %}
-            <!-- Tình huống: Không có công việc phù hợp với hồ sơ hiện tại -->
+            <!-- T├¼nh huß╗æng: Kh├┤ng c├│ c├┤ng viß╗çc ph├╣ hß╗úp vß╗¢i hß╗ô s╞í hiß╗çn tß║íi -->
             <div class="text-center py-12 px-4 rounded-2xl bg-gradient-to-b from-slate-50/50 to-slate-50 border border-dashed border-slate-200">
                 <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
                     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                 </div>
-                <h3 class="text-sm sm:text-base font-bold text-slate-800">Hiện chưa có công việc mới phù hợp với hồ sơ của bạn</h3>
+                <h3 class="text-sm sm:text-base font-bold text-slate-800">Hiß╗çn ch╞░a c├│ c├┤ng viß╗çc mß╗¢i ph├╣ hß╗úp vß╗¢i hß╗ô s╞í cß╗ºa bß║ín</h3>
                 <p class="text-xs text-slate-500 mt-1.5 max-w-md mx-auto">
-                    Các dự án hiện tại có thể khác cặp ngôn ngữ, lịch làm việc hoặc bạn đã nộp đề xuất trước đó. Bạn có thể xem toàn bộ danh sách việc làm đang mở tuyển hoặc điều chỉnh tiêu chí nhận việc.
+                    C├íc dß╗▒ ├ín hiß╗çn tß║íi c├│ thß╗â kh├íc cß║╖p ng├┤n ngß╗», lß╗ïch l├ám viß╗çc hoß║╖c bß║ín ─æ├ú nß╗Öp ─æß╗ü xuß║Ñt tr╞░ß╗¢c ─æ├│. Bß║ín c├│ thß╗â xem to├án bß╗Ö danh s├ích viß╗çc l├ám ─æang mß╗ƒ tuyß╗ân hoß║╖c ─æiß╗üu chß╗ënh ti├¬u ch├¡ nhß║¡n viß╗çc.
                 </p>
                 <div class="flex flex-wrap items-center justify-center gap-3 mt-4">
                     <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-4 py-2.5 rounded-xl transition shadow-xs">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/></svg>
-                        Khám phá tất cả việc làm
+                        Kh├ím ph├í tß║Ñt cß║ú viß╗çc l├ám
                     </a>
                     <a href="{{ url_for('account_profile', tab='translator') }}" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-brand-600 hover:bg-white px-4 py-2.5 rounded-xl transition border border-slate-200 bg-slate-50">
-                        Điều chỉnh tiêu chí nhận việc
+                        ─Éiß╗üu chß╗ënh ti├¬u ch├¡ nhß║¡n viß╗çc
                     </a>
                 </div>
             </div>
             {% endif %}
         </div>
-
-        <!-- ═══════════════════════════════════════════════════════════════
-             6. VIỆC CẦN XỬ LÝ (ID: section-tasks)
-             ═══════════════════════════════════════════════════════════════ -->
-        <div id="section-tasks" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-100">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2.5">
-                        <span class="w-3 h-3 rounded-full {% if action_items %}bg-rose-500 animate-pulse{% else %}bg-emerald-500{% endif %}"></span>
-                        Việc cần xử lý
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">Tổng hợp các tác vụ cần bạn hoàn thiện hồ sơ, phản hồi lời mời hoặc cập nhật tiến độ</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 text-xs font-bold rounded-full border {% if action_items %}bg-rose-50 text-rose-700 border-rose-200{% else %}bg-emerald-50 text-emerald-700 border-emerald-200{% endif %}">
-                        {% if action_items %}{{ action_items|length }} việc cần làm{% else %}Đã hoàn tất tất cả{% endif %}
-                    </span>
-                </div>
-            </div>
-
-            {% if action_items %}
-            <div class="space-y-3.5">
-                {% for item in action_items %}
-                <div class="p-4 sm:p-5 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200/80 hover:border-slate-300 hover:shadow-md transition duration-200 flex flex-col md:flex-row md:items-center justify-between gap-4 group">
-                    <div class="flex items-start gap-4 min-w-0">
-                        <!-- Icon phân loại -->
-                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-xs
-                            {% if item.icon_type == 'invitation' %}bg-rose-100 text-rose-600 border border-rose-200
-                            {% elif item.icon_type == 'profile' %}bg-amber-100 text-amber-600 border border-amber-200
-                            {% elif item.icon_type == 'verification' %}bg-blue-100 text-blue-600 border border-blue-200
-                            {% elif item.icon_type == 'contract' %}bg-emerald-100 text-emerald-600 border border-emerald-200
-                            {% elif item.icon_type == 'escrow' %}bg-amber-100 text-amber-600 border border-amber-200
-                            {% else %}bg-slate-100 text-slate-600 border border-slate-200{% endif %}">
-                            {% if item.icon_type == 'invitation' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            {% elif item.icon_type == 'profile' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                            {% elif item.icon_type == 'verification' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            {% elif item.icon_type == 'contract' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            {% elif item.icon_type == 'escrow' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% else %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                            {% endif %}
-                        </div>
-
-                        <!-- Nội dung tác vụ -->
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md border {{ item.priority_badge }}">
-                                    {{ item.priority_label }}
-                                </span>
-                                <span class="px-2 py-0.5 text-[11px] font-medium rounded-md bg-slate-200/70 text-slate-700">
-                                    {{ item.status_label }}
-                                </span>
-                            </div>
-                            <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition">
-                                {{ item.title }}
-                            </h3>
-                            <p class="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2">
-                                {{ item.description }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Nút thao tác điều hướng -->
-                    <div class="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0 self-end md:self-center">
-                        <a href="{{ item.url }}"
-                            class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white transition shadow-sm
-                            {% if item.icon_type == 'invitation' %}bg-rose-600 hover:bg-rose-700
-                            {% elif item.icon_type == 'profile' %}bg-amber-600 hover:bg-amber-700
-                            {% elif item.icon_type == 'verification' %}bg-blue-600 hover:bg-blue-700
-                            {% else %}bg-brand-600 hover:bg-brand-700{% endif %}">
-                            <span>{{ item.action_text }}</span>
-                        </a>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <!-- Trạng thái không có tác vụ nào tồn đọng -->
-            <div class="text-center py-10 px-6 rounded-2xl bg-gradient-to-b from-emerald-50/40 to-slate-50/60 border border-emerald-100/80">
-                <div class="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-200">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                </div>
-                <h3 class="text-base font-bold text-slate-900">Bạn không có việc cần xử lý lúc này</h3>
-                <p class="text-xs text-slate-600 max-w-md mx-auto mt-1.5 leading-relaxed">
-                    Tuyệt vời! Hồ sơ cá nhân của bạn đã đầy đủ, không có lời mời nào đang chờ phản hồi và tất cả hợp đồng đều đang diễn ra thuận lợi.
-                </p>
-                <div class="flex items-center justify-center gap-3 mt-5">
-                    <a href="{{ url_for('job_list') }}" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200 transition">
-                        Khám phá việc làm mới →
-                    </a>
-                    <a href="#section-schedule" class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 transition">
-                        Kiểm tra lịch làm việc
-                    </a>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- ═══════════════════════════════════════════════════════════════
-             7. THÔNG BÁO GẦN ĐÂY (ID: section-notifications)
-             ═══════════════════════════════════════════════════════════════ -->
-        <div id="section-notifications" class="scroll-mt-24 bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-200/80">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-5 border-b border-slate-100">
-                <div>
-                    <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2.5">
-                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                        Thông báo gần đây
-                    </h2>
-                    <p class="text-xs text-slate-500 mt-0.5">5 thông báo mới nhất gửi đến tài khoản của bạn</p>
-                </div>
-                <div class="flex items-center gap-3">
-                    {% if unread_notifications_count > 0 %}
-                    <span id="dashboard-notif-unread-pill" class="px-2.5 py-1 text-xs font-bold rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                        {{ unread_notifications_count }} chưa đọc
-                    </span>
-                    <button id="dashboard-mark-all-read" type="button" class="text-xs font-semibold text-slate-500 hover:text-brand-600 px-2.5 py-1 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 transition inline-flex items-center gap-1 cursor-pointer">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        <span>Đã đọc tất cả</span>
-                    </button>
-                    {% endif %}
-                    <a href="{{ url_for('notifications_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline inline-flex items-center gap-1">
-                        <span>Xem tất cả</span>
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    </a>
-                </div>
-            </div>
-
-            {% if recent_notifications %}
-            <div id="dashboard-notif-list" class="space-y-3">
-                {% for n in recent_notifications %}
-                <div data-id="{{ n.id }}" data-url="{{ n.target_url }}" data-is-read="{{ 'true' if n.is_read else 'false' }}"
-                    class="dashboard-notif-item p-4 sm:p-5 rounded-2xl border transition duration-200 cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 group
-                    {% if not n.is_read %}bg-brand-50/30 hover:bg-brand-50/60 border-brand-200/80 shadow-xs{% else %}bg-slate-50/50 hover:bg-white border-slate-200/70 hover:border-slate-300 hover:shadow-sm{% endif %}">
-                    <div class="flex items-start gap-4 min-w-0">
-                        <!-- Icon phân loại thông báo -->
-                        <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 {{ n.icon_bg }} shadow-xs">
-                            {% if n.icon_kind == 'invitation' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                            {% elif n.icon_kind == 'match' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            {% elif n.icon_kind == 'accepted' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'rejected' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'contract' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                            {% elif n.icon_kind == 'payment' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            {% elif n.icon_kind == 'message' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                            {% elif n.icon_kind == 'review' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-                            {% elif n.icon_kind == 'verification' %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                            {% else %}
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                            {% endif %}
-                        </div>
-
-                        <!-- Chi tiết thông báo -->
-                        <div class="min-w-0 flex-1">
-                            <div class="flex flex-wrap items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 text-[11px] font-bold rounded-md border {{ n.cat_badge }}">
-                                    {{ n.cat_label }}
-                                </span>
-                                {% if not n.is_read %}
-                                <span class="unread-tag inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-md bg-rose-50 text-rose-600 border border-rose-200">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                                    Chưa đọc
-                                </span>
-                                {% endif %}
-                                <span class="text-[11px] text-slate-400 font-medium" title="{{ n.created_at_display }}">
-                                    {{ n.time_ago }}
-                                </span>
-                            </div>
-                            <h3 class="text-sm font-bold text-slate-900 group-hover:text-brand-600 transition notif-title">
-                                {{ n.title }}
-                            </h3>
-                            <p class="text-xs text-slate-600 mt-1 leading-relaxed line-clamp-2 notif-msg">
-                                {{ n.message }}
-                            </p>
-                        </div>
-                    </div>
-
-                    <!-- Nút thao tác điều hướng & đánh dấu đã đọc -->
-                    <div class="flex items-center gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 flex-shrink-0 self-end md:self-center">
-                        {% if not n.is_read %}
-                        <button type="button" class="quick-read-btn p-2 rounded-xl text-slate-400 hover:text-brand-600 hover:bg-white border border-transparent hover:border-slate-200 transition" title="Đánh dấu đã đọc">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        </button>
-                        {% endif %}
-                        <span class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 group-hover:text-brand-700 group-hover:translate-x-0.5 transition whitespace-nowrap">
-                            <span>Xem chi tiết</span>
-                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                        </span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-            {% else %}
-            <!-- Trạng thái không có thông báo -->
-            <div class="text-center py-10 px-6 rounded-2xl bg-slate-50/60 border border-dashed border-slate-200">
-                <div class="w-14 h-14 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-                    </svg>
-                </div>
-                <h3 class="text-base font-bold text-slate-800">Bạn chưa có thông báo mới</h3>
-                <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 leading-relaxed">
-                    Mọi cập nhật về công việc, lời mời, tin nhắn và hợp đồng sẽ xuất hiện tại đây ngay khi có phát sinh.
-                </p>
-            </div>
-            {% endif %}
-        </div>
-
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const list = document.getElementById('dashboard-notif-list');
-    const markAllBtn = document.getElementById('dashboard-mark-all-read');
-    const unreadPill = document.getElementById('dashboard-notif-unread-pill');
-
-    function syncNavBadge() {
-        const notifBadge = document.getElementById('notif-badge');
-        const commonNotifBadge = document.getElementById('nav-common-notif-badge');
-        fetch('/api/notifications/unread-count')
-            .then(r => r.json())
-            .then(data => {
-                const count = data.count || 0;
-                if (unreadPill) {
-                    if (count > 0) {
-                        unreadPill.textContent = `${count} chưa đọc`;
-                        unreadPill.style.display = 'inline-block';
-                    } else {
-                        unreadPill.style.display = 'none';
-                        if (markAllBtn) markAllBtn.style.display = 'none';
-                    }
-                }
-                const txt = count > 99 ? '99+' : count;
-                [notifBadge, commonNotifBadge].forEach(badge => {
-                    if (!badge) return;
-                    if (count > 0) {
-                        badge.textContent = txt;
-                        badge.classList.remove('hidden');
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.classList.add('hidden');
-                        badge.style.display = 'none';
-                    }
-                });
-            })
-            .catch(() => {});
-    }
-
-    if (list) {
-        list.addEventListener('click', function(e) {
-            const item = e.target.closest('.dashboard-notif-item');
-            if (!item) return;
-
-            const id = item.dataset.id;
-            const targetUrl = item.dataset.url || '#';
-            const isRead = item.dataset.isRead === 'true';
-
-            // Xử lý nút đánh dấu đã đọc nhanh
-            const quickBtn = e.target.closest('.quick-read-btn');
-            if (quickBtn) {
-                e.stopPropagation();
-                if (!isRead && id) {
-                    fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                        .then(() => {
-                            item.dataset.isRead = 'true';
-                            item.classList.remove('bg-brand-50/30', 'hover:bg-brand-50/60', 'border-brand-200/80', 'shadow-xs');
-                            item.classList.add('bg-slate-50/50', 'hover:bg-white', 'border-slate-200/70', 'hover:border-slate-300', 'hover:shadow-sm');
-                            const tag = item.querySelector('.unread-tag');
-                            if (tag) tag.remove();
-                            quickBtn.remove();
-                            syncNavBadge();
-                        })
-                        .catch(err => console.error('Mark read error:', err));
-                }
-                return;
-            }
-
-            // Click vào toàn bộ card thông báo
-            if (!isRead && id) {
-                fetch(`/api/notifications/${id}/read`, { method: 'POST' })
-                    .finally(() => {
-                        if (targetUrl && targetUrl !== '#') {
-                            window.location.href = targetUrl;
-                        }
-                    });
-            } else {
-                if (targetUrl && targetUrl !== '#') {
-                    window.location.href = targetUrl;
-                }
-            }
-        });
-    }
-
-    if (markAllBtn) {
-        markAllBtn.addEventListener('click', function() {
-            fetch('/api/notifications/read-all', { method: 'POST' })
-                .then(() => {
-                    if (list) {
-                        list.querySelectorAll('.dashboard-notif-item').forEach(item => {
-                            item.dataset.isRead = 'true';
-                            item.classList.remove('bg-brand-50/30', 'hover:bg-brand-50/60', 'border-brand-200/80', 'shadow-xs');
-                            item.classList.add('bg-slate-50/50', 'hover:bg-white', 'border-slate-200/70', 'hover:border-slate-300', 'hover:shadow-sm');
-                            const tag = item.querySelector('.unread-tag');
-                            if (tag) tag.remove();
-                            const btn = item.querySelector('.quick-read-btn');
-                            if (btn) btn.remove();
-                        });
-                    }
-                    syncNavBadge();
-                })
-                .catch(err => console.error('Mark all read error:', err));
-        });
-    }
-});
-</script>
 {% endblock %}
