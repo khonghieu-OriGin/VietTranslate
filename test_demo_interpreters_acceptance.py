@@ -31,7 +31,7 @@ class TestDemoInterpretersAcceptance(unittest.TestCase):
         with app.app_context():
             demo_users = User.query.filter_by(is_demo=True).all()
             demo_profiles = TranslatorProfile.query.filter_by(is_demo=True).all()
-            real_users = User.query.filter_by(is_demo=False).count()
+            real_users = User.query.filter((User.is_demo == False) | (User.is_demo == None)).count()
             real_profiles = TranslatorProfile.query.filter(
                 (TranslatorProfile.is_demo == False) | (TranslatorProfile.is_demo == None)
             ).count()

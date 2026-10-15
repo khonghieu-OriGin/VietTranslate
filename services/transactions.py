@@ -53,7 +53,11 @@ def project_title(contract):
         return contract.job.title
     if contract.service:
         return contract.service.name
-    return None
+    if getattr(contract, 'interpreter_service', None):
+        isvc = contract.interpreter_service
+        spec = f" - {isvc.specialization}" if isvc.specialization else ""
+        return f"Phiên dịch {isvc.source_lang} → {isvc.target_lang} ({isvc.interpreting_type}){spec}"
+    return f'Hợp đồng #{contract.id}'
 
 
 def _build_row(contract):

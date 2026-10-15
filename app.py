@@ -1,4 +1,7 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g, send_from_directory, send_file
 from models import (
     db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal,
@@ -467,14 +470,11 @@ if database_url:
     elif database_url.startswith("postgresql://") and "+psycopg" not in database_url:
         database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
 else:
-    if os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
-        # TASK 10: Production (Vercel/Render) — BẮT BUỘC có DATABASE_URL trỏ tới Supabase PostgreSQL.
-        # Không fallback sang SQLite memory trong production.
-        _platform = 'Vercel' if os.environ.get('VERCEL') else 'Render'
+    flask_env = os.environ.get('FLASK_ENV', 'development').lower()
+    if flask_env == 'production' or os.environ.get('VERCEL') == '1' or os.environ.get('RENDER'):
         error_msg = (
-            f"[CRITICAL] Chạy trên {_platform} nhưng DATABASE_URL chưa được cấu hình! "
-            "Database production phải là Supabase PostgreSQL. "
-            "Hãy vào Dashboard → Environment Variables → thêm DATABASE_URL."
+            "[CRITICAL] Production environment requires DATABASE_URL pointing to PostgreSQL! "
+            "SQLite fallback is strictly forbidden in production."
         )
         print(error_msg, file=sys.stderr)
         raise RuntimeError(error_msg)
@@ -517,23 +517,27 @@ else:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = _engine_opts
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', os.path.join(basedir, 'static', 'uploads'))
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     UPLOAD_FOLDER = '/tmp'
 else:
     try:
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    except OSError:
+    except OSError as e:
+        if os.environ.get('FLASK_ENV') == 'production':
+            raise RuntimeError(f"[CRITICAL] Failed to create UPLOAD_FOLDER at {UPLOAD_FOLDER}: {e}")
         UPLOAD_FOLDER = '/tmp'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 
-AVATAR_UPLOAD_FOLDER = os.path.join('static', 'uploads', 'avatars')
+AVATAR_UPLOAD_FOLDER = os.path.join(UPLOAD_FOLDER, 'avatars')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     AVATAR_UPLOAD_FOLDER = '/tmp/avatars'
 try:
     os.makedirs(AVATAR_UPLOAD_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create AVATAR_UPLOAD_FOLDER at {AVATAR_UPLOAD_FOLDER}: {e}")
     AVATAR_UPLOAD_FOLDER = '/tmp'
 app.config['AVATAR_UPLOAD_FOLDER'] = AVATAR_UPLOAD_FOLDER
 
@@ -543,7 +547,9 @@ if os.environ.get('VERCEL') == '1' or _is_memory_db:
     PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
 try:
     os.makedirs(PRIVATE_STORAGE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create PRIVATE_STORAGE_FOLDER at {PRIVATE_STORAGE_FOLDER}: {e}")
     PRIVATE_STORAGE_FOLDER = '/tmp/private_verifications'
 app.config['PRIVATE_STORAGE_FOLDER'] = PRIVATE_STORAGE_FOLDER
 
@@ -618,7 +624,7 @@ def save_certificate_file(file, user_id):
     clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"cert_u{clean_uid}_{int(time.time())}.{ext}"
-    folder = os.path.join(app.root_path, 'static', 'uploads', 'certificates')
+    folder = os.path.join(app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads')), 'certificates')
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
 
@@ -1179,15 +1185,18 @@ def _init_db():
         user_count = 1  # Giả định đã có data, không seed
 
     if user_count == 0:
-        # Chỉ seed khi DB thực sự trống
-        try:
-            from seed_data import seed_data as _run_seed
-            _run_seed()
-            print(f"[SEED] Seed hoàn thành. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
-        except Exception as e:
-            # Không để seed failure crash app — user có thể tự đăng ký
-            db.session.rollback()
-            print(f"[SEED ERROR] Seed thất bại (bỏ qua): {e}", file=sys.stderr)
+        # CHẶN TUYỆT ĐỐI SEED DATA TRÊN PRODUCTION
+        if os.getenv('FLASK_ENV') == 'production':
+            print("[SECURITY] Môi trường Production: Tự động seed data bị vô hiệu hóa để bảo vệ an toàn.", file=sys.stderr)
+        else:
+            try:
+                from seed_data import seed_data as _run_seed
+                _run_seed()
+                print(f"[SEED] Seed hoàn thành. Users={User.query.count()}, Profiles={TranslatorProfile.query.count()}", file=sys.stderr)
+            except Exception as e:
+                # Không để seed failure crash app — user có thể tự đăng ký
+                db.session.rollback()
+                print(f"[SEED ERROR] Seed thất bại (bỏ qua): {e}", file=sys.stderr)
     else:
         print(f"[DB] Database sẵn sàng. Users={user_count}", file=sys.stderr)
 
@@ -1215,9 +1224,37 @@ def _static_cache(resp):
 
 @app.errorhandler(500)
 def handle_500(e):
-    import traceback
-    tb = traceback.format_exc()
-    return f"<pre>500 Error:\n{e}\n\nTraceback:\n{tb}</pre>", 500
+    import uuid
+    import logging
+    error_id = uuid.uuid4().hex[:8]
+    logging.error(f"[ERROR 500 - Ref: {error_id}] {e}", exc_info=True)
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.path.startswith('/api/')
+    if is_ajax:
+        return jsonify({
+            'success': False,
+            'error': 'Internal Server Error',
+            'message': 'Đã có lỗi hệ thống phát sinh. Vui lòng thử lại sau ít phút.',
+            'ref': error_id
+        }), 500
+    if os.getenv('FLASK_ENV') == 'development' and app.debug:
+        import traceback
+        tb = traceback.format_exc()
+        return f"<pre>500 Debug Error (Ref {error_id}):\n{e}\n\nTraceback:\n{tb}</pre>", 500
+    try:
+        return render_template('500.html', error_ref=error_id), 500
+    except Exception:
+        return (
+            f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>500 - Lỗi hệ thống</title>"
+            f"<style>body{{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f8fafc;color:#1e293b}} "
+            f".box{{background:#fff;padding:2.5rem;border-radius:1rem;box-shadow:0 10px 25px rgba(0,0,0,0.05);max-width:480px;text-align:center}} "
+            f"h1{{font-size:1.8rem;margin-bottom:0.5rem;color:#e11d48}} p{{color:#64748b;line-height:1.6}} "
+            f".code{{font-family:monospace;background:#f1f5f9;padding:0.25rem 0.5rem;border-radius:0.25rem;font-size:0.875rem}} "
+            f"a{{display:inline-block;margin-top:1.5rem;background:#2563eb;color:#fff;padding:0.75rem 1.5rem;border-radius:0.5rem;text-decoration:none;font-weight:bold}}</style></head>"
+            f"<body><div class='box'><h1>500 - Lỗi hệ thống</h1>"
+            f"<p>Hệ thống đang gặp sự cố gián đoạn tạm thời. Vui lòng thử lại sau ít phút.</p>"
+            f"<p>Mã tham chiếu hỗ trợ: <span class='code'>ERR-{error_id.upper()}</span></p>"
+            f"<a href='/'>Về trang chủ</a></div></body></html>"
+        ), 500
 
 # ─── DECORATORS ────────────────────────────────────────────────────────────────
 
@@ -1453,6 +1490,7 @@ def set_language(lang):
 # ─── PUBLIC ROUTES ─────────────────────────────────────────────────────────────
 
 @app.route('/')
+@app.route('/index')
 def index():
     try:
         from sqlalchemy.orm import joinedload
@@ -1493,14 +1531,14 @@ def interpreter_dashboard():
     profile = user.profile
     preference = getattr(user, 'preference', None)
 
-    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế:
+    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế (100% tổng thể):
     # 1. Họ và tên: 15% (user.name)
-    # 2. Số điện thoại: 10% (user.phone)
-    # 3. Tiêu đề chuyên môn: 15% (profile.title)
-    # 4. Ngôn ngữ thông thạo: 20% (profile.languages)
-    # 5. Bằng cấp / Chứng chỉ: 15% (profile.badges)
+    # 2. Ảnh đại diện: 10% (user.avatar hoặc user.avatar_url)
+    # 3. Số điện thoại: 10% (user.phone)
+    # 4. Tiêu đề chuyên môn: 15% (profile.title)
+    # 5. Ngôn ngữ thông thạo: 20% (profile.languages)
     # 6. Giới thiệu bản thân: 15% (profile.bio)
-    # 7. Cài đặt nhận việc / Dịch vụ: 10% (preference.service_types hoặc profile.services)
+    # 7. Cài đặt nhận việc / Dịch vụ: 15% (preference.service_types hoặc profile.services)
     profile_completeness = 0
     profile_missing = []
 
@@ -1510,29 +1548,29 @@ def interpreter_dashboard():
     else:
         profile_missing.append('Họ và tên')
 
-    # 2. Số điện thoại
+    # 2. Ảnh đại diện cá nhân
+    if getattr(user, 'avatar', None) or getattr(user, 'avatar_url', None):
+        profile_completeness += 10
+    else:
+        profile_missing.append('Ảnh đại diện')
+
+    # 3. Số điện thoại
     if user.phone and user.phone.strip():
         profile_completeness += 10
     else:
         profile_missing.append('Số điện thoại')
 
-    # 3. Tiêu đề chuyên môn
+    # 4. Tiêu đề chuyên môn
     if profile and profile.title and profile.title.strip():
         profile_completeness += 15
     else:
         profile_missing.append('Tiêu đề chuyên môn')
 
-    # 4. Ngôn ngữ thông thạo
+    # 5. Ngôn ngữ thông thạo
     if profile and profile.languages and profile.languages.strip():
         profile_completeness += 20
     else:
         profile_missing.append('Ngôn ngữ thông thạo')
-
-    # 5. Bằng cấp / Chứng chỉ (căn cứ kiểm duyệt xác minh)
-    if profile and profile.badges and profile.badges.strip():
-        profile_completeness += 15
-    else:
-        profile_missing.append('Bằng cấp / Chứng chỉ')
 
     # 6. Giới thiệu bản thân
     if profile and profile.bio and profile.bio.strip():
@@ -1548,11 +1586,20 @@ def interpreter_dashboard():
         has_services = True
 
     if has_services:
-        profile_completeness += 10
+        profile_completeness += 15
     else:
         profile_missing.append('Dịch vụ / Cài đặt nhận việc')
 
-    # Xác định trạng thái xác minh thực tế:
+    # Đảm bảo phần trăm nằm chính xác trong khoảng 0 - 100
+    profile_completeness = max(0, min(100, int(profile_completeness)))
+
+    # Xác định trạng thái xác minh thực tế (dựa trên hồ sơ và yêu cầu thẩm định):
+    verif_req = None
+    try:
+        verif_req = getattr(user, 'latest_verification', None)
+    except Exception:
+        verif_req = None
+
     if not profile:
         verification_status = {
             'code': 'no_profile',
@@ -1564,7 +1611,7 @@ def interpreter_dashboard():
             'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
             'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
         }
-    elif profile.is_verified:
+    elif profile.is_verified or (verif_req and getattr(verif_req, 'status', None) in ('approved', 'verified')):
         verification_status = {
             'code': 'verified',
             'label': 'Đã xác minh',
@@ -1575,7 +1622,29 @@ def interpreter_dashboard():
             'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
             'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
         }
-    elif profile.badges and profile.badges.strip():
+    elif verif_req and getattr(verif_req, 'status', None) in ('needs_revision', 'revision_requested'):
+        verification_status = {
+            'code': 'needs_revision',
+            'label': 'Cần bổ sung',
+            'color': 'amber',
+            'badge_bg': 'bg-amber-50',
+            'badge_text': 'text-amber-700',
+            'badge_border': 'border-amber-200',
+            'tooltip': 'Ban quản trị yêu cầu bổ sung thông tin hoặc tài liệu xác minh.',
+            'action_hint': 'Cần bổ sung tài liệu theo yêu cầu của Admin.',
+        }
+    elif verif_req and getattr(verif_req, 'status', None) == 'rejected':
+        verification_status = {
+            'code': 'rejected',
+            'label': 'Bị từ chối',
+            'color': 'rose',
+            'badge_bg': 'bg-rose-50',
+            'badge_text': 'text-rose-700',
+            'badge_border': 'border-rose-200',
+            'tooltip': 'Hồ sơ xác minh chưa đạt yêu cầu của Ban quản trị.',
+            'action_hint': 'Xem lý do từ chối và nộp lại hồ sơ.',
+        }
+    elif (verif_req and getattr(verif_req, 'status', None) in ('pending', 'in_review')) or (profile.badges and profile.badges.strip()):
         verification_status = {
             'code': 'pending',
             'label': 'Đang chờ duyệt',
@@ -2203,7 +2272,7 @@ def account_verification():
     if user.role != 'translator':
         flash('Chức năng xác minh hồ sơ chỉ dành cho phiên dịch viên.', 'info')
         return redirect(url_for('account_profile'))
-    return redirect(url_for('account_profile', tab='translator'))
+    return redirect(url_for('verification_status_page'))
 
 @app.route('/about')
 def about():
@@ -2294,6 +2363,9 @@ def news_detail(slug):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    if 'user_id' in session and get_current_user():
+        return redirect(url_for('index'))
+
     next_url = request.args.get('next') or request.form.get('next')
 
     def is_safe_redirect(url):
@@ -2337,10 +2409,7 @@ def login():
                         session.clear()
                         flash("Tài khoản Quản trị vui lòng sử dụng cổng đăng nhập riêng.", "warning")
                         return redirect(url_for('admin_login'))
-                    if is_safe_redirect(next_url):
-                        return redirect(next_url)
-                    if user.role == 'translator':
-                        return redirect(url_for('interpreter_dashboard'))
+                    # Luôn luôn đưa về trang chủ công khai (giao diện khách) sau khi đăng nhập thành công
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
@@ -7194,12 +7263,14 @@ def send_direct_message(other_user_id):
 CHAT_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 CHAT_IMAGE_MAX_BYTES = 5 * 1024 * 1024
 CHAT_TEXT_MAX = 2000
-CHAT_IMAGE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'chat_images')
+CHAT_IMAGE_FOLDER = os.getenv('CHAT_IMAGE_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'chat_images')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     CHAT_IMAGE_FOLDER = '/tmp/chat_images'
 try:
     os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create CHAT_IMAGE_FOLDER at {CHAT_IMAGE_FOLDER}: {e}")
     CHAT_IMAGE_FOLDER = '/tmp/chat_images'
     os.makedirs(CHAT_IMAGE_FOLDER, exist_ok=True)
 _CHAT_IMG_URL = re.compile(r'^/chat-image/(\d+)_[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$')
@@ -7472,6 +7543,84 @@ def book_service(service_id):
 
     return render_template('book_service.html', service=service, tier=tier, price=price, fixed_days=fixed_days)
 
+
+@app.route('/book-interpreter/<int:interpreter_service_id>', methods=['GET', 'POST'])
+@login_required
+def book_interpreter(interpreter_service_id):
+    isvc = InterpreterService.query.get_or_404(interpreter_service_id)
+    rate_type = request.args.get('rate_type', 'hourly')
+    
+    if rate_type == 'session' and isvc.session_rate:
+        price = int(isvc.session_rate)
+        rate_label = 'Theo ca / buổi'
+    else:
+        rate_type = 'hourly'
+        price = int(isvc.hourly_rate or isvc.session_rate or 0)
+        rate_label = 'Theo giờ'
+
+    current_user = get_current_user()
+    if not current_user:
+        flash(_t('flash.login_required'), 'warning')
+        return redirect(url_for('login'))
+        
+    translator = isvc.user
+    if not translator or getattr(translator, 'role', '') != 'translator' or not getattr(translator, 'is_active', True):
+        flash(_t('flash.translator_inactive'), 'error')
+        return redirect(url_for('translators'))
+
+    if current_user.id == translator.id:
+        flash(_t('flash.cannot_hire_self'), 'error')
+        profile = getattr(translator, 'translator_profile', None)
+        if profile:
+            return redirect(url_for('translator_profile', profile_id=profile.id))
+        return redirect(url_for('translators'))
+
+    if request.method == 'POST':
+        scheduled_date_str = request.form.get('scheduled_date', '')
+        time_start_str = request.form.get('time_start', '')
+        time_end_str = request.form.get('time_end', '')
+        
+        from services.booking import create_contract_booking, BookingConflictError, BookingValidationError
+        from services.schedule import ScheduleCheckError
+        
+        try:
+            contract = create_contract_booking(
+                hirer_id=session['user_id'],
+                translator_id=translator.id,
+                agreed_price=int(request.form.get('price', price)),
+                scheduled_date=scheduled_date_str,
+                start_time=time_start_str,
+                end_time=time_end_str,
+                location=request.form.get('location', ''),
+                interpreter_service_id=isvc.id
+            )
+            flash(_t('flash.service_booked'), 'success')
+            if contract.status == 'awaiting_translator':
+                return redirect(url_for('transaction_detail', contract_id=contract.id))
+            return redirect(url_for('payment_mockup', contract_id=contract.id))
+            
+        except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
+            flash(str(e), 'error')
+            return redirect(url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type=rate_type))
+            
+        except Exception as e:
+            import logging
+            logging.exception('Error in book_interpreter: %s', e)
+            flash(_t('flash.system_error'), 'error')
+            return redirect(url_for('book_interpreter', interpreter_service_id=isvc.id, rate_type=rate_type))
+
+    profile = getattr(translator, 'translator_profile', None)
+    return render_template(
+        'book_interpreter.html',
+        isvc=isvc,
+        translator=translator,
+        profile=profile,
+        rate_type=rate_type,
+        rate_label=rate_label,
+        price=price
+    )
+
+
 # ─── FLOW 2: JOB BOARD ─────────────────────────────────────────────────────────
 
 # ─── CLIENT REQUEST MANAGEMENT (Task 02) ───────────────────────────────────────
@@ -7479,21 +7628,25 @@ def book_service(service_id):
 import uuid as _uuid
 from flask import send_from_directory
 
-JOB_FILES_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'job_files')
+JOB_FILES_FOLDER = os.getenv('JOB_FILES_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'job_files')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     JOB_FILES_FOLDER = '/tmp/job_files'
 try:
     os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create JOB_FILES_FOLDER at {JOB_FILES_FOLDER}: {e}")
     JOB_FILES_FOLDER = '/tmp/job_files'
     os.makedirs(JOB_FILES_FOLDER, exist_ok=True)
 
-DELIVERABLE_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'deliverables')
+DELIVERABLE_FOLDER = os.getenv('DELIVERABLE_FOLDER') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'instance', 'deliverables')
 if os.environ.get('VERCEL') == '1' or _is_memory_db:
     DELIVERABLE_FOLDER = '/tmp/deliverables'
 try:
     os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
-except OSError:
+except OSError as e:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError(f"[CRITICAL] Failed to create DELIVERABLE_FOLDER at {DELIVERABLE_FOLDER}: {e}")
     DELIVERABLE_FOLDER = '/tmp/deliverables'
     os.makedirs(DELIVERABLE_FOLDER, exist_ok=True)
 
@@ -7873,7 +8026,7 @@ def post_job():
 def my_jobs():
     current = get_current_user()
     if current and current.role == 'translator':
-        return applied_jobs()
+        return redirect(url_for('job_statistics'))
     user = _require_hirer()
     if not user:
         flash(_t('flash.hirer_only_post'), 'error')
@@ -8022,49 +8175,81 @@ def job_attachment(attachment_id):
     return resp
 
 
-@app.route('/applied-jobs', endpoint='applied_jobs')
+# ─── TRANG THỐNG KÊ CÔNG VIỆC (QUẢN LÝ VÒNG ĐỜI CÔNG VIỆC PHIÊN DỊCH VIÊN) ───────────
+
+@app.route('/job-statistics', endpoint='job_statistics')
+@app.route('/job-stats', endpoint='job_stats')
 @login_required
-def applied_jobs():
+def job_statistics():
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
+    if user.role != 'translator':
+        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('my_jobs'))
 
-    # Tab phân loại: 'applied' (Đang ứng tuyển), 'contracts' (Hợp đồng đang làm), 'completed' (Hoàn thành), 'saved' (Đã lưu)
+    tab = request.args.get('tab', 'all').strip().lower()
     filter_param = request.args.get('filter', '').strip().lower()
-    tab = request.args.get('tab', '').strip().lower()
-    if not tab:
-        if filter_param in ['active']:
-            tab = 'contracts'
-        elif filter_param in ['completed']:
-            tab = 'completed'
-        elif filter_param in ['saved']:
-            tab = 'saved'
-        else:
-            tab = 'applied'
+    if filter_param in ['active', 'contracts']:
+        tab = 'accepted'
+    elif filter_param in ['completed']:
+        tab = 'completed'
+    elif filter_param in ['saved']:
+        tab = 'saved'
 
     status_filter = request.args.get('status', 'all').strip().lower()
+    acceptance_filter = request.args.get('acceptance', 'all').strip().lower()
+    payment_filter = request.args.get('payment', 'all').strip().lower()
+    time_range = request.args.get('time_range', 'all').strip().lower()
     search_query = request.args.get('q', '').strip()
     sort_by = request.args.get('sort', 'newest').strip().lower()
 
-    # Truy vấn proposals của translator
-    query = Proposal.query.filter_by(translator_id=user.id)
-    if search_query:
-        query = query.join(Job).filter(Job.title.ilike(f'%{search_query}%'))
+    # Truy vấn dữ liệu thực tế từ database
+    all_user_proposals = Proposal.query.filter_by(translator_id=user.id).order_by(Proposal.created_at.desc()).all()
+    all_user_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
 
-    if sort_by == 'oldest':
-        query = query.order_by(Proposal.created_at.asc())
-    elif sort_by == 'price_desc':
-        query = query.order_by(Proposal.price.desc())
-    elif sort_by == 'price_asc':
-        query = query.order_by(Proposal.price.asc())
-    else:
-        query = query.order_by(Proposal.created_at.desc())
+    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
+    saved_jobs = [s.job for s in saved_records if s.job]
 
-    all_user_proposals = query.all()
+    # 1. Thống kê theo chuẩn nghiệp vụ (Không hard-code, không trùng lặp)
+    total_applications = len(all_user_proposals)
 
-    # Thống kê số lượng theo 8 trạng thái chuẩn nghiệp vụ
-    status_counts = {
+    # Đang chờ phản hồi / đang xem xét / cần phản hồi / được chọn chờ xác nhận
+    pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
+    pending_review_count = len(pending_review_proposals)
+
+    # Ca làm việc đã nhận chính thức (hợp đồng đã tạo và sẵn sàng/ký quỹ)
+    accepted_upcoming_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] in ['escrow_pending', 'upcoming']]
+    accepted_count = len(accepted_upcoming_contracts)
+
+    in_progress_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == 'in_progress']
+    in_progress_count = len(in_progress_contracts)
+
+    delivered_contracts = [c for c in all_user_contracts if c.status == 'delivered']
+    delivered_count = len(delivered_contracts)
+
+    completed_contracts = [c for c in all_user_contracts if c.status in ['completed', 'reviewed']]
+    completed_count = len(completed_contracts)
+
+    rejected_proposals = [p for p in all_user_proposals if p.effective_status == 'rejected']
+    withdrawn_proposals = [p for p in all_user_proposals if p.effective_status == 'withdrawn']
+    closed_proposals = [p for p in all_user_proposals if p.effective_status == 'job_closed']
+    cancelled_contracts = [c for c in all_user_contracts if c.status == 'cancelled']
+    non_continuing_count = len(rejected_proposals) + len(withdrawn_proposals) + len(closed_proposals) + len(cancelled_contracts)
+
+    # Thống kê tài chính
+    total_net_earned = sum(c.translator_net_amount for c in completed_contracts)
+    total_gross_earned = sum(c.agreed_price for c in completed_contracts)
+    total_platform_fee = sum(c.platform_fee for c in completed_contracts)
+    total_held_escrow = sum(c.translator_net_amount for c in delivered_contracts)
+
+    rated_reviews = [c.client_review for c in completed_contracts if c.client_review and c.client_review.rating]
+    avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
+    total_reviews_count = len(rated_reviews)
+
+    # Thống kê số lượng theo 8 trạng thái đề xuất (hỗ trợ pill filters)
+    proposal_status_counts = {
         'all': len(all_user_proposals),
         'pending': 0,
         'reviewing': 0,
@@ -8077,44 +8262,340 @@ def applied_jobs():
     }
     for p in all_user_proposals:
         eff = p.effective_status
-        if eff in status_counts:
-            status_counts[eff] += 1
+        if eff in proposal_status_counts:
+            proposal_status_counts[eff] += 1
 
-    # Lọc danh sách theo status_filter
-    if status_filter != 'all':
-        filtered_proposals = [p for p in all_user_proposals if p.effective_status == status_filter]
-    else:
-        filtered_proposals = all_user_proposals
+    # Thống kê số lượng theo trạng thái ca làm
+    contract_status_counts = {
+        'all': len(all_user_contracts),
+        'escrow_pending': 0,
+        'upcoming': 0,
+        'in_progress': 0,
+        'delivered': 0,
+        'completed': 0,
+        'cancelled': 0,
+    }
+    for c in all_user_contracts:
+        code = c.shift_status_info['code']
+        if code in contract_status_counts:
+            contract_status_counts[code] += 1
 
-    # Lấy Contracts và SavedJobs cho các tab phụ trợ
-    all_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    active_statuses = ('escrow_pending', 'escrow_paid', 'in_progress', 'delivered')
-    completed_statuses = ('completed', 'reviewed')
-    active_contracts = [c for c in all_contracts if c.status in active_statuses]
-    completed_contracts = [c for c in all_contracts if c.status in completed_statuses]
+    # Sub-counts cho tab Đã nhận
+    accepted_sub_counts = {
+        'all': accepted_count,
+        'escrow_pending': len([c for c in accepted_upcoming_contracts if c.shift_status_info['code'] == 'escrow_pending']),
+        'upcoming': len([c for c in accepted_upcoming_contracts if c.shift_status_info['code'] == 'upcoming']),
+    }
 
-    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
-    saved_jobs = [s.job for s in saved_records if s.job]
+    # Sub-counts cho tab Đang thực hiện (bao gồm ca đang diễn ra & ca chờ xác nhận hoàn thành)
+    in_progress_total = in_progress_count + delivered_count
+    in_progress_sub_counts = {
+        'all': in_progress_total,
+        'in_progress': in_progress_count,
+        'delivered': delivered_count,
+    }
 
-    counts = {
+    # Sub-counts cho tab Không tiếp tục
+    cancelled_sub_counts = {
+        'all': non_continuing_count,
+        'rejected': len(rejected_proposals),
+        'withdrawn': len(withdrawn_proposals),
+        'job_closed': len(closed_proposals),
+        'cancelled': len(cancelled_contracts),
+    }
+
+    metrics = {
+        'total_applications': total_applications,
+        'pending_review': pending_review_count,
+        'accepted': accepted_count,
+        'in_progress': in_progress_count,
+        'in_progress_total': in_progress_total,
+        'delivered': delivered_count,
+        'completed': completed_count,
+        'non_continuing': non_continuing_count,
+        'saved': len(saved_jobs),
+        'total_net_earned': total_net_earned,
+        'total_gross_earned': total_gross_earned,
+        'total_platform_fee': total_platform_fee,
+        'total_held_escrow': total_held_escrow,
+        'avg_rating': avg_rating,
+        'total_reviews_count': total_reviews_count,
+    }
+
+    tab_counts = {
+        'all': len(all_user_contracts) + len([p for p in all_user_proposals if p.effective_status != 'accepted']),
         'applied': len(all_user_proposals),
-        'active': len(active_contracts),
-        'completed': len(completed_contracts),
+        'accepted': accepted_count,
+        'in_progress': in_progress_total,
+        'delivered': delivered_count,
+        'completed': completed_count,
+        'cancelled': non_continuing_count,
         'saved': len(saved_jobs),
     }
 
-    return render_template('applied_jobs.html',
-        proposals=filtered_proposals,
-        status_counts=status_counts,
-        status_filter=status_filter,
-        search_query=search_query,
-        sort_by=sort_by,
+    # Xử lý lọc và chuẩn bị danh sách hiển thị theo Tab
+    items = []
+    
+    def matches_search(title_text, extra_text=""):
+        if not search_query:
+            return True
+        sq = search_query.lower()
+        return sq in (title_text or '').lower() or sq in (extra_text or '').lower()
+
+    if tab == 'applied':
+        if status_filter != 'all':
+            proposals_pool = [p for p in all_user_proposals if p.effective_status == status_filter]
+        else:
+            proposals_pool = all_user_proposals
+        
+        for p in proposals_pool:
+            title = p.job.title if p.job else ''
+            loc = p.job.event_location if p.job else ''
+            if matches_search(title, loc):
+                items.append({
+                    'type': 'proposal',
+                    'data': p,
+                    'created_at': p.created_at or datetime.min,
+                    'sort_date': p.created_at or datetime.min,
+                    'price': p.price or 0,
+                    'status_info': p.status_info,
+                    'title': title
+                })
+
+    elif tab == 'accepted':
+        contracts_pool = accepted_upcoming_contracts
+        if status_filter != 'all':
+            contracts_pool = [c for c in contracts_pool if c.shift_status_info['code'] == status_filter]
+
+        for c in contracts_pool:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'in_progress':
+        contracts_pool = []
+        if status_filter in ['all', 'in_progress']:
+            contracts_pool.extend(in_progress_contracts)
+        if status_filter in ['all', 'delivered']:
+            contracts_pool.extend(delivered_contracts)
+
+        for c in contracts_pool:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'delivered':
+        for c in delivered_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'completed':
+        contracts_pool = completed_contracts
+        if acceptance_filter == 'accepted':
+            contracts_pool = [c for c in contracts_pool if c.status in ['completed', 'reviewed']]
+        elif acceptance_filter == 'pending':
+            contracts_pool = [c for c in contracts_pool if c.status == 'delivered']
+
+        if payment_filter == 'paid':
+            contracts_pool = [c for c in contracts_pool if c.status in ['completed', 'reviewed']]
+        elif payment_filter == 'escrow_held':
+            contracts_pool = [c for c in contracts_pool if c.status == 'delivered']
+
+        today = date.today()
+        if time_range == 'this_month':
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
+        elif time_range == 'last_month':
+            last_m = today.month - 1 if today.month > 1 else 12
+            last_y = today.year if today.month > 1 else today.year - 1
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == last_y and c.event_sort_date.month == last_m]
+        elif time_range == 'this_year':
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year]
+
+        for c in contracts_pool:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            field = c.job.field if c.job else ''
+            hirer_name = c.hirer.name if c.hirer else ''
+            if matches_search(title, f"{loc} #{c.id} {field} {hirer_name}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'net_price': c.translator_net_amount or 0,
+                    'status_info': c.shift_status_info,
+                    'acceptance_info': c.acceptance_status_info,
+                    'payment_info': c.payment_status_info,
+                    'review': c.client_review,
+                    'title': title
+                })
+
+    elif tab == 'cancelled':
+        proposals_pool = []
+        if status_filter in ['all', 'rejected']:
+            proposals_pool.extend(rejected_proposals)
+        if status_filter in ['all', 'withdrawn']:
+            proposals_pool.extend(withdrawn_proposals)
+        if status_filter in ['all', 'job_closed']:
+            proposals_pool.extend(closed_proposals)
+
+        for p in proposals_pool:
+            title = p.job.title if p.job else ''
+            loc = p.job.event_location if p.job else ''
+            if matches_search(title, loc):
+                items.append({
+                    'type': 'proposal',
+                    'data': p,
+                    'created_at': p.created_at or datetime.min,
+                    'sort_date': p.created_at or datetime.min,
+                    'price': p.price or 0,
+                    'status_info': p.status_info,
+                    'title': title
+                })
+
+        if status_filter in ['all', 'cancelled']:
+            for c in cancelled_contracts:
+                title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+                loc = c.location or ''
+                if matches_search(title, f"{loc} #{c.id}"):
+                    items.append({
+                        'type': 'contract',
+                        'data': c,
+                        'created_at': c.created_at or datetime.min,
+                        'sort_date': c.event_sort_date or datetime.min,
+                        'price': c.agreed_price or 0,
+                        'status_info': c.shift_status_info,
+                        'title': title
+                    })
+
+    elif tab == 'saved':
+        for j in saved_jobs:
+            if matches_search(j.title, j.event_location or ''):
+                items.append({
+                    'type': 'saved_job',
+                    'data': j,
+                    'created_at': j.created_at or datetime.min,
+                    'sort_date': j.created_at or datetime.min,
+                    'price': j.budget or 0,
+                    'title': j.title
+                })
+
+    else:  # tab == 'all'
+        for c in all_user_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+        for p in all_user_proposals:
+            if p.effective_status != 'accepted':
+                title = p.job.title if p.job else ''
+                loc = p.job.event_location if p.job else ''
+                if matches_search(title, loc):
+                    items.append({
+                        'type': 'proposal',
+                        'data': p,
+                        'created_at': p.created_at or datetime.min,
+                        'sort_date': p.created_at or datetime.min,
+                        'price': p.price or 0,
+                        'status_info': p.status_info,
+                        'title': title
+                    })
+
+    # Sắp xếp danh sách items
+    if sort_by == 'oldest':
+        items.sort(key=lambda x: x['created_at'])
+    elif sort_by == 'price_desc':
+        items.sort(key=lambda x: x['price'], reverse=True)
+    elif sort_by == 'price_asc':
+        items.sort(key=lambda x: x['price'])
+    elif sort_by == 'top_rated':
+        items.sort(key=lambda x: (x.get('review').rating if x.get('review') else 0), reverse=True)
+    elif sort_by == 'event_asc':
+        items.sort(key=lambda x: x['sort_date'])
+    elif sort_by == 'event_desc':
+        items.sort(key=lambda x: x['sort_date'], reverse=True)
+    else:  # 'newest'
+        items.sort(key=lambda x: x['created_at'], reverse=True)
+
+    # Phân trang (Pagination)
+    import math
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page = 15
+    total_items = len(items)
+    total_pages = max(1, math.ceil(total_items / per_page))
+    if page > total_pages:
+        page = total_pages
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paged_items = items[start_idx:end_idx]
+
+    return render_template('job_statistics.html',
+        items=paged_items,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page,
         tab=tab,
-        active_contracts=active_contracts,
-        completed_contracts=completed_contracts,
-        saved_jobs=saved_jobs,
-        counts=counts
+        metrics=metrics,
+        tab_counts=tab_counts,
+        proposal_status_counts=proposal_status_counts,
+        contract_status_counts=contract_status_counts,
+        accepted_sub_counts=accepted_sub_counts,
+        in_progress_sub_counts=in_progress_sub_counts,
+        cancelled_sub_counts=cancelled_sub_counts,
+        status_filter=status_filter,
+        acceptance_filter=acceptance_filter,
+        payment_filter=payment_filter,
+        time_range=time_range,
+        search_query=search_query,
+        sort_by=sort_by
     )
+
+
+@app.route('/applied-jobs', endpoint='applied_jobs')
+@login_required
+def applied_jobs():
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'applied'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/proposals/<int:proposal_id>/withdraw', methods=['POST'])
@@ -8264,7 +8745,7 @@ def api_confirm_job_acceptance(proposal_id):
         return jsonify({
             'success': True,
             'message': 'Chúc mừng! Bạn đã xác nhận nhận việc thành công.',
-            'redirect_url': url_for('accepted_jobs')
+            'redirect_url': url_for('job_statistics', tab='accepted')
         })
     except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
         db.session.rollback()
@@ -8317,41 +8798,45 @@ def api_hirer_select_proposal(proposal_id):
 
 @app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
 @login_required
-def api_hirer_reject_proposal(proposal_id):
-    user = get_current_user()
+def api_reject_proposal(proposal_id):
+    """
+    Hợp nhất luồng từ chối báo giá (Task 2.3).
+    Hỗ trợ cả JSON payload {reason: ..., note: ...} và Form POST {note: ...}.
+    Kiểm tra quyền sở hữu công việc, trạng thái hợp lệ, CSRF token và thông báo cho phiên dịch viên.
+    """
+    user = _require_hirer()
     if not user:
-        return jsonify({'success': False, 'message': 'Vui lòng đăng nhập.'}), 401
-    proposal = Proposal.query.get_or_404(proposal_id)
-    job = proposal.job
-    if not job or job.hirer_id != user.id:
-        return jsonify({'success': False, 'message': 'Bạn không có quyền thao tác trên công việc này.'}), 403
-        
-    reason = request.form.get('reason', '').strip()
-    if not reason and request.is_json:
-        reason = request.json.get('reason', '').strip()
-        
-    proposal.status = 'rejected'
-    proposal.client_note = reason or 'Cảm ơn bạn đã quan tâm. Chúng tôi đã chọn ứng viên khác phù hợp hơn.'
-    proposal.updated_at = datetime.utcnow()
+        return jsonify({'ok': False, 'success': False, 'message': 'Chỉ khách thuê mới thực hiện được thao tác này.'}), 403
     
+    token = request.headers.get('X-CSRF-Token') or request.form.get('_csrf_token')
+    if token and not _csrf_ok():
+        return jsonify({'ok': False, 'success': False, 'message': 'Phiên làm việc không hợp lệ. Vui lòng tải lại trang.'}), 403
+
+    reason = ''
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        reason = (data.get('reason') or data.get('note') or '').strip()
+    else:
+        reason = (request.form.get('reason') or request.form.get('note') or '').strip()
+
+    from services.proposals import reject_proposal_for_hirer, ProposalError
     try:
-        create_notification(
-            user_id=proposal.translator_id,
-            notification_type='JOB_APPLICATION',
-            title='Thông báo kết quả ứng tuyển',
-            message=f'Bên tuyển dụng đã xem xét đề xuất cho công việc "{job.title}" và quyết định chọn ứng viên khác.',
-            url=url_for('applied_jobs'),
-            related_job_id=job.id,
-            related_proposal_id=proposal.id
-        )
-    except Exception:
-        pass
-        
-    db.session.commit()
-    return jsonify({
-        'success': True,
-        'message': 'Đã từ chối đề xuất.'
-    })
+        prop = reject_proposal_for_hirer(proposal_id, user.id, note=reason)
+        if hasattr(prop, 'client_note'):
+            prop.client_note = reason or 'Cảm ơn bạn đã quan tâm. Chúng tôi đã chọn ứng viên khác phù hợp hơn.'
+            db.session.commit()
+        return jsonify({
+            'ok': True,
+            'success': True,
+            'message': 'Đã từ chối đề xuất thành công.'
+        })
+    except ProposalError as e:
+        return jsonify({'ok': False, 'success': False, 'message': e.message}), e.status
+    except Exception as e:
+        db.session.rollback()
+        import logging
+        logging.exception(f"Lỗi khi từ chối proposal #{proposal_id}: {e}")
+        return jsonify({'ok': False, 'success': False, 'message': 'Đã xảy ra lỗi hệ thống khi từ chối đề xuất.'}), 500
 
 
 @app.route('/api/proposals/<int:proposal_id>/request-info', methods=['POST'])
@@ -8400,83 +8885,10 @@ def api_hirer_request_info(proposal_id):
 @app.route('/accepted-jobs', endpoint='accepted_jobs')
 @login_required
 def accepted_jobs():
-    user = get_current_user()
-    if not user:
-        flash(_t('flash.account_not_found'), 'error')
-        return redirect(url_for('index'))
-
-    status_filter = request.args.get('status', 'all').strip().lower()
-    search_query = request.args.get('q', '').strip()
-    sort_by = request.args.get('sort', 'event_asc').strip().lower()
-    tab = request.args.get('tab', '').strip().lower()
-
-    # Hỗ trợ tham số tab nếu có (ví dụ ?tab=upcoming từ menu Lịch làm việc)
-    if tab and status_filter == 'all':
-        if tab in ['upcoming', 'in_progress', 'delivered', 'completed', 'cancelled', 'escrow_pending']:
-            status_filter = tab
-
-    # Lấy toàn bộ hợp đồng / ca làm của phiên dịch viên hiện tại
-    query = Contract.query.filter_by(translator_id=user.id)
-    if search_query:
-        query = query.outerjoin(Job, Contract.job_id == Job.id).filter(
-            db.or_(
-                Job.title.ilike(f'%{search_query}%'),
-                Contract.location.ilike(f'%{search_query}%'),
-                db.cast(Contract.id, db.String).ilike(f'%{search_query}%')
-            )
-        )
-
-    all_user_contracts = query.all()
-
-    # Thống kê số lượng theo 6 trạng thái chuẩn nghiệp vụ VietTranslate
-    status_counts = {
-        'all': len(all_user_contracts),
-        'escrow_pending': 0,
-        'upcoming': 0,
-        'in_progress': 0,
-        'delivered': 0,
-        'completed': 0,
-        'cancelled': 0,
-    }
-    for c in all_user_contracts:
-        code = c.shift_status_info['code']
-        if code in status_counts:
-            status_counts[code] += 1
-
-    # Lọc danh sách theo status_filter
-    if status_filter != 'all':
-        filtered_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == status_filter]
-    else:
-        filtered_contracts = all_user_contracts
-
-    # Sắp xếp danh sách
-    if sort_by == 'event_desc':
-        filtered_contracts.sort(key=lambda c: c.event_sort_date, reverse=True)
-    elif sort_by == 'newest':
-        filtered_contracts.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
-    elif sort_by == 'price_desc':
-        filtered_contracts.sort(key=lambda c: c.agreed_price or 0, reverse=True)
-    elif sort_by == 'price_asc':
-        filtered_contracts.sort(key=lambda c: c.agreed_price or 0)
-    else:  # 'event_asc' mặc định: ca diễn ra gần nhất lên trước
-        filtered_contracts.sort(key=lambda c: c.event_sort_date)
-
-    counts = {
-        'total': len(all_user_contracts),
-        'active_or_upcoming': status_counts['upcoming'] + status_counts['in_progress'],
-        'delivered': status_counts['delivered'],
-        'completed': status_counts['completed'],
-        'pending': status_counts['escrow_pending'],
-    }
-
-    return render_template('accepted_jobs.html',
-        contracts=filtered_contracts,
-        status_counts=status_counts,
-        status_filter=status_filter,
-        search_query=search_query,
-        sort_by=sort_by,
-        counts=counts
-    )
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'accepted'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/contracts/<int:contract_id>/report-issue', methods=['POST'])
@@ -8613,123 +9025,10 @@ def api_contract_checkin(contract_id):
 @app.route('/completed-jobs', endpoint='completed_jobs')
 @login_required
 def completed_jobs():
-    user = get_current_user()
-    if not user:
-        flash(_t('flash.account_not_found'), 'error')
-        return redirect(url_for('index'))
-    if user.role != 'translator':
-        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
-        return redirect(url_for('index'))
-
-    # Các tham số bộ lọc & tìm kiếm
-    q = request.args.get('q', '').strip()
-    acceptance_filter = request.args.get('acceptance', 'all').strip().lower()
-    payment_filter = request.args.get('payment', 'all').strip().lower()
-    time_range = request.args.get('time_range', 'all').strip().lower()
-    sort_by = request.args.get('sort', 'newest').strip().lower()
-
-    # Điều kiện ca đưa vào danh sách lịch sử kết thúc:
-    # 1. Thuộc tài khoản phiên dịch viên hiện tại: translator_id == user.id
-    # 2. Ca đã kết thúc theo quy trình: 'delivered', 'completed', 'reviewed'
-    completed_status_codes = ['delivered', 'completed', 'reviewed']
-    query = Contract.query.filter_by(translator_id=user.id).filter(Contract.status.in_(completed_status_codes))
-
-    if q:
-        q_clean = q.lstrip('#').replace('CA-', '').replace('ca-', '')
-        query = query.outerjoin(Job, Contract.job_id == Job.id).outerjoin(User, Contract.hirer_id == User.id).filter(
-            db.or_(
-                Job.title.ilike(f'%{q}%'),
-                Job.field.ilike(f'%{q}%'),
-                Contract.location.ilike(f'%{q}%'),
-                User.name.ilike(f'%{q}%'),
-                db.cast(Contract.id, db.String).ilike(f'%{q_clean}%')
-            )
-        )
-
-    all_user_completed = query.all()
-
-    # Thống kê tổng quan dựa trên toàn bộ dữ liệu thực tế của tài khoản
-    total_finished_count = len(all_user_completed)
-    accepted_contracts = [c for c in all_user_completed if c.status in ['completed', 'reviewed']]
-    pending_contracts = [c for c in all_user_completed if c.status == 'delivered']
-
-    total_net_earned = sum(c.translator_net_amount for c in accepted_contracts)
-    total_gross_earned = sum(c.agreed_price for c in accepted_contracts)
-    total_platform_fee = sum(c.platform_fee for c in accepted_contracts)
-    total_held_escrow = sum(c.translator_net_amount for c in pending_contracts)
-
-    # Đánh giá sao trung bình từ khách hàng
-    rated_reviews = [c.client_review for c in all_user_completed if c.client_review and c.client_review.rating]
-    avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
-    total_reviews_count = len(rated_reviews)
-
-    filter_counts = {
-        'all': total_finished_count,
-        'accepted': len(accepted_contracts),
-        'pending': len(pending_contracts),
-        'paid': len(accepted_contracts),
-        'escrow_held': len(pending_contracts)
-    }
-
-    filtered_list = list(all_user_completed)
-
-    # Lọc theo trạng thái nghiệm thu
-    if acceptance_filter == 'accepted':
-        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
-    elif acceptance_filter == 'pending':
-        filtered_list = [c for c in filtered_list if c.status == 'delivered']
-
-    # Lọc theo trạng thái thanh toán
-    if payment_filter == 'paid':
-        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
-    elif payment_filter == 'escrow_held':
-        filtered_list = [c for c in filtered_list if c.status == 'delivered']
-
-    # Lọc theo khoảng thời gian thực hiện
-    today = date.today()
-    if time_range == 'this_month':
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
-    elif time_range == 'last_month':
-        last_month = today.month - 1 if today.month > 1 else 12
-        last_year = today.year if today.month > 1 else today.year - 1
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == last_year and c.event_sort_date.month == last_month]
-    elif time_range == 'this_year':
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year]
-
-    # Sắp xếp
-    if sort_by == 'oldest':
-        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min))
-    elif sort_by == 'highest_pay':
-        filtered_list.sort(key=lambda c: c.agreed_price or 0, reverse=True)
-    elif sort_by == 'lowest_pay':
-        filtered_list.sort(key=lambda c: c.agreed_price or 0)
-    elif sort_by == 'top_rated':
-        filtered_list.sort(key=lambda c: (c.client_review.rating if c.client_review else 0), reverse=True)
-    else:  # 'newest'
-        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min), reverse=True)
-
-    metrics = {
-        'total_finished': total_finished_count,
-        'accepted_count': len(accepted_contracts),
-        'pending_count': len(pending_contracts),
-        'total_net_earned': total_net_earned,
-        'total_gross_earned': total_gross_earned,
-        'total_platform_fee': total_platform_fee,
-        'total_held_escrow': total_held_escrow,
-        'avg_rating': avg_rating,
-        'total_reviews_count': total_reviews_count
-    }
-
-    return render_template('completed_jobs.html',
-        contracts=filtered_list,
-        metrics=metrics,
-        filter_counts=filter_counts,
-        q=q,
-        acceptance_filter=acceptance_filter,
-        payment_filter=payment_filter,
-        time_range=time_range,
-        sort_by=sort_by
-    )
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'completed'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/contracts/<int:contract_id>/receipt-detail', methods=['GET'])
@@ -8839,7 +9138,7 @@ def job_list():
     sort = request.args.get('sort', '')
     page = request.args.get('page', 1, type=int)
     recommended = request.args.get('recommended')
-    per_page = 10
+    per_page = request.args.get('per_page', 120, type=int)
 
     # Lấy các công việc đang mở, đã duyệt, không bị gắn cờ và còn trong thời hạn ứng tuyển
     today = date.today()
@@ -9234,19 +9533,6 @@ def api_accept_proposal(proposal_id):
     return jsonify({'ok': True, 'message': 'Đã chấp nhận báo giá. Vui lòng thanh toán để bắt đầu.',
                     'redirect': url_for('payment_mockup', contract_id=contract.id)})
 
-
-@app.route('/api/proposals/<int:proposal_id>/reject', methods=['POST'])
-@login_required
-def api_reject_proposal(proposal_id):
-    from services.proposals import reject_proposal_for_hirer, ProposalError
-    user, err = _proposal_api_guard()
-    if err:
-        return err
-    try:
-        reject_proposal_for_hirer(proposal_id, user.id, request.form.get('note', ''))
-    except ProposalError as e:
-        return jsonify({'ok': False, 'message': e.message}), e.status
-    return jsonify({'ok': True, 'message': 'Đã từ chối báo giá.'})
 
 
 @app.route('/api/jobs/<int:job_id>/proposals')
@@ -10414,7 +10700,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_APPROVED',
                 title='Tài khoản đã được xác minh thành công',
                 message='Hồ sơ người đăng tuyển của bạn đã được xác minh. Bạn đã có thể đăng tin tuyển dụng!',
                 url=url_for('post_job')
@@ -10438,7 +10724,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_NEEDS_REVISION',
                 title='Yêu cầu bổ sung hồ sơ người đăng',
                 message=f'Hồ sơ của bạn cần bổ sung: {reason}',
                 url=url_for('account_profile', tab='hirer_verify')
@@ -10462,7 +10748,7 @@ def admin_hirer_review_action(hirer_id):
             from app import create_notification
             create_notification(
                 user_id=hirer.id,
-                notification_type='JOB_MATCH',
+                notification_type='VERIFICATION_REJECTED',
                 title='Hồ sơ xác minh bị từ chối',
                 message=f'Yêu cầu xác minh của bạn đã bị từ chối: {reason}',
                 url=url_for('account_profile', tab='hirer_verify')
@@ -11464,20 +11750,65 @@ def notifications_page():
 @login_required
 def api_get_notifications():
     page = request.args.get('page', 1, type=int)
-    per_page = 20
-    from models import Notification
-    pagination = Notification.query.filter_by(user_id=session['user_id']).order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    
-    return jsonify({
-        'notifications': [{
+    per_page = request.args.get('per_page', 20, type=int)
+    filter_type = request.args.get('filter') or request.args.get('category')
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    from services.verification import VERIFICATION_NOTIF_CONFIG
+    from sqlalchemy import or_
+
+    query = Notification.query.filter_by(user_id=session['user_id'])
+    if filter_type:
+        filter_type = filter_type.strip().lower()
+        if filter_type == 'verification':
+            query = query.filter(or_(
+                Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+                Notification.type.like('VERIFICATION_%')
+            ))
+        elif filter_type == 'job':
+            query = query.filter(or_(
+                Notification.type.like('%JOB%'),
+                Notification.type.like('PROPOSAL%')
+            ))
+        elif filter_type == 'message':
+            query = query.filter(Notification.type.like('%MESSAGE%'))
+        elif filter_type == 'contract':
+            query = query.filter(or_(
+                Notification.type.like('%CONTRACT%'),
+                Notification.type.like('PAYMENT%'),
+                Notification.type.like('PROJECT%'),
+                Notification.type.like('DELIVERABLE%'),
+                Notification.type.like('REVISION%')
+            ))
+        elif filter_type == 'review':
+            query = query.filter(Notification.type.like('%REVIEW%'))
+        elif filter_type == 'unread':
+            query = query.filter_by(is_read=False)
+
+    pagination = query.order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    items = []
+    for n in pagination.items:
+        vcfg = VERIFICATION_NOTIF_CONFIG.get(n.type) if n.type in VERIFICATION_NOTIF_CONFIG else None
+        item_data = {
             'id': n.id,
             'type': n.type,
             'title': n.title,
             'message': n.message,
-            'url': n.url,
+            'url': n.url or (vcfg.get('default_url') if vcfg else None),
             'is_read': n.is_read,
-            'created_at': n.created_at.isoformat()
-        } for n in pagination.items],
+            'created_at': n.created_at.isoformat() if n.created_at else None
+        }
+        if vcfg:
+            item_data['category'] = vcfg.get('category', 'verification')
+            item_data['type_label'] = vcfg.get('label', 'Xác minh hồ sơ')
+            item_data['badge_class'] = vcfg.get('badge_class', 'bg-blue-50 text-blue-700 border-blue-200')
+            item_data['icon_kind'] = vcfg.get('icon_kind', 'submitted')
+            item_data['action_label'] = vcfg.get('action_label', 'Xem chi tiết')
+            item_data['severity'] = vcfg.get('severity', 'info')
+        items.append(item_data)
+
+    return jsonify({
+        'notifications': items,
         'total': pagination.total,
         'pages': pagination.pages,
         'current_page': page

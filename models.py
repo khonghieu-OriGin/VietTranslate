@@ -1131,6 +1131,7 @@ class Contract(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('service.id'), nullable=True)
+    interpreter_service_id = db.Column(db.Integer, db.ForeignKey('interpreter_service.id'), nullable=True)
     proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=True)
     hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -1149,6 +1150,7 @@ class Contract(db.Model):
     deliverables = db.relationship('Deliverable', backref='contract', lazy=True, cascade='all, delete-orphan')
     reviews = db.relationship('Review', backref='contract', lazy=True, cascade='all, delete-orphan')
     service = db.relationship('Service', backref='contracts')
+    interpreter_service = db.relationship('InterpreterService', backref='contracts')
 
     @property
     def event_sort_date(self):
@@ -1992,7 +1994,7 @@ class PasswordResetToken(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    token_hash = db.Column(db.String(128), nullable=False)
+    token_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_used = db.Column(db.Boolean, default=False)
@@ -2011,7 +2013,7 @@ class EmailVerificationToken(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
-    token_hash = db.Column(db.String(128), nullable=False)
+    token_hash = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     expires_at = db.Column(db.DateTime, nullable=False)
     is_used = db.Column(db.Boolean, default=False)
@@ -2582,5 +2584,69 @@ class SupportTicket(db.Model):
             'created_at': self.created_at.strftime('%d/%m/%Y %H:%M') if self.created_at else None,
             'updated_at': self.updated_at.strftime('%d/%m/%Y %H:%M') if self.updated_at else None,
         }
+
+
+class PayoutMethod(db.Model):
+    __tablename__ = 'payout_methods'
+
+    id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    bank_code = db.Column(db.String(20), nullable=False)
+    bank_short_name = db.Column(db.String(50), nullable=False)
+    bank_name = db.Column(db.String(200), nullable=False)
+    account_number = db.Column(db.String(50), nullable=False)
+    masked_account_number = db.Column(db.String(50), nullable=False)
+    account_holder_name = db.Column(db.String(100), nullable=False)
+    branch = db.Column(db.String(120), nullable=True, default='')
+    is_default = db.Column(db.Boolean, default=False, nullable=False)
+    status = db.Column(db.String(20), default='active', nullable=False)
+    status_label = db.Column(db.String(100), default='Khai báo hợp lệ · Đang hoạt động', nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    user = db.relationship('User', backref=db.backref('payout_methods', lazy='dynamic', cascade='all, delete-orphan'))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bank_code': self.bank_code,
+            'bank_short_name': self.bank_short_name,
+            'bank_name': self.bank_name,
+            'account_number': self.account_number,
+            'masked_account_number': self.masked_account_number,
+            'account_holder_name': self.account_holder_name,
+            'branch': self.branch or '',
+            'is_default': self.is_default,
+            'status': self.status,
+            'status_label': self.status_label,
+            'created_at': self.created_at.isoformat() if self.created_at else '',
+            'updated_at': self.updated_at.isoformat() if self.updated_at else ''
+        }
+
+
+class PayoutHistory(db.Model):
+    __tablename__ = 'payout_histories'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False, index=True)
+    method_id = db.Column(db.String(36), nullable=True)
+    action = db.Column(db.String(50), nullable=False)
+    bank = db.Column(db.String(50), nullable=True)
+    masked_account = db.Column(db.String(50), nullable=True)
+    summary = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+
+    user = db.relationship('User', backref=db.backref('payout_histories', lazy='dynamic', cascade='all, delete-orphan'))
+
+    def to_dict(self):
+        return {
+            'action': self.action,
+            'method_id': self.method_id,
+            'bank': self.bank or '',
+            'masked_account': self.masked_account or '',
+            'timestamp': self.created_at.isoformat() if self.created_at else '',
+            'summary': self.summary or ''
+        }
+
 
 

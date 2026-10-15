@@ -24,6 +24,7 @@ def create_contract_booking(
     location=None,
     job_id=None,
     service_id=None,
+    interpreter_service_id=None,
     proposal_id=None,
 ):
     from app import db
@@ -60,12 +61,13 @@ def create_contract_booking(
 
         # Đặt trực tiếp qua dịch vụ: phiên dịch viên phải xác nhận trước khi khách thanh toán.
         # Đặt qua đề xuất (job) thì PDV đã chủ động ứng tuyển nên bỏ qua bước này.
-        needs_confirmation = bool(service_id) and not job_id
+        needs_confirmation = (bool(service_id) or bool(interpreter_service_id)) and not job_id
 
         contract = Contract(
             job_id=job_id,
             proposal_id=proposal_id,
             service_id=service_id,
+            interpreter_service_id=interpreter_service_id,
             hirer_id=hirer_id,
             translator_id=translator.id,
             agreed_price=agreed_price,
