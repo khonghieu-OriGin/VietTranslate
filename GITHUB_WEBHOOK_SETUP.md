@@ -83,7 +83,7 @@ nginx -s reload
 3. Điền các thông số:
    - **Payload URL**: `http://103.161.118.158/webhook` *(hoặc tên miền nếu đã trỏ domain)*
    - **Content type**: Chọn `application/json` *(Rất quan trọng, không chọn application/x-www-form-urlencoded)*
-   - **Secret**: Nhập chuỗi secret đã đặt trong service (mặc định: `viettranslate_secure_webhook_key_2026`)
+   - **Secret**: Nhập chuỗi secret: `viettranslate-deploy-2026`
    - **SSL verification**: Chọn `Disable` nếu chưa cài SSL Let's Encrypt cho IP, hoặc `Enable` nếu dùng Domain có SSL.
    - **Which events would you like to trigger this webhook?**: Chọn `Just the push event`.
    - **Active**: Tích chọn `Active`.
