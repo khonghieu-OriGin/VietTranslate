@@ -44,9 +44,9 @@
                 <nav class="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-2">
                     {% if current_user.role == 'translator' %}
                     {% if contract.status in ['completed', 'reviewed'] %}
-                    <a href="{{ url_for('completed_jobs') }}" class="hover:text-brand-600 transition">Đã hoàn thành</a>
+                    <a href="{{ url_for('job_statistics', tab='completed') }}" class="hover:text-brand-600 transition">Thống kê công việc (Đã hoàn thành)</a>
                     {% else %}
-                    <a href="{{ url_for('accepted_jobs') }}" class="hover:text-brand-600 transition">Ca làm đã nhận</a>
+                    <a href="{{ url_for('job_statistics', tab='accepted') }}" class="hover:text-brand-600 transition">Thống kê công việc (Đã nhận)</a>
                     {% endif %}
                     {% else %}
                     <a href="{{ url_for('account_history') }}" class="hover:text-brand-600 transition">{{
@@ -157,9 +157,9 @@
                             <span class="text-xs font-bold text-slate-700">Thông tin ca phiên dịch</span>
                         </div>
                         {% if current_user.role == 'translator' %}
-                        <a href="{{ url_for('accepted_jobs') }}"
+                        <a href="{{ url_for('job_statistics', tab='completed' if contract.status in ['completed', 'reviewed'] else 'accepted') }}"
                             class="text-xs text-brand-600 hover:text-brand-700 font-semibold flex items-center gap-1">
-                            <span>← Về danh sách ca đã nhận</span>
+                            <span>← Về Thống kê công việc</span>
                         </a>
                         {% endif %}
                     </div>
