@@ -1636,7 +1636,7 @@ def job_list():
     budget = request.args.get('budget', '')
     sort = request.args.get('sort', 'newest')
     page = request.args.get('page', 1, type=int)
-    per_page = 10
+    per_page = request.args.get('per_page', 120, type=int)
 
     query = Job.query.filter_by(status='open', is_flagged=False)
     if lang:

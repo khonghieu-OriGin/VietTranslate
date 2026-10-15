@@ -368,9 +368,7 @@
                 btn.innerText = "{{ t('job_detail_page.inviting_btn') }}";
                 btn.classList.replace('bg-brand-600', 'bg-slate-400');
                 btn.classList.remove('hover:bg-brand-700');
-
-                fetch(`/ api / jobs / {{ job.id }
-                        }/invite/${ translatorId }`, { method: 'POST' })
+                fetch(`/api/jobs/{{ job.id }}/invite/${translatorId}`, { method: 'POST' })
                     .then(r => r.json())
                     .then(data => {
                         if (data.status === 'success') {
@@ -497,65 +495,53 @@
                         <span class="font-bold text-slate-800">Thỏa thuận</span>
                     </div>
                     {% endif %}
-
                     {% if job.event_date %}
                     <div class="flex justify-between items-center">
                         <span class="text-slate-500">Thời gian:</span>
                         <span class="font-medium text-slate-800">{{ job.event_date }}</span>
-                        <!-- Budget Card -->
-                        <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft text-center">
-                            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">{{
-                                t('job_detail_page.budget_heading') }}</span>
-                            {% if job.budget_type == 'fixed' and job.budget_min %}
-                            <div class="text-3xl font-extrabold text-brand-700">{{ job.budget_min|vnd }} VND</div>
-                            <div class="text-xs text-slate-400 mt-1 font-medium">{{ t('job_detail_page.fixed_price_sub')
-                                }}</div>
-                            {% elif job.budget_type == 'range' and job.budget_min and job.budget_max %}
-                            <div class="text-2xl sm:text-3xl font-extrabold text-brand-700">
-                                {{ job.budget_min|vnd }} – {{ job.budget_max|vnd }} VND
-                            </div>
-                            {% endif %}
-
-                            {% if job.event_location %}
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Địa điểm:</span>
-                                <span class="font-medium text-slate-800 text-right max-w-[60%] line-clamp-2"
-                                    title="{{ job.event_location }}">{{ job.event_location }}</span>
-                            </div>
-                            {% endif %}
-
-                            <div class="flex justify-between items-center">
-                                <span class="text-slate-500">Ứng viên:</span>
-                                <span class="font-medium text-slate-800">{{ job.applicant_count }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Desktop CTA Button -->
-                        {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
-                        {% if existing_proposal %}
-                        <button disabled
-                            class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                            ĐÃ ỨNG TUYỂN
-                        </button>
-                        {% elif job.status == 'open' %}
-                        <a href="#proposal-form" id="desktop-apply-btn"
-                            class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm">
-                            ỨNG TUYỂN
-                        </a>
-                        {% else %}
-                        <button disabled
-                            class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
-                            JOB ĐÃ ĐÓNG
-                        </button>
-                        {% endif %}
-                        {% endif %}
-
-                        {% if not current_user or current_user.role == 'translator' %}
-                        <div class="mt-6 pt-6 border-t border-slate-100">
-                            <p class="text-xs text-slate-500">{{ t('job_detail_page.escrow_guarantee_note') }}</p>
-                        </div>
-                        {% endif %}
                     </div>
+                    {% endif %}
+
+                    {% if job.event_location %}
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Địa điểm:</span>
+                        <span class="font-medium text-slate-800 text-right max-w-[60%] line-clamp-2"
+                            title="{{ job.event_location }}">{{ job.event_location }}</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-500">Ứng viên:</span>
+                        <span class="font-medium text-slate-800">{{ job.applicant_count }}</span>
+                    </div>
+                </div>
+
+                <!-- Desktop CTA Button -->
+                {% if current_user and current_user.role == 'translator' and current_user.id != job.hirer_id %}
+                {% if existing_proposal %}
+                <button disabled
+                    class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
+                    ĐÃ ỨNG TUYỂN
+                </button>
+                {% elif job.status == 'open' %}
+                <a href="#proposal-form" id="desktop-apply-btn"
+                    class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold py-3 px-4 rounded-xl transition shadow-sm">
+                    ỨNG TUYỂN
+                </a>
+                {% else %}
+                <button disabled
+                    class="w-full bg-slate-100 text-slate-500 font-bold py-3 px-4 rounded-xl cursor-not-allowed">
+                    JOB ĐÃ ĐÓNG
+                </button>
+                {% endif %}
+                {% endif %}
+
+                {% if not current_user or current_user.role == 'translator' %}
+                <div class="mt-6 pt-6 border-t border-slate-100">
+                    <p class="text-xs text-slate-500">{{ t('job_detail_page.escrow_guarantee_note') }}</p>
+                </div>
+                {% endif %}
+            </div>
 
                     <!-- Hirer Info -->
                     <div class="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/90 shadow-soft">
