@@ -8209,8 +8209,13 @@ def job_statistics():
     all_user_proposals = Proposal.query.filter_by(translator_id=user.id).order_by(Proposal.created_at.desc()).all()
     all_user_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
 
-    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
-    saved_jobs = [s.job for s in saved_records if s.job]
+    try:
+        saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
+        saved_jobs = [s.job for s in saved_records if s.job]
+    except Exception:
+        db.session.rollback()
+        saved_records = []
+        saved_jobs = []
 
     # 1. Thống kê theo chuẩn nghiệp vụ (Không hard-code, không trùng lặp)
     total_applications = len(all_user_proposals)
@@ -8239,12 +8244,19 @@ def job_statistics():
     non_continuing_count = len(rejected_proposals) + len(withdrawn_proposals) + len(closed_proposals) + len(cancelled_contracts)
 
     # Thống kê tài chính
-    total_net_earned = sum(c.translator_net_amount for c in completed_contracts)
-    total_gross_earned = sum(c.agreed_price for c in completed_contracts)
-    total_platform_fee = sum(c.platform_fee for c in completed_contracts)
-    total_held_escrow = sum(c.translator_net_amount for c in delivered_contracts)
+    total_net_earned = sum((getattr(c, 'translator_net_amount', 0) or 0) for c in completed_contracts)
+    total_gross_earned = sum((getattr(c, 'agreed_price', 0) or 0) for c in completed_contracts)
+    total_platform_fee = sum((getattr(c, 'platform_fee', 0) or 0) for c in completed_contracts)
+    total_held_escrow = sum((getattr(c, 'translator_net_amount', 0) or 0) for c in delivered_contracts)
 
-    rated_reviews = [c.client_review for c in completed_contracts if c.client_review and c.client_review.rating]
+    rated_reviews = []
+    for c in completed_contracts:
+        try:
+            cr = getattr(c, 'client_review', None)
+            if cr and getattr(cr, 'rating', None):
+                rated_reviews.append(cr)
+        except Exception:
+            pass
     avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
     total_reviews_count = len(rated_reviews)
 
@@ -8431,18 +8443,18 @@ def job_statistics():
 
         today = date.today()
         if time_range == 'this_month':
-            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
+            contracts_pool = [c for c in contracts_pool if getattr(c, 'event_sort_date', None) and c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
         elif time_range == 'last_month':
             last_m = today.month - 1 if today.month > 1 else 12
             last_y = today.year if today.month > 1 else today.year - 1
-            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == last_y and c.event_sort_date.month == last_m]
+            contracts_pool = [c for c in contracts_pool if getattr(c, 'event_sort_date', None) and c.event_sort_date.year == last_y and c.event_sort_date.month == last_m]
         elif time_range == 'this_year':
-            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year]
+            contracts_pool = [c for c in contracts_pool if getattr(c, 'event_sort_date', None) and c.event_sort_date.year == today.year]
 
         for c in contracts_pool:
             title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
             loc = c.location or ''
-            field = c.job.field if c.job else ''
+            field = (c.job.specialty or c.job.category or '') if c.job else ''
             hirer_name = c.hirer.name if c.hirer else ''
             if matches_search(title, f"{loc} #{c.id} {field} {hirer_name}"):
                 items.append({
@@ -8538,21 +8550,31 @@ def job_statistics():
                         'title': title
                     })
 
-    # Sắp xếp danh sách items
+    # Sắp xếp danh sách items an toàn (hỗ trợ date & datetime không bị lỗi so sánh)
+    from datetime import time as _dt_time
+    def _to_dt(val):
+        if not val:
+            return datetime.min
+        if isinstance(val, datetime):
+            return val
+        if isinstance(val, date):
+            return datetime.combine(val, _dt_time.min)
+        return datetime.min
+
     if sort_by == 'oldest':
-        items.sort(key=lambda x: x['created_at'])
+        items.sort(key=lambda x: _to_dt(x.get('created_at')))
     elif sort_by == 'price_desc':
-        items.sort(key=lambda x: x['price'], reverse=True)
+        items.sort(key=lambda x: (x.get('price') or 0), reverse=True)
     elif sort_by == 'price_asc':
-        items.sort(key=lambda x: x['price'])
+        items.sort(key=lambda x: (x.get('price') or 0))
     elif sort_by == 'top_rated':
-        items.sort(key=lambda x: (x.get('review').rating if x.get('review') else 0), reverse=True)
+        items.sort(key=lambda x: (x.get('review').rating if (x.get('review') and getattr(x.get('review'), 'rating', None)) else 0), reverse=True)
     elif sort_by == 'event_asc':
-        items.sort(key=lambda x: x['sort_date'])
+        items.sort(key=lambda x: _to_dt(x.get('sort_date')))
     elif sort_by == 'event_desc':
-        items.sort(key=lambda x: x['sort_date'], reverse=True)
+        items.sort(key=lambda x: _to_dt(x.get('sort_date')), reverse=True)
     else:  # 'newest'
-        items.sort(key=lambda x: x['created_at'], reverse=True)
+        items.sort(key=lambda x: _to_dt(x.get('created_at')), reverse=True)
 
     # Phân trang (Pagination)
     import math
