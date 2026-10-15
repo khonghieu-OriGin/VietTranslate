@@ -270,6 +270,7 @@ def seed_100_jobs():
             event_location=item['event_location'],
             deadline=deadline,
             status='open',
+            moderation_status='approved',
             is_flagged=False,
             created_at=created_at
         )

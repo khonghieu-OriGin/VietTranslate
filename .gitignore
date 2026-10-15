@@ -5,7 +5,9 @@ __pycache__/
 env/
 venv/
 *.log
-instance/database.db
+instance/*.db
+*.db
+instance/
 .env
 .env.local
 .env*.local
