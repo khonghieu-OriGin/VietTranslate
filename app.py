@@ -1092,7 +1092,8 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if 'user_id' not in session:
             flash(_t('flash.login_required'), 'warning')
-            return redirect(url_for('login'))
+            next_target = request.full_path if request.query_string else request.path
+            return redirect(url_for('login', next=next_target))
         
         user = get_current_user()
         if not user:
@@ -2136,8 +2137,6 @@ def login():
                         return redirect(url_for('admin_login'))
                     if is_safe_redirect(next_url):
                         return redirect(next_url)
-                    if user.role == 'translator':
-                        return redirect(url_for('interpreter_dashboard'))
                     return redirect(url_for('index'))
                 else:
                     flash(_t('flash.invalid_password'), 'error')
