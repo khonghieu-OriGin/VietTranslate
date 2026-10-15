@@ -192,34 +192,34 @@ def register_user_session(user, req, session_token: str = None) -> UserSession:
     device_name = parse_device_name(req)
     ip_addr = get_client_ip(req)
 
-    user_sess = UserSession.query.filter_by(user_id=user.id, session_id=token).first()
-    now = datetime.utcnow()
-
-    if user_sess:
-        user_sess.device_name = device_name
-        user_sess.ip_address = ip_addr
-        user_sess.last_active = now
-        user_sess.is_current = True
-    else:
-        # Hủy cờ is_current của các phiên khác trong DB đối với user này nếu có
-        UserSession.query.filter_by(user_id=user.id).update({'is_current': False})
-        user_sess = UserSession(
-            user_id=user.id,
-            session_id=token,
-            device_name=device_name,
-            ip_address=ip_addr,
-            last_active=now,
-            is_current=True,
-            created_at=now
-        )
-        db.session.add(user_sess)
-
     try:
+        user_sess = UserSession.query.filter_by(user_id=user.id, session_id=token).first()
+        now = datetime.utcnow()
+
+        if user_sess:
+            user_sess.device_name = device_name
+            user_sess.ip_address = ip_addr
+            user_sess.last_active = now
+            user_sess.is_current = True
+        else:
+            # Hủy cờ is_current của các phiên khác trong DB đối với user này nếu có
+            UserSession.query.filter_by(user_id=user.id).update({'is_current': False})
+            user_sess = UserSession(
+                user_id=user.id,
+                session_id=token,
+                device_name=device_name,
+                ip_address=ip_addr,
+                last_active=now,
+                is_current=True,
+                created_at=now
+            )
+            db.session.add(user_sess)
+
         db.session.commit()
+        return user_sess
     except Exception:
         db.session.rollback()
-
-    return user_sess
+        return None
 
 
 def get_active_sessions(user, current_session_token: str = None) -> list[dict]:
@@ -230,7 +230,12 @@ def get_active_sessions(user, current_session_token: str = None) -> list[dict]:
     if not user:
         return []
 
-    sessions = UserSession.query.filter_by(user_id=user.id).order_by(UserSession.last_active.desc()).all()
+    try:
+        sessions = UserSession.query.filter_by(user_id=user.id).order_by(UserSession.last_active.desc()).all()
+    except Exception:
+        db.session.rollback()
+        return []
+
     results = []
 
     for s in sessions:

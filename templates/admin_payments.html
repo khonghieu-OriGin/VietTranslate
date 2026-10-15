@@ -91,6 +91,7 @@
                             <button class="btn btn-sm btn-ghost" onclick="viewPaymentDetail({{ p.id }})">Chi tiết</button>
                             {% if p.status == 'escrow_pending' %}
                             <form action="{{ url_for('admin_refund_payment', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Bạn có chắc chắn muốn hoàn tiền giao dịch này? Hành động này sẽ yêu cầu xác thực Admin cấp cao trong tương lai.');">
+                                <input type="hidden" name="_csrf_token" value="{{ admin_csrf_token }}">
                                 <button type="submit" class="btn btn-sm btn-warning">Refund</button>
                             </form>
                             {% endif %}

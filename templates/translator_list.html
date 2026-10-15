@@ -151,6 +151,7 @@
             <label for="sort-select" class="text-xs text-slate-400 font-medium hidden sm:inline">{{ t('translator_list_page.sort_by_label') }}</label>
             <select id="sort-select" class="text-xs font-semibold border-slate-200 rounded-xl px-3 py-2 border text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 bg-slate-50/80 cursor-pointer">
               <option value="rating">{{ t('translator_list_page.sort_rating_high') }}</option>
+              <option value="experience">{{ 'Nhiều kinh nghiệm nhất' if current_lang == 'vi' else 'Most experienced' }}</option>
               <option value="reviews">{{ t('translator_list_page.sort_reviews_many') }}</option>
               <option value="jobs">{{ 'Nhiều dự án nhất' if current_lang == 'vi' else 'Most projects' }}</option>
               <option value="price_asc">{{ t('translator_list_page.sort_price_low') }}</option>
@@ -223,7 +224,7 @@
 <script>
 const CURRENT_LANG = "{{ current_lang }}";
 
-const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], minJobs: null, priceRange: null, minRating: null, badges: [], query: '' });
+const emptyFilters = () => ({ languages: [], pairs: [], specialties: [], minJobs: null, priceRange: null, minRating: null, badges: [], demoType: 'all', query: '' });
 let filters = emptyFilters();
 let allFreelancers = [];
 let sortBy = 'rating';
@@ -311,8 +312,26 @@ function cbSection(title, cls, s, items) {
 
 function buildFilterForm(s) {
   let html = '';
+  const typeHeader = CURRENT_LANG === 'en' ? 'Profile Type' : 'Phân loại hồ sơ';
+  const TYPE_OPTIONS = CURRENT_LANG === 'en' ? [
+    { label: 'All Profiles', value: 'all' },
+    { label: 'Demo Sample Profiles (100)', value: 'demo' },
+    { label: 'Verified Interpreters Only', value: 'verified' },
+  ] : [
+    { label: 'Tất cả hồ sơ', value: 'all' },
+    { label: 'Hồ sơ mẫu demo (100 Demo)', value: 'demo' },
+    { label: 'Đã thẩm định minh chứng', value: 'verified' },
+  ];
+  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${typeHeader}</h4><div class="space-y-1">`;
+  TYPE_OPTIONS.forEach(opt => {
+    const id = `type-${opt.value}-${s}`;
+    html += `<div><input type="radio" class="filter-rb type-rb-${s}" id="${id}" name="type-${s}" value="${opt.value}" ${filters.demoType === opt.value ? 'checked' : ''}>
+    <label for="${id}" class="filter-label"><span class="filter-rb-indicator"></span><span class="text-xs">${opt.label}</span></label></div>`;
+  });
+  html += `</div></div>`;
+
   const langHeader = CURRENT_LANG === 'en' ? 'Languages' : 'Ngôn ngữ';
-  html += `<div class="filter-section"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${langHeader}</h4><div class="space-y-1">`;
+  html += `<div class="filter-section mt-4"><h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2.5">${langHeader}</h4><div class="space-y-1">`;
   LANG_LIST.forEach(l => {
     const id = `lang-${l.name.replace(/\s/g,'-')}-${s}`;
     const displayName = CURRENT_LANG === 'en' ? l.enName : l.name;
@@ -368,8 +387,10 @@ function buildFilterForm(s) {
 
 function filterFreelancers(list, f) {
   return list.filter(fl => {
+    if (f.demoType === 'demo' && !fl.is_demo) return false;
+    if (f.demoType === 'verified' && (fl.is_demo || !fl.is_verified)) return false;
     if (f.query) {
-      const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' ')].join(' '));
+      const hay = norm([fl.name, fl.title, (fl.badges||[]).join(' '), (fl.languages||[]).join(' '), (fl.language_pairs||[]).join(' '), (fl.specialties||[]).join(' '), fl.location||'', (fl.work_modes||[]).join(' '), fl.employment_preference||'', fl.availability_status||''].join(' '));
       if (!f.query.split(/\s+/).every(w => hay.includes(w))) return false;
     }
     if (f.languages.length > 0) {
@@ -397,6 +418,7 @@ function filterFreelancers(list, f) {
 function sortFreelancers(list, by) {
   const c = [...list];
   const priceKey = (x, dir) => x.min_price == null ? Infinity : dir * x.min_price;
+  if (by === 'experience') return c.sort((a,b) => (b.experience_years || 0) - (a.experience_years || 0));
   if (by === 'reviews') return c.sort((a,b) => b.total_reviews - a.total_reviews);
   if (by === 'jobs') return c.sort((a,b) => b.total_jobs - a.total_jobs);
   if (by === 'price_asc') return c.sort((a,b) => priceKey(a, 1) - priceKey(b, 1));
@@ -410,6 +432,7 @@ function countActiveFilters() {
   if (filters.priceRange) c++;
   if (filters.minRating !== null) c++;
   if (filters.minJobs !== null) c++;
+  if (filters.demoType && filters.demoType !== 'all') c++;
   return c;
 }
 
@@ -453,6 +476,7 @@ function rerender(resetPage) { if (resetPage) visibleCount = PAGE_SIZE; renderLi
 
 const checked = (sel) => [...document.querySelectorAll(sel + ':checked')].map(e => e.value);
 function syncFiltersFromDOM(s) {
+  const te = document.querySelector(`.type-rb-${s}:checked`); filters.demoType = te ? te.value : 'all';
   filters.languages = checked(`.lang-cb-${s}`);
   filters.pairs = checked(`.pair-cb-${s}`);
   filters.specialties = checked(`.spec-cb-${s}`);
@@ -465,6 +489,7 @@ function syncFiltersFromDOM(s) {
 }
 
 function syncDOMFromFilters(s) {
+  document.querySelectorAll(`.type-rb-${s}`).forEach(e => { e.checked = e.value === (filters.demoType || 'all'); });
   document.querySelectorAll(`.lang-cb-${s}`).forEach(e => { e.checked = filters.languages.includes(e.value); });
   document.querySelectorAll(`.pair-cb-${s}`).forEach(e => { e.checked = filters.pairs.includes(e.value); });
   document.querySelectorAll(`.spec-cb-${s}`).forEach(e => { e.checked = filters.specialties.includes(e.value); });

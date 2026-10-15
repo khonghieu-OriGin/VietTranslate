@@ -1,46 +1,88 @@
 import unicodedata
 from models import Job, Proposal, Contract, TranslatorPreference, TranslatorProfile, User
-from datetime import datetime
+from datetime import datetime, date
 
 def translator_is_available_for_job(translator_id, job):
-    from services.schedule import (
-        parse_job_datetime,
-        is_schedule_complete,
-        check_translator_schedule_conflict
-    )
-    
+    """Kiểm tra lịch làm việc của phiên dịch viên xem có bị trùng với job hay không."""
     try:
-        parsed = parse_job_datetime(job)
+        from services.schedule import check_job_schedule_conflicts
+        res = check_job_schedule_conflicts(job, translator_id)
+        if not res.get('has_schedule'):
+            return True, "Không có lịch cố định"
+        if not res.get('available'):
+            first_conflict = next(
+                (d.get('message') for d in res.get('days', []) if not d.get('available') and d.get('message')),
+                "Trùng lịch làm việc đã có"
+            )
+            return False, first_conflict
+        return True, "Có lịch trống"
     except Exception as e:
         import logging
-        logging.error(f"Cannot parse schedule for job {job.id}: {e}")
-        return False, "Thời gian không hợp lệ"
-        
-    if not is_schedule_complete(parsed):
-        return True, "Không có lịch cố định"
-        
-    try:
-        result = check_translator_schedule_conflict(
-            translator_id=translator_id,
-            scheduled_date=parsed['date'],
-            start_time=parsed['start_time'],
-            end_time=parsed['end_time']
-        )
-    except Exception as e:
-        import logging
-        logging.error(f"Error checking schedule for translator {translator_id}: {e}")
-        return False, "Lỗi kiểm tra lịch"
-        
-    if result['conflict']:
-        return False, result['message']
-        
-    return True, "Có lịch trống"
+        logging.error(f"Error checking schedule for translator {translator_id} on job {getattr(job, 'id', '?')}: {e}")
+        return True, "Lịch chưa xác định"
 
 def normalize_text(value):
     if not value:
         return ''
     return unicodedata.normalize('NFKD', str(value)).encode('ASCII', 'ignore').decode('utf-8').lower().strip()
 
+CITY_ALIASES = {
+    'hn': ('ha noi', 'hanoi'),
+    'hcm': ('ho chi minh', 'hcm', 'sai gon', 'saigon'),
+    'dn': ('da nang',),
+    'hp': ('hai phong',),
+    'ct': ('can tho',),
+}
+
+def canonical_city(value):
+    text = normalize_text(value)
+    for key, aliases in CITY_ALIASES.items():
+        if any(a in text for a in aliases):
+            return key
+    return text
+
+SPECIALTY_DOMAINS = {
+    'medical': {
+        'name_vi': 'Y tế & Dược phẩm',
+        'name_en': 'Healthcare & Medicine',
+        'keywords': ['y te', 'duoc', 'benh vien', 'suc khoe', 'bac si', 'lam sang', 'nha khoa', 'medical', 'pharma', 'health', 'clinic', 'medicine', 'hospital', 'y duoc', 'dieu tri'],
+    },
+    'legal': {
+        'name_vi': 'Pháp lý & Luật',
+        'name_en': 'Legal & Contracts',
+        'keywords': ['phap ly', 'hop dong', 'toa an', 'luat', 'cong chung', 'tranh chap', 'to tung', 'legal', 'law', 'contract', 'court', 'litigation', 'tu phap', 'ban quyen'],
+    },
+    'technical': {
+        'name_vi': 'Kỹ thuật & Công nghệ',
+        'name_en': 'Engineering & IT',
+        'keywords': ['ky thuat', 'cong nghe', 'it', 'phan mem', 'che tao', 'co khi', 'xay dung', 'dien tu', 'technical', 'technology', 'engineering', 'software', 'construction', 'may moc', 'ban ve', 'lap trinh'],
+    },
+    'finance': {
+        'name_vi': 'Tài chính & Ngân hàng',
+        'name_en': 'Finance & Banking',
+        'keywords': ['tai chinh', 'ngan hang', 'ke toan', 'kiem toan', 'dau tu', 'chung khoan', 'finance', 'banking', 'accounting', 'audit', 'securities', 'bao cao tai chinh', 'thue'],
+    },
+    'business': {
+        'name_vi': 'Thương mại & Kinh doanh',
+        'name_en': 'Business & Commerce',
+        'keywords': ['thuong mai', 'kinh doanh', 'xuat nhap khau', 'marketing', 'dam phan', 'ban hang', 'business', 'commerce', 'trade', 'marketing', 'sales', 'logistics', 'b2b', 'hoi cho'],
+    },
+    'conference': {
+        'name_vi': 'Hội nghị & Sự kiện',
+        'name_en': 'Conference & Events',
+        'keywords': ['hoi nghi', 'hoi thao', 'su kien', 'cabin', 'song song', 'dien dan', 'conference', 'seminar', 'summit', 'event', 'convention', 'thap tung', 'dien thuyet'],
+    },
+    'tourism': {
+        'name_vi': 'Văn hóa & Du lịch',
+        'name_en': 'Tourism & Culture',
+        'keywords': ['du lich', 'van hoa', 'huong dan vien', 'khach san', 'am thuc', 'tourism', 'culture', 'travel', 'hospitality', 'culinary', 'di tich', 'le hoi'],
+    },
+    'education': {
+        'name_vi': 'Giáo dục & Đào tạo',
+        'name_en': 'Education & Training',
+        'keywords': ['giao duc', 'dao tao', 'du hoc', 'giang day', 'hoc thuat', 'education', 'training', 'academic', 'teaching', 'luan van', 'nghien cuu'],
+    }
+}
 
 def calculate_client_fit(pref, hirer_profile, job, lang='vi'):
     """Điểm tối đa 12: ngành (5) + hình thức làm việc (3) + chứng nhận (4)."""
@@ -83,29 +125,42 @@ def calculate_client_fit(pref, hirer_profile, job, lang='vi'):
     return int(round(total)), reasons
 
 def calculate_job_match_score(translator, job, lang='vi'):
+    """
+    Tính điểm phù hợp của công việc với phiên dịch viên (thang điểm 0 - 100):
+    1. Cặp ngôn ngữ (Language Match): 30 điểm
+    2. Chuyên môn & Lĩnh vực yêu cầu (Specialization Match): 25 điểm
+    3. Trình độ học vấn, chứng chỉ & kinh nghiệm (Qualifications & Experience): 15 điểm
+    4. Hình thức phiên dịch & Dịch vụ (Service Type): 12 điểm
+    5. Địa điểm & Hình thức làm việc (Location & Work Mode): 10 điểm
+    6. Ngân sách & Thù lao (Budget Match): 8 điểm
+    """
     from translations import t as t_lookup
-    # Base score 0 to 100
     score = 0
     reasons = []
     
-    # 1. Language (35 points)
     int_pref = getattr(translator, 'interpreter_preference', None)
-    pref = translator.preference
-    prof = translator.profile
-    
+    pref = getattr(translator, 'preference', None)
+    prof = getattr(translator, 'profile', None)
+
+    # ─────────────────────────────────────────────────────────────
+    # 1. Cặp ngôn ngữ (30 điểm)
+    # ─────────────────────────────────────────────────────────────
     source_norm = normalize_text(job.source_lang)
     target_norm = normalize_text(job.target_lang)
     exact_pair = f"{source_norm}>{target_norm}".replace(' ', '')
     reverse_pair = f"{target_norm}>{source_norm}".replace(' ', '')
-    
-    if int_pref and int_pref.get_languages_list():
-        int_pairs = [normalize_text(p.replace('->', '>').replace('➔', '>')).replace(' ', '') for p in int_pref.get_languages_list()]
+
+    lang_scored = False
+    if int_pref and hasattr(int_pref, 'get_languages_list') and int_pref.get_languages_list():
+        int_pairs = [normalize_text(p.replace('->', '>').replace('➔', '>')).replace(' ', '') for p in int_pref.get_languages_list() if p.strip()]
         if exact_pair in int_pairs:
-            score += 35
+            score += 30
             reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
+            lang_scored = True
         elif reverse_pair in int_pairs:
-            score += 25
+            score += 18
             reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
+            lang_scored = True
         else:
             langs = set()
             for p in int_pairs:
@@ -114,50 +169,175 @@ def calculate_job_match_score(translator, job, lang='vi'):
                         langs.add(part)
                 else:
                     langs.add(p)
-            if source_norm in langs or target_norm in langs:
-                score += 15
+            if source_norm in langs and target_norm in langs:
+                score += 26
+                reasons.append(t_lookup('match_reasons.language_match', lang))
+                lang_scored = True
+            elif source_norm in langs or target_norm in langs:
+                score += 10
                 reasons.append(t_lookup('match_reasons.partial_language', lang))
-    elif pref and getattr(pref, 'language_pairs', None):
-        pairs_str = pref.language_pairs
-        pairs = [normalize_text(p).replace(' ', '') for p in pairs_str.split(',')]
-        
+                lang_scored = True
+
+    if not lang_scored and pref and getattr(pref, 'language_pairs', None):
+        pairs = [normalize_text(p).replace(' ', '') for p in pref.language_pairs.split(',') if p.strip()]
         if exact_pair in pairs:
-            score += 35
+            score += 30
             reasons.append(t_lookup('match_reasons.exact_language_pair', lang))
+            lang_scored = True
         elif reverse_pair in pairs:
             score += 18
             reasons.append(t_lookup('match_reasons.reverse_language_pair', lang))
+            lang_scored = True
         else:
             translator_langs = set()
             for p in pairs:
                 if '>' in p:
-                    src, tgt = p.split('>', 1)
-                    translator_langs.add(src)
-                    translator_langs.add(tgt)
-            if source_norm in translator_langs or target_norm in translator_langs:
-                score += 9
+                    src_p, tgt_p = p.split('>', 1)
+                    translator_langs.add(src_p)
+                    translator_langs.add(tgt_p)
+            if source_norm in translator_langs and target_norm in translator_langs:
+                score += 26
+                reasons.append(t_lookup('match_reasons.language_match', lang))
+                lang_scored = True
+            elif source_norm in translator_langs or target_norm in translator_langs:
+                score += 10
                 reasons.append(t_lookup('match_reasons.partial_language', lang))
-    else:
+                lang_scored = True
+
+    if not lang_scored:
         translator_langs = []
         if pref and getattr(pref, 'languages', None):
-            translator_langs = [normalize_text(l) for l in pref.languages.split(',')]
+            translator_langs = [normalize_text(l) for l in pref.languages.split(',') if l.strip()]
         elif prof and prof.languages:
-            translator_langs = [normalize_text(l) for l in prof.languages.split(',')]
+            translator_langs = [normalize_text(l) for l in prof.languages.split(',') if l.strip()]
+        
+        # Thêm ngôn ngữ từ trường source_language / target_language của profile
+        if prof and getattr(prof, 'source_language', None):
+            translator_langs.append(normalize_text(prof.source_language))
+        if prof and getattr(prof, 'target_language', None):
+            translator_langs.append(normalize_text(prof.target_language))
 
         if source_norm in translator_langs and target_norm in translator_langs:
-            score += 35
+            score += 30
             reasons.append(t_lookup('match_reasons.language_match', lang))
         elif source_norm in translator_langs or target_norm in translator_langs:
-            score += 18
+            score += 12
             reasons.append(t_lookup('match_reasons.partial_language', lang))
 
-    # 2. Service Type (20 points)
+    # ─────────────────────────────────────────────────────────────
+    # 2. Lĩnh vực chuyên môn & Yêu cầu đề bài (25 điểm)
+    # ─────────────────────────────────────────────────────────────
+    # Tổng hợp các lĩnh vực chuyên môn của phiên dịch viên
+    translator_specs = []
+    if prof:
+        if hasattr(prof, 'display_specializations') and prof.display_specializations:
+            translator_specs.extend([normalize_text(s) for s in prof.display_specializations])
+        elif prof.specializations:
+            translator_specs.extend([normalize_text(s) for s in prof.specializations.split(',') if s.strip()])
+        if getattr(prof, 'major', None):
+            translator_specs.append(normalize_text(prof.major))
+        if getattr(prof, 'bio', None):
+            translator_specs.append(normalize_text(prof.bio))
+    if pref and getattr(pref, 'specialties', None):
+        translator_specs.extend([normalize_text(s) for s in pref.specialties.split(',') if s.strip()])
+
+    translator_specs_str = ' '.join(translator_specs)
+
+    # Tổng hợp thông tin lĩnh vực của công việc
+    job_specialty_norm = normalize_text(getattr(job, 'specialty', '') or '')
+    job_title_norm = normalize_text(job.title or '')
+    job_desc_norm = normalize_text(job.description or '')
+    job_extra_norm = normalize_text(getattr(job, 'extra_requirements', '') or '')
+    job_all_text = f"{job_specialty_norm} {job_title_norm} {job_desc_norm} {job_extra_norm}"
+
+    matched_domain_name = None
+    strong_spec_match = False
+    keyword_spec_match = False
+
+    # So khớp qua từ điển SPECIALTY_DOMAINS
+    for dom_key, dom_data in SPECIALTY_DOMAINS.items():
+        domain_name = dom_data['name_en'] if lang == 'en' else dom_data['name_vi']
+        # Kiểm tra nếu job thuộc lĩnh vực này
+        job_has_domain = (
+            any(k in job_specialty_norm for k in dom_data['keywords']) or
+            (dom_key in job_specialty_norm) or
+            any(k in job_title_norm for k in dom_data['keywords'])
+        )
+        trans_has_domain = (
+            any(k in translator_specs_str for k in dom_data['keywords']) or
+            (dom_key in translator_specs_str)
+        )
+        if job_has_domain and trans_has_domain:
+            matched_domain_name = domain_name
+            strong_spec_match = True
+            break
+        elif not strong_spec_match and any(k in job_all_text for k in dom_data['keywords']) and trans_has_domain:
+            matched_domain_name = domain_name
+            keyword_spec_match = True
+
+    if strong_spec_match:
+        score += 25
+        reason_text = f"Đúng chuyên môn: {matched_domain_name}" if lang == 'vi' else f"Specialization match: {matched_domain_name}"
+        reasons.append(reason_text)
+    elif keyword_spec_match:
+        score += 18
+        reason_text = f"Phù hợp lĩnh vực: {matched_domain_name}" if lang == 'vi' else f"Industry match: {matched_domain_name}"
+        reasons.append(reason_text)
+    elif job_specialty_norm and any(job_specialty_norm in s for s in translator_specs):
+        score += 25
+        reasons.append(t_lookup('match_reasons.specialty_match', lang))
+    elif not job_specialty_norm:
+        # Công việc tổng hợp hoặc không giới hạn lĩnh vực chuyên sâu
+        score += 12
+    else:
+        # Có yêu cầu chuyên môn nhưng chưa trùng
+        score += 4
+
+    # ─────────────────────────────────────────────────────────────
+    # 3. Trình độ học vấn, chứng chỉ & năng lực (15 điểm)
+    # ─────────────────────────────────────────────────────────────
+    prof_score = 0
+    if prof:
+        # Năng lực ngoại ngữ
+        proficiency = normalize_text(getattr(prof, 'language_proficiency', '') or '')
+        if any(p in proficiency for p in ['c2', 'c1', 'ban ngu', 'native', 'chuyen nghiep']):
+            prof_score += 5
+            reasons.append("Trình độ ngôn ngữ thành thạo (C1/C2/Bản ngữ)" if lang == 'vi' else "Fluent proficiency (C1/C2/Native)")
+        elif 'b2' in proficiency:
+            prof_score += 3
+
+        # Học vấn & Chứng chỉ
+        has_edu = bool(getattr(prof, 'education_level', None) and any(e in normalize_text(prof.education_level) for e in ['cu nhan', 'thac si', 'tien si', 'dai hoc', 'bachelor', 'master', 'phd']))
+        has_cert = bool(getattr(prof, 'cert_name', None) or getattr(prof, 'certificates', None))
+        if has_edu or has_cert:
+            prof_score += 4
+            reasons.append(t_lookup('match_reasons.qualification_match', lang))
+
+        # Đã xác thực danh tính & chứng chỉ (Verified)
+        if getattr(prof, 'is_verified', False):
+            prof_score += 3
+            reasons.append(t_lookup('match_reasons.verified_match', lang))
+
+        # Kinh nghiệm & Đánh giá
+        exp_years = getattr(prof, 'experience_years', 0) or 0
+        rating = getattr(prof, 'rating', 0.0) or 0.0
+        if exp_years >= 3 or rating >= 4.5 or (getattr(prof, 'total_jobs', 0) or 0) >= 5:
+            prof_score += 3
+            reasons.append(t_lookup('match_reasons.experience_match', lang))
+        elif exp_years >= 1 or rating >= 4.0:
+            prof_score += 2
+
+    score += min(prof_score, 15)
+
+    # ─────────────────────────────────────────────────────────────
+    # 4. Hình thức phiên dịch & Dịch vụ (12 điểm)
+    # ─────────────────────────────────────────────────────────────
     job_group = job.display_category_group
     job_type = job.display_service_type
     
     pref_services = []
     if pref and getattr(pref, 'service_types', None):
-        pref_services = [normalize_text(s) for s in pref.service_types.split(',')]
+        pref_services = [normalize_text(s) for s in pref.service_types.split(',') if s.strip()]
         
     exact_match_texts = []
     group_match_texts = []
@@ -182,136 +362,142 @@ def calculate_job_match_score(translator, job, lang='vi'):
 
     if pref_services:
         if any(s in pref_services for s in exact_match_texts):
-            score += 20
+            score += 12
             reasons.append(t_lookup('match_reasons.exact_job_type', lang))
         elif any(s in pref_services for s in group_match_texts):
-            score += 12
+            score += 8
             reasons.append(t_lookup('match_reasons.group_match', lang))
+        else:
+            score += 5
     else:
-        score += 20
-        
-    # 3. Experience (15 points)
-    exp_score = 0
-    if prof:
-        if prof.is_verified:
-            exp_score += 5
-        if prof.total_jobs and prof.total_jobs >= 5:
-            exp_score += 5
-        elif prof.total_jobs and prof.total_jobs > 0:
-            exp_score += 2
-        if prof.rating and prof.rating >= 4.5:
-            exp_score += 5
-        elif prof.rating and prof.rating >= 4.0:
-            exp_score += 3
-    
-    exp_score = min(exp_score, 15)
-    score += exp_score
-    if exp_score >= 10:
-        reasons.append(t_lookup('match_reasons.experience_match', lang))
-        
+        score += 10
+
+    # ─────────────────────────────────────────────────────────────
+    # 5. Địa điểm & Phương thức làm việc (10 điểm)
+    # ─────────────────────────────────────────────────────────────
     hirer_profile = None
     try:
         hirer_profile = job.hirer.hirer_profile if job.hirer else None
     except Exception:
         hirer_profile = None
 
-    # 4. Location (10 points)
-    loc_score = 10
-    # Job không ghi địa điểm thì dùng khu vực của khách
     job_loc_norm = normalize_text(job.event_location) or (normalize_text(hirer_profile.location) if hirer_profile else '')
-
     if job_loc_norm:
-        if "online" in job_loc_norm or "tu xa" in job_loc_norm or "toan quoc" in job_loc_norm:
+        if any(k in job_loc_norm for k in ["online", "tu xa", "toan quoc", "remote", "zoom", "teams"]):
+            score += 10
             reasons.append(t_lookup('match_reasons.remote_work', lang))
-        elif int_pref and int_pref.get_locations_list():
+        elif int_pref and hasattr(int_pref, 'get_locations_list') and int_pref.get_locations_list():
             matched_loc = any(normalize_text(loc) in job_loc_norm or job_loc_norm in normalize_text(loc) or 'toan quoc' in normalize_text(loc) for loc in int_pref.get_locations_list())
             if matched_loc:
+                score += 10
                 reasons.append(t_lookup('match_reasons.location_match', lang))
-            elif int_pref.work_mode != 'online':
-                loc_score = 6
-        elif pref and pref.city:
-            if canonical_city(pref.city) and canonical_city(pref.city) == canonical_city(job_loc_norm):
-                reasons.append(t_lookup('match_reasons.location_match', lang))
-            elif pref.work_mode != 'online':
-                loc_score = 5
-        elif prof and prof.bio and normalize_text(prof.bio):
-            bio_norm = normalize_text(prof.bio)
-            if "ha noi" in job_loc_norm and "ha noi" not in bio_norm:
-                loc_score = 5
-            elif "ho chi minh" in job_loc_norm and "ho chi minh" not in bio_norm and "hcm" not in bio_norm:
-                loc_score = 5
+            elif getattr(int_pref, 'work_mode', None) == 'online':
+                score += 4
             else:
+                score += 5
+        elif pref and getattr(pref, 'city', None):
+            if canonical_city(pref.city) and canonical_city(pref.city) == canonical_city(job_loc_norm):
+                score += 10
                 reasons.append(t_lookup('match_reasons.location_match', lang))
+            elif getattr(pref, 'work_mode', None) == 'online':
+                score += 4
+            else:
+                score += 5
+        elif prof and getattr(prof, 'bio', None) and normalize_text(prof.bio):
+            bio_norm = normalize_text(prof.bio)
+            if "ha noi" in job_loc_norm and "ha noi" in bio_norm:
+                score += 10
+                reasons.append(t_lookup('match_reasons.location_match', lang))
+            elif ("ho chi minh" in job_loc_norm or "hcm" in job_loc_norm) and ("ho chi minh" in bio_norm or "hcm" in bio_norm):
+                score += 10
+                reasons.append(t_lookup('match_reasons.location_match', lang))
+            else:
+                score += 6
         else:
-            pass # No penalty if lack of info
-    score += loc_score
+            score += 7
+    else:
+        score += 8
 
-    # 5. Budget (8 points)
-    budget_score = 8
-    # Job thỏa thuận (budget_min = 0) thì tham chiếu ngân sách thường dùng của khách
-    budget_ref = job.budget_min or (hirer_profile.typical_budget_min if hirer_profile else None)
-    if budget_ref and prof:
+    # ─────────────────────────────────────────────────────────────
+    # 6. Ngân sách & Mức thù lao (8 điểm)
+    # ─────────────────────────────────────────────────────────────
+    budget_ref = job.budget_min or (getattr(hirer_profile, 'typical_budget_min', None) if hirer_profile else None)
+    if budget_ref and prof and getattr(prof, 'services', None):
         min_price = min([s.basic_price for s in prof.services if s.basic_price], default=None)
-        if min_price and budget_ref < (min_price * 0.7):
-            budget_score = 4
-        elif min_price and budget_ref >= min_price:
+        if min_price and budget_ref >= min_price:
+            score += 8
             reasons.append(t_lookup('match_reasons.budget_match', lang))
-    score += budget_score
+        elif min_price and budget_ref >= (min_price * 0.7):
+            score += 5
+        else:
+            score += 3
+    else:
+        score += 6
 
-    # 6. Client fit (12 points): ngành, hình thức làm việc, yêu cầu chứng nhận
-    # Thiếu dữ liệu một phía -> điểm trung tính (60%), khớp -> 100%, lệch -> 0
-    fit_score, fit_reasons = calculate_client_fit(pref, hirer_profile, job, lang)
-    score += fit_score
-    reasons.extend(fit_reasons)
-
-    # Limit score to 100
-    score = min(score, 100)
-
+    # Capped at 100
+    score = min(max(score, 0), 100)
     return score, reasons
 
-def get_recommended_jobs_for_translator(user_id, limit=10, lang='vi'):
-    from app import translator_accepts_job
+def get_recommended_jobs_for_translator(user_id, limit=50, lang='vi'):
+    """
+    Trả về danh sách công việc đề xuất phù hợp nhất cho phiên dịch viên,
+    được xếp hạng theo điểm tương thích (match_score) giảm dần.
+    """
+    from app import translator_accepts_job, db
     from translations import t as t_lookup
+    
     translator = User.query.get(user_id)
     if not translator or translator.role != 'translator' or not translator.is_active:
         return []
-        
-    # Lấy các việc đang mở, hỗ trợ fallback NULL cho PostgreSQL
-    from app import db
+
+    today = date.today()
+    # Lấy các việc đang mở, đã duyệt, không bị gắn cờ và còn thời hạn
     open_jobs = Job.query.join(User, Job.hirer_id == User.id).filter(
-        Job.status == 'open', 
+        Job.status == 'open',
+        Job.moderation_status == 'approved',
         db.or_(Job.is_flagged == False, Job.is_flagged == None),
-        User.is_active == True
+        User.is_active == True,
+        db.or_(Job.deadline.is_(None), Job.deadline >= today)
     ).all()
-    
+
+    # Tập hợp các công việc translator đã gửi báo giá (bỏ qua không gợi ý lại)
+    proposed_job_ids = {p.job_id for p in Proposal.query.filter_by(translator_id=user_id).all()}
+
     scored_jobs = []
     for job in open_jobs:
-        if Proposal.query.filter_by(job_id=job.id, translator_id=user_id).first():
+        if job.id in proposed_job_ids:
             continue
-            
+
         if not translator_accepts_job(translator, job):
             continue
-            
-        # check schedule conflict
-        available, availability_reason = translator_is_available_for_job(user_id, job)
+
+        # Kiểm tra xung đột lịch làm việc
+        available, avail_msg = translator_is_available_for_job(user_id, job)
         if not available:
+            # Loại bỏ công việc bị trùng lịch với ca làm việc đã có
             continue
 
-        score, reasons = calculate_job_match_score(translator, job, lang)
-        if score > 0:
-            if available:
-                reasons.append(t_lookup('match_reasons.schedule_free', lang))
+        try:
+            score, reasons = calculate_job_match_score(translator, job, lang)
+            if score >= 35:
+                if available and (job.event_date or (hasattr(job, 'schedules') and job.schedules)):
+                    reasons.append(t_lookup('match_reasons.schedule_free', lang))
 
-            scored_jobs.append({
-                'job_id': job.id,
-                'match_score': score,
-                'reasons': reasons,
-                'created_at': job.created_at
-            })
-            
+                scored_jobs.append({
+                    'job_id': job.id,
+                    'match_score': score,
+                    'reasons': reasons,
+                    'created_at': job.created_at or datetime.utcnow()
+                })
+        except Exception as e:
+            import logging
+            logging.error(f"Error calculating match score for job {job.id}: {e}")
+            continue
+
+    # Sắp xếp ưu tiên: điểm phù hợp cao nhất -> công việc mới nhất
     scored_jobs.sort(key=lambda x: (x['match_score'], x['created_at']), reverse=True)
-    
     return [{'job_id': x['job_id'], 'match_score': x['match_score'], 'reasons': x['reasons']} for x in scored_jobs[:limit]]
+
 
 def calculate_translator_match_score(translator, job, lang='vi'):
     # This is symmetric to calculate_job_match_score

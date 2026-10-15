@@ -76,6 +76,10 @@ def project_title(c):
         return c.job.title
     if c.service:
         return c.service.name
+    if getattr(c, 'interpreter_service', None):
+        isvc = c.interpreter_service
+        spec = f" - {isvc.specialization}" if isvc.specialization else ""
+        return f"Phiên dịch {isvc.source_lang} → {isvc.target_lang} ({isvc.interpreting_type}){spec}"
     return f'Hợp đồng #{c.id}'
 
 
@@ -84,6 +88,8 @@ def language_pair(c):
         return ' → '.join(x for x in (c.job.source_lang, c.job.target_lang) if x)
     if c.service and c.service.languages:
         return c.service.languages
+    if getattr(c, 'interpreter_service', None):
+        return f"{c.interpreter_service.source_lang} → {c.interpreter_service.target_lang}"
     return ''
 
 
