@@ -1276,7 +1276,7 @@ def index():
 @app.route('/interpreter/dashboard')
 @login_required
 def interpreter_dashboard():
-    """Trang Tổng quan dành riêng cho phiên dịch viên."""
+    """Trang Tß╗òng quan d├ánh ri├¬ng cho phi├¬n dß╗ïch vi├¬n."""
     from datetime import date as date_cls, timedelta
     user = get_current_user()
     if not user:
@@ -1286,58 +1286,58 @@ def interpreter_dashboard():
 
     uid = user.id
 
-    # ── 1. Hồ sơ & xác minh ──────────────────────────────────────────────────
+    # ΓöÇΓöÇ 1. Hß╗ô s╞í & x├íc minh ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     profile = user.profile
     preference = getattr(user, 'preference', None)
 
-    # Tiêu chí hoàn thiện hồ sơ có căn cứ rõ ràng từ các trường dữ liệu thực tế (100% tổng thể):
-    # 1. Họ và tên: 15% (user.name)
-    # 2. Ảnh đại diện: 10% (user.avatar hoặc user.avatar_url)
-    # 3. Số điện thoại: 10% (user.phone)
-    # 4. Tiêu đề chuyên môn: 15% (profile.title)
-    # 5. Ngôn ngữ thông thạo: 20% (profile.languages)
-    # 6. Giới thiệu bản thân: 15% (profile.bio)
-    # 7. Cài đặt nhận việc / Dịch vụ: 15% (preference.service_types hoặc profile.services)
+    # Ti├¬u ch├¡ ho├án thiß╗çn hß╗ô s╞í c├│ c─ân cß╗⌐ r├╡ r├áng tß╗½ c├íc tr╞░ß╗¥ng dß╗» liß╗çu thß╗▒c tß║┐ (100% tß╗òng thß╗â):
+    # 1. Hß╗ì v├á t├¬n: 15% (user.name)
+    # 2. ß║ónh ─æß║íi diß╗çn: 10% (user.avatar hoß║╖c user.avatar_url)
+    # 3. Sß╗æ ─æiß╗çn thoß║íi: 10% (user.phone)
+    # 4. Ti├¬u ─æß╗ü chuy├¬n m├┤n: 15% (profile.title)
+    # 5. Ng├┤n ngß╗» th├┤ng thß║ío: 20% (profile.languages)
+    # 6. Giß╗¢i thiß╗çu bß║ún th├ón: 15% (profile.bio)
+    # 7. C├ái ─æß║╖t nhß║¡n viß╗çc / Dß╗ïch vß╗Ñ: 15% (preference.service_types hoß║╖c profile.services)
     profile_completeness = 0
     profile_missing = []
 
-    # 1. Họ và tên
+    # 1. Hß╗ì v├á t├¬n
     if user.name and user.name.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Họ và tên')
+        profile_missing.append('Hß╗ì v├á t├¬n')
 
-    # 2. Ảnh đại diện cá nhân
+    # 2. ß║ónh ─æß║íi diß╗çn c├í nh├ón
     if getattr(user, 'avatar', None) or getattr(user, 'avatar_url', None):
         profile_completeness += 10
     else:
-        profile_missing.append('Ảnh đại diện')
+        profile_missing.append('ß║ónh ─æß║íi diß╗çn')
 
-    # 3. Số điện thoại
+    # 3. Sß╗æ ─æiß╗çn thoß║íi
     if user.phone and user.phone.strip():
         profile_completeness += 10
     else:
-        profile_missing.append('Số điện thoại')
+        profile_missing.append('Sß╗æ ─æiß╗çn thoß║íi')
 
-    # 4. Tiêu đề chuyên môn
+    # 4. Ti├¬u ─æß╗ü chuy├¬n m├┤n
     if profile and profile.title and profile.title.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Tiêu đề chuyên môn')
+        profile_missing.append('Ti├¬u ─æß╗ü chuy├¬n m├┤n')
 
-    # 5. Ngôn ngữ thông thạo
+    # 5. Ng├┤n ngß╗» th├┤ng thß║ío
     if profile and profile.languages and profile.languages.strip():
         profile_completeness += 20
     else:
-        profile_missing.append('Ngôn ngữ thông thạo')
+        profile_missing.append('Ng├┤n ngß╗» th├┤ng thß║ío')
 
-    # 6. Giới thiệu bản thân
+    # 6. Giß╗¢i thiß╗çu bß║ún th├ón
     if profile and profile.bio and profile.bio.strip():
         profile_completeness += 15
     else:
-        profile_missing.append('Giới thiệu bản thân')
+        profile_missing.append('Giß╗¢i thiß╗çu bß║ún th├ón')
 
-    # 7. Cài đặt nhận việc / Dịch vụ
+    # 7. C├ái ─æß║╖t nhß║¡n viß╗çc / Dß╗ïch vß╗Ñ
     has_services = False
     if profile and getattr(profile, 'services', None) and len(profile.services) > 0:
         has_services = True
@@ -1347,12 +1347,12 @@ def interpreter_dashboard():
     if has_services:
         profile_completeness += 15
     else:
-        profile_missing.append('Dịch vụ / Cài đặt nhận việc')
+        profile_missing.append('Dß╗ïch vß╗Ñ / C├ái ─æß║╖t nhß║¡n viß╗çc')
 
-    # Đảm bảo phần trăm nằm chính xác trong khoảng 0 - 100
+    # ─Éß║úm bß║úo phß║ºn tr─âm nß║▒m ch├¡nh x├íc trong khoß║úng 0 - 100
     profile_completeness = max(0, min(100, int(profile_completeness)))
 
-    # Xác định trạng thái xác minh thực tế (dựa trên hồ sơ và yêu cầu thẩm định):
+    # X├íc ─æß╗ïnh trß║íng th├íi x├íc minh thß╗▒c tß║┐ (dß╗▒a tr├¬n hß╗ô s╞í v├á y├¬u cß║ºu thß║⌐m ─æß╗ïnh):
     verif_req = None
     try:
         verif_req = getattr(user, 'latest_verification', None)
@@ -1362,88 +1362,416 @@ def interpreter_dashboard():
     if not profile:
         verification_status = {
             'code': 'no_profile',
-            'label': 'Chưa tạo hồ sơ',
+            'label': 'Ch╞░a tß║ío hß╗ô s╞í',
             'color': 'slate',
             'badge_bg': 'bg-slate-100',
             'badge_text': 'text-slate-600',
             'badge_border': 'border-slate-200',
-            'tooltip': 'Chưa có thông tin hồ sơ phiên dịch viên.',
-            'action_hint': 'Vui lòng khởi tạo hồ sơ cá nhân.',
+            'tooltip': 'Ch╞░a c├│ th├┤ng tin hß╗ô s╞í phi├¬n dß╗ïch vi├¬n.',
+            'action_hint': 'Vui l├▓ng khß╗ƒi tß║ío hß╗ô s╞í c├í nh├ón.',
         }
     elif profile.is_verified or (verif_req and getattr(verif_req, 'status', None) in ('approved', 'verified')):
         verification_status = {
             'code': 'verified',
-            'label': 'Đã xác minh',
+            'label': '─É├ú x├íc minh',
             'color': 'emerald',
             'badge_bg': 'bg-emerald-50',
             'badge_text': 'text-emerald-700',
             'badge_border': 'border-emerald-200',
-            'tooltip': 'Hồ sơ và chứng chỉ đã được Ban quản trị VietTranslate kiểm duyệt & chứng nhận.',
-            'action_hint': 'Hồ sơ đã được cấp huy hiệu uy tín.',
+            'tooltip': 'Hß╗ô s╞í v├á chß╗⌐ng chß╗ë ─æ├ú ─æ╞░ß╗úc Ban quß║ún trß╗ï VietTranslate kiß╗âm duyß╗çt & chß╗⌐ng nhß║¡n.',
+            'action_hint': 'Hß╗ô s╞í ─æ├ú ─æ╞░ß╗úc cß║Ñp huy hiß╗çu uy t├¡n.',
         }
     elif verif_req and getattr(verif_req, 'status', None) in ('needs_revision', 'revision_requested'):
         verification_status = {
             'code': 'needs_revision',
-            'label': 'Cần bổ sung',
+            'label': 'Cß║ºn bß╗ò sung',
             'color': 'amber',
             'badge_bg': 'bg-amber-50',
             'badge_text': 'text-amber-700',
             'badge_border': 'border-amber-200',
-            'tooltip': 'Ban quản trị yêu cầu bổ sung thông tin hoặc tài liệu xác minh.',
-            'action_hint': 'Cần bổ sung tài liệu theo yêu cầu của Admin.',
+            'tooltip': 'Ban quß║ún trß╗ï y├¬u cß║ºu bß╗ò sung th├┤ng tin hoß║╖c t├ái liß╗çu x├íc minh.',
+            'action_hint': 'Cß║ºn bß╗ò sung t├ái liß╗çu theo y├¬u cß║ºu cß╗ºa Admin.',
         }
     elif verif_req and getattr(verif_req, 'status', None) == 'rejected':
         verification_status = {
             'code': 'rejected',
-            'label': 'Bị từ chối',
+            'label': 'Bß╗ï tß╗½ chß╗æi',
             'color': 'rose',
             'badge_bg': 'bg-rose-50',
             'badge_text': 'text-rose-700',
             'badge_border': 'border-rose-200',
-            'tooltip': 'Hồ sơ xác minh chưa đạt yêu cầu của Ban quản trị.',
-            'action_hint': 'Xem lý do từ chối và nộp lại hồ sơ.',
+            'tooltip': 'Hß╗ô s╞í x├íc minh ch╞░a ─æß║ít y├¬u cß║ºu cß╗ºa Ban quß║ún trß╗ï.',
+            'action_hint': 'Xem l├╜ do tß╗½ chß╗æi v├á nß╗Öp lß║íi hß╗ô s╞í.',
         }
     elif (verif_req and getattr(verif_req, 'status', None) in ('pending', 'in_review')) or (profile.badges and profile.badges.strip()):
         verification_status = {
             'code': 'pending',
-            'label': 'Đang chờ duyệt',
+            'label': '─Éang chß╗¥ duyß╗çt',
             'color': 'blue',
             'badge_bg': 'bg-blue-50',
             'badge_text': 'text-blue-700',
             'badge_border': 'border-blue-200',
-            'tooltip': 'Bạn đã cung cấp chứng chỉ. Hồ sơ đang trong danh sách chờ Ban quản trị xét duyệt.',
-            'action_hint': 'Đang chờ Ban quản trị duyệt chứng chỉ.',
+            'tooltip': 'Bß║ín ─æ├ú cung cß║Ñp chß╗⌐ng chß╗ë. Hß╗ô s╞í ─æang trong danh s├ích chß╗¥ Ban quß║ún trß╗ï x├⌐t duyß╗çt.',
+            'action_hint': '─Éang chß╗¥ Ban quß║ún trß╗ï duyß╗çt chß╗⌐ng chß╗ë.',
         }
     else:
         verification_status = {
             'code': 'unverified',
-            'label': 'Chưa xác minh',
+            'label': 'Ch╞░a x├íc minh',
             'color': 'amber',
             'badge_bg': 'bg-amber-50',
             'badge_text': 'text-amber-700',
             'badge_border': 'border-amber-200',
-            'tooltip': 'Chưa nộp chứng chỉ. Nhấn để bổ sung chứng chỉ (IELTS, JLPT, HSK...) và gửi duyệt.',
-            'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
+            'tooltip': 'Ch╞░a nß╗Öp chß╗⌐ng chß╗ë. Nhß║Ñn ─æß╗â bß╗ò sung chß╗⌐ng chß╗ë (IELTS, JLPT, HSK...) v├á gß╗¡i duyß╗çt.',
+            'action_hint': 'Cß║ºn bß╗ò sung chß╗⌐ng chß╗ë ─æß╗â x├íc minh.',
         }
-    # ── 2. Bảng tin công việc mới nhất từ khách thuê (Đã qua kiểm duyệt hợp lệ) ──
-    today = date_cls.today()
-    feed_jobs = []
-    feed_jobs_error = None
-    try:
-        from sqlalchemy.orm import joinedload
-        feed_jobs_query = Job.query.options(joinedload(Job.hirer)).join(User, Job.hirer_id == User.id).filter(
-            Job.status == 'open',
-            Job.moderation_status == 'approved',
-            db.or_(Job.is_flagged == False, Job.is_flagged == None),
-            User.is_active == True,
-            db.or_(Job.deadline.is_(None), Job.deadline >= today)
-        ).order_by(Job.created_at.desc())
-        feed_jobs = feed_jobs_query.limit(6).all()
-    except Exception as e:
-        db.session.rollback()
-        feed_jobs_error = 'Không thể tải danh sách bài đăng lúc này. Vui lòng thử lại sau.'
-        print(f"[INTERPRETER DASHBOARD FEED ERROR] {e}", file=sys.stderr)
 
+    # ΓöÇΓöÇ 2. Thß╗æng k├¬ c├┤ng viß╗çc (3 chß╗ë sß╗æ cß╗æt l├╡i v├á dß╗» liß╗çu hß╗úp ─æß╗ông) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    today = date_cls.today()
+
+    # Chß╗ë sß╗æ 1: Sß╗æ ─æ╞ín ß╗⌐ng tuyß╗ân ─æang chß╗¥ (chß╗ë t├¡nh status == 'pending' cß╗ºa Interpreter)
+    proposals_all = Proposal.query.filter_by(translator_id=uid).all()
+    proposals_pending = [p for p in proposals_all if p.status == 'pending']
+    proposals_accepted = [p for p in proposals_all if p.status == 'accepted']
+    pending_proposals_count = len(proposals_pending)
+
+    # Chß╗ë sß╗æ 2: Sß╗æ ca l├ám sß║»p tß╗¢i (ca c├│ lß╗ïch hß╗úp lß╗ç: scheduled_date >= today, status in ('reserved', 'active'))
+    # ─Éß║úm bß║úo kh├┤ng t├¡nh ca ─æ├ú hß╗ºy hoß║╖c ─æ├ú ho├án th├ánh
+    all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
+    upcoming_schedules_all = [
+        s for s in all_schedules
+        if s.scheduled_date and s.scheduled_date >= today and s.status in ('reserved', 'active')
+    ]
+    scheduled_contract_ids = {s.contract_id for s in upcoming_schedules_all if s.contract_id}
+
+    # Hß╗úp ─æß╗ông cß╗ºa interpreter
+    contracts_all = Contract.query.filter_by(translator_id=uid).all()
+    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
+    contracts_done = [c for c in contracts_all if c.status == 'completed']
+    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
+
+    # Bß╗ò sung c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn c├│ lß╗ïch l├ám m├á ch╞░a gß║»n TranslatorSchedule (tr├ính ─æß║┐m tr├╣ng)
+    extra_active_contracts = [c for c in contracts_active if c.id not in scheduled_contract_ids]
+    upcoming_shifts_count = len(upcoming_schedules_all) + len(extra_active_contracts)
+
+    # Chß╗ë sß╗æ 3: Sß╗æ ca l├ám ─æ├ú ho├án th├ánh (chß╗ë t├¡nh ca/hß╗úp ─æß╗ông ─æ├ú c├│ trß║íng th├íi ho├án th├ánh hß╗úp lß╗ç)
+    # Tr├ính ─æß║┐m tr├╣ng c├╣ng mß╗Öt ca khi c├│ cß║ú contract_id v├á schedule ho├án th├ánh
+    completed_contract_ids = {c.id for c in contracts_done}
+    standalone_completed_schedules = [
+        s for s in all_schedules
+        if s.status == 'completed' and (not s.contract_id or s.contract_id not in completed_contract_ids)
+    ]
+    completed_shifts_count = len(contracts_done) + len(standalone_completed_schedules)
+
+    job_stats = {
+        'pending_proposals':  pending_proposals_count,
+        'upcoming_shifts':    upcoming_shifts_count,
+        'completed_shifts':   completed_shifts_count,
+        'total_contracts':    len(contracts_all),
+        'active_contracts':   len(contracts_active),
+        'completed':          len(contracts_done),
+        'accepted_proposals': len(proposals_accepted),
+        'rating':             profile.rating if profile else 0.0,
+        'total_reviews':      profile.total_reviews if profile else 0,
+    }
+
+    # ΓöÇΓöÇ 3. Thß╗æng k├¬ thu nhß║¡p (tß╗½ contracts completed c├│ agreed_price) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    import calendar
+    first_of_month = today.replace(day=1)
+    _, last_day = calendar.monthrange(today.year, today.month)
+    end_of_month = today.replace(day=last_day)
+    period_label = f"Th├íng {today.month:02d}/{today.year}"
+    period_range = f"01/{today.month:02d} - {last_day:02d}/{today.month:02d}/{today.year}"
+
+    # 1. Thu nhß║¡p trong kß╗│ hiß╗çn tß║íi: Hß╗úp ─æß╗ông ho├án tß║Ñt (nghiß╗çm thu giß║úi ng├ón) trong th├íng hiß╗çn tß║íi
+    monthly_contracts = [
+        c for c in contracts_done
+        if c.updated_at and c.updated_at.date() >= first_of_month and c.updated_at.date() <= end_of_month
+    ]
+    monthly_earned = sum(c.agreed_price for c in monthly_contracts if c.agreed_price)
+
+    # 2. Thu nhß║¡p ─æ├ú thanh to├ín: Tß╗òng c├íc khoß║ún thß╗▒c sß╗▒ ─æ├ú thanh to├ín (nghiß╗çm thu/giß║úi ng├ón t├¡ch l┼⌐y)
+    total_earned = sum(c.agreed_price for c in contracts_done if c.agreed_price)
+
+    # 3. Khoß║ún thu nhß║¡p ─æang chß╗¥ xß╗¡ l├╜:
+    # - Tiß╗ün ─æang giß╗» an to├án trong Escrow cho c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn (in_progress, active, escrow_held)
+    pending_payout = sum(c.agreed_price for c in contracts_active if c.agreed_price)
+    # - Khoß║ún chß╗¥ kh├ích nß║íp tiß╗ün k├╜ quß╗╣ Escrow (escrow_pending)
+    escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
+
+    income_stats = {
+        'total_earned':              total_earned,
+        'monthly_earned':            monthly_earned,
+        'pending_payout':            pending_payout,
+        'escrow_pending_amount':     escrow_pending_amount,
+        'period_label':              period_label,
+        'period_range':              period_range,
+        'period_start':              f"01/{today.month:02d}/{today.year}",
+        'period_end':                f"{last_day:02d}/{today.month:02d}/{today.year}",
+        'monthly_contracts_count':   len(monthly_contracts),
+        'completed_contracts_count': len(contracts_done),
+        'active_contracts_count':    len(contracts_active),
+        'escrow_pending_count':      len(contracts_pending_payment),
+    }
+
+    # ΓöÇΓöÇ 4. Ca l├ám sß║»p tß╗¢i (Sß║»p xß║┐p t─âng dß║ºn theo thß╗¥i ─æiß╗âm bß║»t ─æß║ºu) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    from datetime import datetime as dt_cls, time as time_cls
+    from services.schedule import _parse_date, _parse_time
+    now = dt_cls.now()
+    now_time = now.time()
+
+    WEEKDAYS_VN = {
+        0: 'Thß╗⌐ Hai',
+        1: 'Thß╗⌐ Ba',
+        2: 'Thß╗⌐ T╞░',
+        3: 'Thß╗⌐ N─âm',
+        4: 'Thß╗⌐ S├íu',
+        5: 'Thß╗⌐ Bß║úy',
+        6: 'Chß╗º Nhß║¡t'
+    }
+
+    upcoming_shifts_list = []
+    seen_contract_ids = set()
+
+    # Nguß╗ôn 1: C├íc lß╗ïch ─æß║╖t trong TranslatorSchedule (status reserved hoß║╖c active)
+    for sch in upcoming_schedules_all:
+        if not sch.scheduled_date:
+            continue
+        # Bß╗Å qua ca ─æ├ú qua trong ng├áy h├┤m nay nß║┐u end_time ─æ├ú kß║┐t th├║c v├á kh├┤ng c├▓n active
+        if sch.scheduled_date == today and sch.end_time and sch.end_time < now_time and sch.status != 'active':
+            continue
+
+        c = sch.contract
+        j = sch.job or (c.job if c else None)
+        s = sch.service or (c.service if c else None)
+
+        if c:
+            seen_contract_ids.add(c.id)
+
+        # Ti├¬u ─æß╗ü ca l├ám viß╗çc
+        title = None
+        if j and j.title:
+            title = j.title
+        elif s and s.name:
+            title = s.name
+        elif c:
+            title = f"Hß╗úp ─æß╗ông phi├¬n dß╗ïch #{c.id}"
+        else:
+            title = f"Ca phi├¬n dß╗ïch #{sch.id}"
+
+        # H├¼nh thß╗⌐c l├ám viß╗çc & ─Éß╗ïa ─æiß╗âm
+        raw_location = (c.location if c and c.location else (j.event_location if j and j.event_location else '')).strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
+            'location': raw_location if is_onsite else 'Online / Tß╗½ xa'
+        }
+
+        # Trß║íng th├íi ca l├ám viß╗çc
+        is_active_now = (sch.status == 'active' or (sch.scheduled_date == today and sch.start_time and sch.start_time <= now_time and sch.end_time and sch.end_time >= now_time))
+        if is_active_now:
+            status_meta = {
+                'code': 'active',
+                'label': '─Éang diß╗àn ra',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500 animate-pulse'
+            }
+        elif sch.status == 'active':
+            status_meta = {
+                'code': 'confirmed',
+                'label': '─É├ú x├íc nhß║¡n',
+                'badge_bg': 'bg-blue-50',
+                'badge_text': 'text-blue-700',
+                'badge_border': 'border-blue-200',
+                'dot_color': 'bg-blue-500'
+            }
+        else:
+            status_meta = {
+                'code': 'reserved',
+                'label': 'Chß╗¥ bß║»t ─æß║ºu',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        # Nh├ún thß╗¥i gian t╞░╞íng ─æß╗æi
+        delta_days = (sch.scheduled_date - today).days
+        if delta_days == 0:
+            relative_badge = 'H├┤m nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ng├áy mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ng├áy'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(sch.scheduled_date.weekday(), f'+{delta_days} ng├áy')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = sch.start_time.strftime('%H:%M') if sch.start_time else ''
+        end_str = sch.end_time.strftime('%H:%M') if sch.end_time else ''
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoß║ít')
+
+        if c:
+            detail_url = url_for('transaction_detail', contract_id=c.id)
+        elif j:
+            detail_url = url_for('job_detail', job_id=j.id)
+        else:
+            detail_url = url_for('account_history')
+
+        client_name = c.hirer.name if (c and c.hirer) else (j.hirer.name if (j and j.hirer) else None)
+        category_name = j.display_category_text() if j else (s.name if s else 'Phi├¬n dß╗ïch')
+
+        upcoming_shifts_list.append({
+            'id': sch.id,
+            'contract_id': c.id if c else None,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': sch.scheduled_date,
+            'date_display': sch.scheduled_date.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(sch.scheduled_date.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': sch.start_time or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': detail_url,
+            'client_name': client_name,
+            'category_name': category_name,
+            'price': c.agreed_price if c else None
+        })
+
+    # Nguß╗ôn 2: Bß╗ò sung c├íc hß╗úp ─æß╗ông ─æang thß╗▒c hiß╗çn c├│ lß╗ïch l├ám m├á ch╞░a tß║ío TranslatorSchedule
+    for c in contracts_active + contracts_pending_payment:
+        if c.id in seen_contract_ids:
+            continue
+        raw_d = _parse_date(c.scheduled_date)
+        if not raw_d or raw_d < today:
+            continue
+
+        start_t = _parse_time(c.scheduled_time_start)
+        end_t = _parse_time(c.scheduled_time_end)
+
+        if raw_d == today and end_t and end_t < now_time:
+            continue
+
+        seen_contract_ids.add(c.id)
+        j = c.job
+        s = c.service
+        title = j.title if (j and j.title) else (s.name if (s and s.name) else f"Hß╗úp ─æß╗ông phi├¬n dß╗ïch #{c.id}")
+
+        raw_location = (c.location or (j.event_location if j else '') or '').strip()
+        is_onsite = bool(raw_location and not any(k in raw_location.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
+        work_mode = {
+            'type': 'onsite' if is_onsite else 'online',
+            'label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
+            'location': raw_location if is_onsite else 'Online / Tß╗½ xa'
+        }
+
+        if c.status in ('in_progress', 'active', 'escrow_held'):
+            status_meta = {
+                'code': 'confirmed',
+                'label': '─Éang thß╗▒c hiß╗çn (Escrow)',
+                'badge_bg': 'bg-emerald-50',
+                'badge_text': 'text-emerald-700',
+                'badge_border': 'border-emerald-200',
+                'dot_color': 'bg-emerald-500'
+            }
+        else:
+            status_meta = {
+                'code': 'pending_escrow',
+                'label': 'Chß╗¥ k├╜ quß╗╣ Escrow',
+                'badge_bg': 'bg-amber-50',
+                'badge_text': 'text-amber-700',
+                'badge_border': 'border-amber-200',
+                'dot_color': 'bg-amber-500'
+            }
+
+        delta_days = (raw_d - today).days
+        if delta_days == 0:
+            relative_badge = 'H├┤m nay'
+            badge_color = 'bg-rose-50 text-rose-700 border-rose-200'
+        elif delta_days == 1:
+            relative_badge = 'Ng├áy mai'
+            badge_color = 'bg-amber-50 text-amber-700 border-amber-200'
+        elif delta_days <= 3:
+            relative_badge = f'Trong {delta_days} ng├áy'
+            badge_color = 'bg-blue-50 text-blue-700 border-blue-200'
+        else:
+            relative_badge = WEEKDAYS_VN.get(raw_d.weekday(), f'+{delta_days} ng├áy')
+            badge_color = 'bg-slate-100 text-slate-700 border-slate-200'
+
+        start_str = start_t.strftime('%H:%M') if start_t else (c.scheduled_time_start or '')
+        end_str = end_t.strftime('%H:%M') if end_t else (c.scheduled_time_end or '')
+        time_display = f"{start_str} - {end_str}" if (start_str and end_str) else (start_str or 'Linh hoß║ít')
+
+        upcoming_shifts_list.append({
+            'id': c.id,
+            'contract_id': c.id,
+            'job_id': j.id if j else None,
+            'title': title,
+            'scheduled_date': raw_d,
+            'date_display': raw_d.strftime('%d/%m/%Y'),
+            'day_of_week': WEEKDAYS_VN.get(raw_d.weekday(), ''),
+            'relative_badge': relative_badge,
+            'badge_color': badge_color,
+            'start_time': start_t or time_cls(0, 0),
+            'time_display': time_display,
+            'work_mode': work_mode,
+            'status': status_meta,
+            'detail_url': url_for('transaction_detail', contract_id=c.id),
+            'client_name': c.hirer.name if c.hirer else None,
+            'category_name': j.display_category_text() if j else 'Phi├¬n dß╗ïch',
+            'price': c.agreed_price
+        })
+
+    # Sß║»p xß║┐p t─âng dß║ºn theo thß╗¥i gian bß║»t ─æß║ºu
+    upcoming_shifts_list.sort(key=lambda x: (x['scheduled_date'], x['start_time'] or time_cls(0, 0)))
+    total_upcoming_shifts = len(upcoming_shifts_list)
+    upcoming_shifts = upcoming_shifts_list[:6]
+    upcoming_schedules = upcoming_shifts
+
+    # ΓöÇΓöÇ 5. Viß╗çc l├ám ─æß╗ü xuß║Ñt (d├╣ng matching service hiß╗çn c├│) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    has_profile_languages = bool(
+        (profile and profile.languages and profile.languages.strip()) or
+        (preference and preference.languages and preference.languages.strip()) or
+        (preference and getattr(preference, 'language_pairs', None) and preference.language_pairs.strip())
+    )
+
+    recommended_jobs = []
+    try:
+        from services.matching import get_recommended_jobs_for_translator
+        current_lang = session.get('lang') or request.cookies.get('lang') or 'vi'
+        recommended_raw = get_recommended_jobs_for_translator(uid, 6, current_lang)
+        if recommended_raw:
+            job_ids = [r['job_id'] for r in recommended_raw]
+            jobs_map = {j.id: j for j in Job.query.filter(Job.id.in_(job_ids)).all()}
+            for r in recommended_raw:
+                j = jobs_map.get(r['job_id'])
+                if j and j.status == 'open' and not j.is_flagged:
+                    loc = (j.event_location or '').strip()
+                    is_onsite = bool(loc and not any(k in loc.lower() for k in ['online', 'tß╗½ xa', 'remote', 'zoom', 'teams', 'google meet']))
+
+                    recommended_jobs.append({
+                        'job': j,
+                        'match_score': r.get('match_score', 0),
+                        'reasons': r.get('reasons', []),
+                        'is_matched': True,
+                        'work_mode_label': 'Trß╗▒c tiß║┐p' if is_onsite else 'Trß╗▒c tuyß║┐n',
+                        'work_mode_type': 'onsite' if is_onsite else 'online',
+                        'location_display': loc if is_onsite else 'Online / Tß╗½ xa',
+                        'applicant_count': j.applicant_count,
+                        'category_text': j.display_category_text(current_lang),
+                    })
+    except Exception as e:
+        print(f"[interpreter_dashboard] recommended jobs error: {e}")
+        recommended_jobs = []
 
     return render_template(
         'interpreter_dashboard.html',
@@ -1452,8 +1780,13 @@ def interpreter_dashboard():
         profile_completeness=profile_completeness,
         profile_missing=profile_missing,
         verification_status=verification_status,
-        feed_jobs=feed_jobs,
-        feed_jobs_error=feed_jobs_error,
+        job_stats=job_stats,
+        income_stats=income_stats,
+        upcoming_schedules=upcoming_schedules,
+        upcoming_shifts=upcoming_shifts,
+        total_upcoming_shifts=total_upcoming_shifts,
+        recommended_jobs=recommended_jobs,
+        has_profile_languages=has_profile_languages,
         today=today,
     )
 
