@@ -8957,7 +8957,7 @@ def job_list():
     sort = request.args.get('sort', '')
     page = request.args.get('page', 1, type=int)
     recommended = request.args.get('recommended')
-    per_page = 10
+    per_page = request.args.get('per_page', 120, type=int)
 
     # Lấy các công việc đang mở, đã duyệt, không bị gắn cờ và còn trong thời hạn ứng tuyển
     today = date.today()

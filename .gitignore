@@ -11,3 +11,5 @@ instance/
 .env
 .env.local
 .env*.local
+*.bak*
+

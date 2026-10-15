@@ -642,32 +642,32 @@
                         .catch(e => console.error('Failed to load recommended translators:', e));
                 })();
 
-                function inviteTranslator(translatorId, btn) {
-                    if (btn.disabled) return;
-                    btn.disabled = true;
-                    const originalText = btn.innerText;
-                    btn.innerText = "{{ t('job_detail_page.inviting_btn') }}";
-                    btn.classList.replace('bg-brand-600', 'bg-slate-400');
-                    btn.classList.remove('hover:bg-brand-700');
+            function inviteTranslator(translatorId, btn) {
+                if (btn.disabled) return;
+                btn.disabled = true;
+                const originalText = btn.innerText;
+                btn.innerText = "{{ t('job_detail_page.inviting_btn') }}";
+                btn.classList.replace('bg-brand-600', 'bg-slate-400');
+                btn.classList.remove('hover:bg-brand-700');
 
-                    fetch('/api/jobs/{{ job.id }}/invite/' + translatorId, { method: 'POST' })
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.status === 'success') {
-                                btn.innerText = "{{ t('job_detail_page.invited_btn') }}";
-                                btn.classList.replace('bg-slate-400', 'bg-emerald-600');
-                            } else {
-                                throw new Error('API failed');
-                            }
-                        })
-                        .catch(e => {
-                            btn.disabled = false;
-                            btn.innerText = originalText;
-                            btn.classList.replace('bg-slate-400', 'bg-brand-600');
-                            btn.classList.add('hover:bg-brand-700');
-                            alert("{{ t('job_detail_page.invite_error') }}");
-                        });
-                }
+                fetch('/api/jobs/{{ job.id }}/invite/' + translatorId, { method: 'POST' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            btn.innerText = "{{ t('job_detail_page.invited_btn') }}";
+                            btn.classList.replace('bg-slate-400', 'bg-emerald-600');
+                        } else {
+                            throw new Error('API failed');
+                        }
+                    })
+                    .catch(e => {
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                        btn.classList.replace('bg-slate-400', 'bg-brand-600');
+                        btn.classList.add('hover:bg-brand-700');
+                        alert("{{ t('job_detail_page.invite_error') }}");
+                    });
+            }
             </script>
             {% endif %}
 
@@ -706,7 +706,6 @@
                         <span class="font-bold text-slate-800 text-right">{{ job.event_date }}</span>
                     </div>
                     {% endif %}
-
                     {% if job.event_location %}
                     <div class="flex justify-between items-center py-1 border-b border-slate-50">
                         <span class="text-slate-500">Địa điểm:</span>
