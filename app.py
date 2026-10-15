@@ -1667,50 +1667,83 @@ def interpreter_dashboard():
             'action_hint': 'Cần bổ sung chứng chỉ để xác minh.',
         }
 
-    # ── 2. Thống kê công việc (3 chỉ số cốt lõi và dữ liệu hợp đồng) ─────────
+    # ── 2. Thống kê công việc (Đồng bộ 100% với trang Thống kê công việc /job-statistics) ─────────
     today = date_cls.today()
 
-    # Chỉ số 1: Số đơn ứng tuyển đang chờ (chỉ tính status == 'pending' của Interpreter)
-    proposals_all = Proposal.query.filter_by(translator_id=uid).all()
-    proposals_pending = [p for p in proposals_all if p.status == 'pending']
-    proposals_accepted = [p for p in proposals_all if p.status == 'accepted']
-    pending_proposals_count = len(proposals_pending)
+    all_user_proposals = Proposal.query.filter_by(translator_id=uid).all()
+    all_user_contracts = Contract.query.filter_by(translator_id=uid).all()
 
-    # Chỉ số 2: Số ca làm sắp tới (ca có lịch hợp lệ: scheduled_date >= today, status in ('reserved', 'active'))
-    # Đảm bảo không tính ca đã hủy hoặc đã hoàn thành
+    try:
+        saved_records = SavedJob.query.filter_by(user_id=uid).all()
+        saved_jobs_count = len([s.job for s in saved_records if s.job])
+    except Exception:
+        db.session.rollback()
+        saved_jobs_count = 0
+
+    # 4 chỉ số chính đồng bộ chuẩn xác với trang Thống kê công việc:
+    # 1. Đang ứng tuyển: Đang chờ phản hồi / đang xem xét / cần phản hồi / được chọn chờ xác nhận
+    pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
+    pending_review_count = len(pending_review_proposals)
+
+    # 2. Đã nhận: Hợp đồng đã tạo và sẵn sàng / ký quỹ
+    accepted_upcoming_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] in ['escrow_pending', 'upcoming']]
+    accepted_count = len(accepted_upcoming_contracts)
+
+    # 3. Đang thực hiện: Ca đang diễn ra & ca chờ xác nhận hoàn thành (delivered)
+    in_progress_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == 'in_progress']
+    in_progress_count = len(in_progress_contracts)
+    delivered_contracts = [c for c in all_user_contracts if c.status == 'delivered']
+    delivered_count = len(delivered_contracts)
+    in_progress_total = in_progress_count + delivered_count
+
+    # 4. Đã hoàn thành: Đã nghiệm thu xong
+    completed_contracts = [c for c in all_user_contracts if c.status in ['completed', 'reviewed']]
+    completed_count = len(completed_contracts)
+
+    proposals_all = all_user_proposals
+    proposals_pending = pending_review_proposals
+    proposals_accepted = [p for p in all_user_proposals if p.status == 'accepted']
+    pending_proposals_count = pending_review_count
+
+    # Hợp đồng của interpreter phục vụ các phần khác
+    contracts_all = all_user_contracts
+    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
+    contracts_done = [c for c in contracts_all if c.status in ('completed', 'reviewed')]
+    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
+
+    # translator schedules cho ca làm sắp tới
     all_schedules = TranslatorSchedule.query.filter_by(translator_id=uid).all()
     upcoming_schedules_all = [
         s for s in all_schedules
         if s.scheduled_date and s.scheduled_date >= today and s.status in ('reserved', 'active')
     ]
     scheduled_contract_ids = {s.contract_id for s in upcoming_schedules_all if s.contract_id}
-
-    # Hợp đồng của interpreter
-    contracts_all = Contract.query.filter_by(translator_id=uid).all()
-    contracts_active = [c for c in contracts_all if c.status in ('escrow_held', 'in_progress', 'active')]
-    contracts_done = [c for c in contracts_all if c.status == 'completed']
-    contracts_pending_payment = [c for c in contracts_all if c.status == 'escrow_pending']
-
-    # Bổ sung các hợp đồng đang thực hiện có lịch làm mà chưa gắn TranslatorSchedule (tránh đếm trùng)
     extra_active_contracts = [c for c in contracts_active if c.id not in scheduled_contract_ids]
     upcoming_shifts_count = len(upcoming_schedules_all) + len(extra_active_contracts)
 
-    # Chỉ số 3: Số ca làm đã hoàn thành (chỉ tính ca/hợp đồng đã có trạng thái hoàn thành hợp lệ)
-    # Tránh đếm trùng cùng một ca khi có cả contract_id và schedule hoàn thành
-    completed_contract_ids = {c.id for c in contracts_done}
-    standalone_completed_schedules = [
-        s for s in all_schedules
-        if s.status == 'completed' and (not s.contract_id or s.contract_id not in completed_contract_ids)
-    ]
-    completed_shifts_count = len(contracts_done) + len(standalone_completed_schedules)
+    metrics = {
+        'total_applications': len(all_user_proposals),
+        'pending_review':     pending_review_count,
+        'accepted':           accepted_count,
+        'in_progress':        in_progress_count,
+        'in_progress_total':  in_progress_total,
+        'delivered':          delivered_count,
+        'completed':          completed_count,
+        'saved':              saved_jobs_count,
+    }
 
     job_stats = {
-        'pending_proposals':  pending_proposals_count,
-        'upcoming_shifts':    upcoming_shifts_count,
-        'completed_shifts':   completed_shifts_count,
+        'pending_review':     pending_review_count,
+        'accepted':           accepted_count,
+        'in_progress':        in_progress_count,
+        'in_progress_total':  in_progress_total,
+        'completed':          completed_count,
+        'pending_proposals':  pending_review_count,
+        'upcoming_shifts':    accepted_count,
+        'completed_shifts':   completed_count,
         'total_contracts':    len(contracts_all),
-        'active_contracts':   len(contracts_active),
-        'completed':          len(contracts_done),
+        'active_contracts':   in_progress_total,
+        'completed_contracts': completed_count,
         'accepted_proposals': len(proposals_accepted),
         'rating':             profile.rating if profile else 0.0,
         'total_reviews':      profile.total_reviews if profile else 0,
@@ -2250,6 +2283,7 @@ def interpreter_dashboard():
         profile_missing=profile_missing,
         verification_status=verification_status,
         job_stats=job_stats,
+        metrics=metrics,
         income_stats=income_stats,
         upcoming_schedules=upcoming_schedules,
         upcoming_shifts=upcoming_shifts,
