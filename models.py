@@ -49,6 +49,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_demo = db.Column(db.Boolean, default=False, index=True)
     email_verified = db.Column(db.Boolean, default=False)
     verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
@@ -228,7 +229,68 @@ class TranslatorProfile(db.Model):
     notable_clients = db.Column(db.Text, nullable=True)
     featured_projects = db.Column(db.Text, nullable=True)
 
+    # Dữ liệu demo & Định giá / Khả dụng bổ sung
+    is_demo = db.Column(db.Boolean, default=False, index=True)
+    hourly_rate = db.Column(db.Float, nullable=True)
+    daily_rate = db.Column(db.Float, nullable=True)
+    currency = db.Column(db.String(10), default='VND')
+    employment_preference = db.Column(db.String(100), nullable=True)
+    availability_status = db.Column(db.String(100), default='Sẵn sàng nhận việc')
+    service_areas = db.Column(db.String(255), nullable=True)
+    country = db.Column(db.String(100), default='Việt Nam')
+    native_language = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
     services = db.relationship('Service', backref='profile', lazy=True)
+
+    @property
+    def display_hourly_rate(self):
+        """Định dạng mức giá theo giờ hiển thị."""
+        if self.hourly_rate:
+            curr = self.currency or 'VND'
+            if curr == 'USD':
+                return f"${int(self.hourly_rate)}/giờ"
+            return f"{int(self.hourly_rate):,}".replace(',', '.') + " VND/giờ"
+        return None
+
+    @property
+    def display_daily_rate(self):
+        """Định dạng mức giá theo ngày hiển thị."""
+        if self.daily_rate:
+            curr = self.currency or 'VND'
+            if curr == 'USD':
+                return f"${int(self.daily_rate)}/ngày"
+            return f"{int(self.daily_rate):,}".replace(',', '.') + " VND/ngày"
+        return None
+
+    @property
+    def display_rate_summary(self):
+        """Tóm tắt mức giá theo giờ / ngày."""
+        parts = []
+        if self.display_hourly_rate:
+            parts.append(self.display_hourly_rate)
+        if self.display_daily_rate:
+            parts.append(self.display_daily_rate)
+        return " · ".join(parts) if parts else "Thỏa thuận theo dự án"
+
+    @property
+    def display_country(self):
+        """Quốc gia làm việc."""
+        return self.country or 'Việt Nam'
+
+    @property
+    def display_location(self):
+        """Địa điểm công tác chính."""
+        if self.user and self.user.city:
+            return self.user.city
+        return self.service_areas or 'Hà Nội'
+
+    @property
+    def display_native_language(self):
+        """Ngôn ngữ mẹ đẻ."""
+        if self.native_language:
+            return self.native_language
+        return self.display_source_language
 
     @property
     def avatar_url(self):

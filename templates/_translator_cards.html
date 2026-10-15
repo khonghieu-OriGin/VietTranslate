@@ -42,17 +42,28 @@ window.VT = {
         ${fl.avatar_url ? `<img src="${esc(fl.avatar_url)}" alt="${esc(fl.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" class="w-full h-full object-cover object-top">` : ''}
         <div style="display:${fl.avatar_url ? 'none' : 'flex'}" class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-lg font-extrabold">${esc(fl.initial)}</div>
       </div>`;
-    const verified = fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold">✓ ${T('Xác minh', 'Verified')}</span>` : '';
+    const verified = fl.is_demo
+      ? `<span class="bg-amber-50 border border-amber-200/80 text-amber-700 text-[11px] px-2 py-0.5 rounded-md font-semibold" title="${T('Dữ liệu mẫu demo', 'Demo Profile')}">⚡ ${T('Hồ sơ demo', 'Demo Profile')}</span>`
+      : (fl.is_verified ? `<span class="bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-[11px] px-2 py-0.5 rounded-md font-semibold">✓ ${T('Xác minh', 'Verified')}</span>` : '');
     const favBtn = showFav ? `<button type="button" data-fav="${fl.id}" aria-pressed="${fl.is_favorite ? 'true' : 'false'}" title="${T('Lưu / bỏ lưu', 'Save / unsave')}" aria-label="${T('Lưu phiên dịch viên', 'Save interpreter')} ${esc(fl.name)}" class="fav-btn w-8 h-8 shrink-0 rounded-full border border-slate-200 bg-white text-slate-400 hover:text-rose-500 flex items-center justify-center text-base leading-none">♥</button>` : '';
 
     const rating = fl.total_reviews > 0
       ? `<div class="flex items-center gap-1.5 text-xs mb-3"><div class="flex text-amber-500">${stars(fl.rating)}</div><span class="font-bold text-slate-800">${fl.rating.toFixed(1)}</span><span class="text-slate-400">(${fl.total_reviews} ${T('đánh giá', 'reviews')})</span></div>`
       : `<p class="text-xs text-slate-400 mb-3">${T('Chưa có đánh giá', 'No reviews yet')}</p>`;
-    const exp = fl.total_jobs > 0 ? `<span>${fl.total_jobs} ${T('dự án đã thực hiện', 'projects completed')}</span>` : `<span>${T('Chưa có dự án trên nền tảng', 'No projects yet')}</span>`;
+    
+    const expText = fl.experience_years ? `<strong>${fl.experience_years}</strong> ${T('năm KN', 'years exp')}` : (fl.total_jobs > 0 ? `<span>${fl.total_jobs} ${T('dự án đã thực hiện', 'projects completed')}</span>` : `<span>${T('Hồ sơ nhân sự mẫu', 'Demo Profile')}</span>`);
+    const locText = fl.location ? `<span>📍 ${esc(fl.location)}</span>` : '';
+    const expRow = `<div class="flex items-center gap-2 text-xs text-slate-500 mb-3">${locText}${locText ? '<span class="text-slate-300">·</span>' : ''}${expText}</div>`;
+
+    const curr = fl.currency || 'VND';
     const price = fl.min_price != null
-      ? (fl.max_price != null && fl.max_price !== fl.min_price
-          ? `${fl.min_price.toLocaleString('en-US')} – ${fl.max_price.toLocaleString('en-US')} VND`
-          : `${T('Từ ', 'From ')}${fl.min_price.toLocaleString('en-US')} VND`)
+      ? (curr === 'USD'
+          ? (fl.max_price != null && fl.max_price !== fl.min_price
+              ? `$${fl.min_price} – $${fl.max_price} USD`
+              : `${T('Từ ', 'From ')}$${fl.min_price} USD`)
+          : (fl.max_price != null && fl.max_price !== fl.min_price
+              ? `${fl.min_price.toLocaleString('en-US')} – ${fl.max_price.toLocaleString('en-US')} VND`
+              : `${T('Từ ', 'From ')}${fl.min_price.toLocaleString('en-US')} VND`))
       : T('Chưa công bố giá', 'Price not listed');
     const pairs = (fl.language_pairs && fl.language_pairs.length ? fl.language_pairs : fl.languages).map(chip).join('');
     const spec = fl.specialties && fl.specialties.length ? `<div class="flex flex-wrap gap-1.5 mb-3">${fl.specialties.map(s => `<span class="text-[11px] font-semibold text-brand-700 bg-brand-50 border border-brand-200/60 px-2 py-0.5 rounded-md">${esc(s)}</span>`).join('')}</div>` : '';
@@ -63,7 +74,7 @@ window.VT = {
         <div class="flex justify-between items-start mb-4 gap-2">${avatar}<div class="flex items-center gap-2">${verified}${favBtn}</div></div>
         <h3 class="font-bold text-slate-900 text-base mb-1 break-words"><a href="${safeUrl(fl.profile_url)}" class="hover:text-brand-600 transition-colors">${esc(fl.name)}</a></h3>
         <p class="text-xs text-slate-500 mb-2 line-clamp-2 leading-relaxed">${esc(fl.title) || T('Phiên dịch viên', 'Interpreter')}</p>
-        <p class="text-xs text-slate-500 mb-3">${exp}</p>
+        ${expRow}
         ${rating}
         <div class="flex flex-wrap gap-1.5 mb-3">${pairs}</div>
         ${spec}${badges}

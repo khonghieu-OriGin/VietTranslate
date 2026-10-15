@@ -6723,21 +6723,28 @@ def interpreter_income_bank_info():
 def translator_list():
     lang = request.args.get('lang', '')
     rating_filter = request.args.get('rating', '')
+    demo_filter = request.args.get('demo', '')
     page = request.args.get('page', 1, type=int)
     per_page = 9
 
     query = TranslatorProfile.query.join(User).filter(
-        TranslatorProfile.is_verified == True,
         User.is_active == True,
         db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
     )
+    if demo_filter == 'hide':
+        query = query.filter(TranslatorProfile.is_demo != True, TranslatorProfile.is_verified == True)
+    elif demo_filter == 'only':
+        query = query.filter(TranslatorProfile.is_demo == True)
+    else:
+        query = query.filter(db.or_(TranslatorProfile.is_verified == True, TranslatorProfile.is_demo == True))
+
     if lang:
         safe_lang = lang.replace('%', r'\%').replace('_', r'\_')
         query = query.filter(TranslatorProfile.languages.ilike(f'%{safe_lang}%'))
     if rating_filter:
         query = query.filter(TranslatorProfile.rating >= float(rating_filter))
 
-    pagination = query.order_by(TranslatorProfile.rating.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    pagination = query.order_by(TranslatorProfile.rating.desc(), TranslatorProfile.id.asc()).paginate(page=page, per_page=per_page, error_out=False)
     return render_template('translator_list.html', profiles=pagination.items,
                            pagination=pagination, lang_filter=lang, LANGUAGES=LANGUAGES)
 
@@ -6766,6 +6773,11 @@ def api_health():
 def _translator_card(p, favorite_ids=frozenset()):
     """Dữ liệu công khai của một hồ sơ phiên dịch viên (không có email/điện thoại)."""
     prices = [s.basic_price for s in p.services if s.basic_price]
+    if not prices:
+        if getattr(p, 'hourly_rate', None):
+            prices.append(int(p.hourly_rate))
+        if getattr(p, 'daily_rate', None):
+            prices.append(int(p.daily_rate))
     min_days = None
     for s in p.services:
         for field in (s.basic_delivery, s.standard_delivery, s.premium_delivery):
@@ -6774,8 +6786,16 @@ def _translator_card(p, favorite_ids=frozenset()):
                 min_days = int(nums[0])
     split = lambda v: [x.strip() for x in (v or '').split(',') if x.strip()]
     specialties = sorted({s.category.strip() for s in p.services if s.category and s.category.strip()})
+    if not specialties:
+        specialties = p.display_specializations
     pairs = sorted({s.languages.strip() for s in p.services if s.languages and s.languages.strip()})
+    if not pairs:
+        src = p.display_source_language
+        tgt = p.display_target_language
+        if src and tgt:
+            pairs = [f"{src} - {tgt}"]
     name = p.user.name or ''
+    city = (p.user.city if p.user and p.user.city else '') or getattr(p, 'service_areas', None) or 'Hà Nội'
     return {
         'id': p.id,
         'user_id': p.user_id,
@@ -6795,6 +6815,15 @@ def _translator_card(p, favorite_ids=frozenset()):
         'max_price': max(prices) if prices else None,
         'completion_days': min_days,
         'is_verified': bool(p.is_verified),
+        'is_demo': bool(getattr(p, 'is_demo', False)),
+        'location': city,
+        'country': getattr(p, 'country', 'Việt Nam'),
+        'work_modes': p.display_work_modes,
+        'employment_preference': getattr(p, 'employment_preference', 'Freelance'),
+        'availability_status': getattr(p, 'availability_status', 'Sẵn sàng nhận việc'),
+        'currency': getattr(p, 'currency', 'VND'),
+        'hourly_rate': getattr(p, 'hourly_rate', None),
+        'daily_rate': getattr(p, 'daily_rate', None),
         'is_favorite': p.user_id in favorite_ids,
         'profile_url': url_for('translator_profile', profile_id=p.id),
         'chat_url': url_for('direct_chat', translator_user_id=p.user_id),
@@ -6826,12 +6855,21 @@ def api_translators():
     """JSON API cho tìm kiếm/lọc phía client. Chỉ trả dữ liệu hồ sơ công khai của tài khoản đang hoạt động."""
     try:
         from sqlalchemy.orm import joinedload
-        profiles = TranslatorProfile.query.options(
+        demo_filter = request.args.get('demo', '')
+        query = TranslatorProfile.query.options(
             joinedload(TranslatorProfile.user), joinedload(TranslatorProfile.services)
         ).join(User).filter(
-            TranslatorProfile.is_verified == True,
-            User.is_active == True
-        ).order_by(TranslatorProfile.rating.desc()).all()
+            User.is_active == True,
+            db.or_(TranslatorProfile.is_public == True, TranslatorProfile.is_public.is_(None))
+        )
+        if demo_filter == 'hide':
+            query = query.filter(TranslatorProfile.is_demo != True, TranslatorProfile.is_verified == True)
+        elif demo_filter in ('only', 'demo'):
+            query = query.filter(TranslatorProfile.is_demo == True)
+        else:
+            query = query.filter(db.or_(TranslatorProfile.is_verified == True, TranslatorProfile.is_demo == True))
+
+        profiles = query.order_by(TranslatorProfile.rating.desc(), TranslatorProfile.id.asc()).all()
         fav = _current_favorite_ids()
         return jsonify([_translator_card(p, fav) for p in profiles if _translator_listed(p)])
     except Exception as e:
