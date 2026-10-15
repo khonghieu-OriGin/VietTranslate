@@ -8176,12 +8176,13 @@ def job_statistics():
     # 1. Thống kê theo chuẩn nghiệp vụ (Không hard-code, không trùng lặp)
     total_applications = len(all_user_proposals)
 
-    pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response']]
+    # Đang chờ phản hồi / đang xem xét / cần phản hồi / được chọn chờ xác nhận
+    pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
     pending_review_count = len(pending_review_proposals)
 
-    selected_proposals = [p for p in all_user_proposals if p.effective_status == 'selected']
+    # Ca làm việc đã nhận chính thức (hợp đồng đã tạo và sẵn sàng/ký quỹ)
     accepted_upcoming_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] in ['escrow_pending', 'upcoming']]
-    accepted_count = len(selected_proposals) + len(accepted_upcoming_contracts)
+    accepted_count = len(accepted_upcoming_contracts)
 
     in_progress_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == 'in_progress']
     in_progress_count = len(in_progress_contracts)
@@ -8240,6 +8241,22 @@ def job_statistics():
         if code in contract_status_counts:
             contract_status_counts[code] += 1
 
+    # Sub-counts cho tab Đã nhận
+    accepted_sub_counts = {
+        'all': accepted_count,
+        'escrow_pending': len([c for c in accepted_upcoming_contracts if c.shift_status_info['code'] == 'escrow_pending']),
+        'upcoming': len([c for c in accepted_upcoming_contracts if c.shift_status_info['code'] == 'upcoming']),
+    }
+
+    # Sub-counts cho tab Không tiếp tục
+    cancelled_sub_counts = {
+        'all': non_continuing_count,
+        'rejected': len(rejected_proposals),
+        'withdrawn': len(withdrawn_proposals),
+        'job_closed': len(closed_proposals),
+        'cancelled': len(cancelled_contracts),
+    }
+
     metrics = {
         'total_applications': total_applications,
         'pending_review': pending_review_count,
@@ -8259,7 +8276,7 @@ def job_statistics():
 
     tab_counts = {
         'all': len(all_user_contracts) + len([p for p in all_user_proposals if p.effective_status != 'accepted']),
-        'applied': len([p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]),
+        'applied': len(all_user_proposals),
         'accepted': accepted_count,
         'in_progress': in_progress_count,
         'delivered': delivered_count,
@@ -8278,11 +8295,10 @@ def job_statistics():
         return sq in (title_text or '').lower() or sq in (extra_text or '').lower()
 
     if tab == 'applied':
-        proposals_pool = all_user_proposals
         if status_filter != 'all':
-            proposals_pool = [p for p in proposals_pool if p.effective_status == status_filter]
+            proposals_pool = [p for p in all_user_proposals if p.effective_status == status_filter]
         else:
-            proposals_pool = [p for p in proposals_pool if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
+            proposals_pool = all_user_proposals
         
         for p in proposals_pool:
             title = p.job.title if p.job else ''
@@ -8299,20 +8315,11 @@ def job_statistics():
                 })
 
     elif tab == 'accepted':
-        for p in selected_proposals:
-            title = p.job.title if p.job else ''
-            loc = p.job.event_location if p.job else ''
-            if matches_search(title, loc):
-                items.append({
-                    'type': 'proposal',
-                    'data': p,
-                    'created_at': p.created_at or datetime.min,
-                    'sort_date': p.created_at or datetime.min,
-                    'price': p.price or 0,
-                    'status_info': p.status_info,
-                    'title': title
-                })
-        for c in accepted_upcoming_contracts:
+        contracts_pool = accepted_upcoming_contracts
+        if status_filter != 'all':
+            contracts_pool = [c for c in contracts_pool if c.shift_status_info['code'] == status_filter]
+
+        for c in contracts_pool:
             title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
             loc = c.location or ''
             if matches_search(title, f"{loc} #{c.id}"):
@@ -8399,7 +8406,15 @@ def job_statistics():
                 })
 
     elif tab == 'cancelled':
-        for p in rejected_proposals + withdrawn_proposals + closed_proposals:
+        proposals_pool = []
+        if status_filter in ['all', 'rejected']:
+            proposals_pool.extend(rejected_proposals)
+        if status_filter in ['all', 'withdrawn']:
+            proposals_pool.extend(withdrawn_proposals)
+        if status_filter in ['all', 'job_closed']:
+            proposals_pool.extend(closed_proposals)
+
+        for p in proposals_pool:
             title = p.job.title if p.job else ''
             loc = p.job.event_location if p.job else ''
             if matches_search(title, loc):
@@ -8412,19 +8427,21 @@ def job_statistics():
                     'status_info': p.status_info,
                     'title': title
                 })
-        for c in cancelled_contracts:
-            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
-            loc = c.location or ''
-            if matches_search(title, f"{loc} #{c.id}"):
-                items.append({
-                    'type': 'contract',
-                    'data': c,
-                    'created_at': c.created_at or datetime.min,
-                    'sort_date': c.event_sort_date or datetime.min,
-                    'price': c.agreed_price or 0,
-                    'status_info': c.shift_status_info,
-                    'title': title
-                })
+
+        if status_filter in ['all', 'cancelled']:
+            for c in cancelled_contracts:
+                title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+                loc = c.location or ''
+                if matches_search(title, f"{loc} #{c.id}"):
+                    items.append({
+                        'type': 'contract',
+                        'data': c,
+                        'created_at': c.created_at or datetime.min,
+                        'sort_date': c.event_sort_date or datetime.min,
+                        'price': c.agreed_price or 0,
+                        'status_info': c.shift_status_info,
+                        'title': title
+                    })
 
     elif tab == 'saved':
         for j in saved_jobs:
@@ -8478,16 +8495,36 @@ def job_statistics():
         items.sort(key=lambda x: (x.get('review').rating if x.get('review') else 0), reverse=True)
     elif sort_by == 'event_asc':
         items.sort(key=lambda x: x['sort_date'])
+    elif sort_by == 'event_desc':
+        items.sort(key=lambda x: x['sort_date'], reverse=True)
     else:  # 'newest'
         items.sort(key=lambda x: x['created_at'], reverse=True)
 
+    # Phân trang (Pagination)
+    import math
+    page = max(request.args.get('page', 1, type=int) or 1, 1)
+    per_page = 15
+    total_items = len(items)
+    total_pages = max(1, math.ceil(total_items / per_page))
+    if page > total_pages:
+        page = total_pages
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paged_items = items[start_idx:end_idx]
+
     return render_template('job_statistics.html',
-        items=items,
+        items=paged_items,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        per_page=per_page,
         tab=tab,
         metrics=metrics,
         tab_counts=tab_counts,
         proposal_status_counts=proposal_status_counts,
         contract_status_counts=contract_status_counts,
+        accepted_sub_counts=accepted_sub_counts,
+        cancelled_sub_counts=cancelled_sub_counts,
         status_filter=status_filter,
         acceptance_filter=acceptance_filter,
         payment_filter=payment_filter,

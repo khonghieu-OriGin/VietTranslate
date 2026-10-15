@@ -47,7 +47,7 @@
         <!-- ═══════════════════════════════════════════════════════════════════ -->
         <!-- 3.1. KHU VỰC THỐNG KÊ TỔNG QUAN (METRIC CARDS CHÍNH XÁC TỪ DATABASE) -->
         <!-- ═══════════════════════════════════════════════════════════════════ -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 sm:gap-4 mb-8">
             
             <!-- Card 1: Tổng đơn ứng tuyển -->
             <a href="{{ url_for('job_statistics', tab='applied') }}"
@@ -75,7 +75,7 @@
             <a href="{{ url_for('job_statistics', tab='accepted') }}"
                 class="bg-white rounded-2xl p-4 border border-sky-100 shadow-2xs hover:border-sky-300 hover:shadow-xs transition group">
                 <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600 group-hover:text-sky-700 transition">Đã nhận việc</span>
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-sky-600 group-hover:text-sky-700 transition">Đã nhận</span>
                     <span class="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">🤝</span>
                 </div>
                 <div class="mt-2 text-2xl font-black text-sky-700">{{ metrics.accepted }}</div>
@@ -117,6 +117,17 @@
                 </div>
             </a>
 
+            <!-- Card 7: Không tiếp tục -->
+            <a href="{{ url_for('job_statistics', tab='cancelled') }}"
+                class="bg-white rounded-2xl p-4 border border-rose-100 shadow-2xs hover:border-rose-300 hover:shadow-xs transition group">
+                <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-rose-600 group-hover:text-rose-700 transition">Không tiếp tục</span>
+                    <span class="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center text-xs font-bold group-hover:scale-105 transition">✕</span>
+                </div>
+                <div class="mt-2 text-2xl font-black text-rose-700">{{ metrics.non_continuing }}</div>
+                <div class="text-[10px] text-rose-600/80 mt-0.5 truncate">Từ chối / Rút / Hủy</div>
+            </a>
+
         </div>
 
         <!-- ═══════════════════════════════════════════════════════════════════ -->
@@ -148,7 +159,7 @@
             <a href="{{ url_for('job_statistics', tab='accepted') }}"
                 class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
                 {% if tab == 'accepted' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
-                <span>Đã nhận việc</span>
+                <span>Đã nhận</span>
                 <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'accepted' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
                     {{ tab_counts.accepted }}
                 </span>
@@ -168,7 +179,7 @@
             <a href="{{ url_for('job_statistics', tab='delivered') }}"
                 class="px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap flex items-center gap-1.5
                 {% if tab == 'delivered' %}bg-brand-600 text-white shadow-xs{% else %}bg-white text-slate-600 border border-slate-200 hover:border-brand-300 hover:text-brand-600{% endif %}">
-                <span>Chờ xác nhận</span>
+                <span>Chờ xác nhận hoàn thành</span>
                 <span class="px-1.5 py-0.5 rounded-full text-[10px] {% if tab == 'delivered' %}bg-white/20 text-white{% else %}bg-slate-100 text-slate-600{% endif %}">
                     {{ tab_counts.delivered }}
                 </span>
@@ -224,6 +235,10 @@
                 <div>Phí bảo chứng Escrow (10%): <strong class="text-rose-600">-{{ "{:,.0f}".format(metrics.total_platform_fee) }}đ</strong></div>
                 <div>·</div>
                 <div>Đánh giá trung bình: <strong class="text-amber-700">⭐ {{ metrics.avg_rating }} / 5.0 ({{ metrics.total_reviews_count }} lượt)</strong></div>
+                <div>·</div>
+                <a href="{{ url_for('interpreter_income_overview') }}" class="inline-flex items-center gap-1 font-bold text-indigo-700 hover:text-indigo-900 hover:underline">
+                    <span>Xem ví thu nhập & sao kê &rarr;</span>
+                </a>
             </div>
         </div>
         {% endif %}
@@ -263,7 +278,8 @@
                             <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Cũ nhất</option>
                             <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Thù lao cao nhất</option>
                             <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Thù lao thấp nhất</option>
-                            <option value="event_asc" {% if sort_by == 'event_asc' %}selected{% endif %}>Ca diễn ra gần nhất</option>
+                            <option value="event_asc" {% if sort_by == 'event_asc' %}selected{% endif %}>Ca gần nhất trước</option>
+                            <option value="event_desc" {% if sort_by == 'event_desc' %}selected{% endif %}>Ca xa nhất trước</option>
                             {% if tab == 'completed' %}
                             <option value="top_rated" {% if sort_by == 'top_rated' %}selected{% endif %}>Đánh giá sao cao nhất</option>
                             {% endif %}
@@ -290,7 +306,7 @@
                         ('reviewing', 'Đang xem xét', proposal_status_counts.reviewing),
                         ('needs_response', 'Cần phản hồi', proposal_status_counts.needs_response),
                         ('selected', 'Được chọn', proposal_status_counts.selected),
-                        ('accepted', 'Đã nhận việc', proposal_status_counts.accepted),
+                        ('accepted', 'Đã xác nhận', proposal_status_counts.accepted),
                         ('rejected', 'Không được chọn', proposal_status_counts.rejected),
                         ('withdrawn', 'Đã rút đơn', proposal_status_counts.withdrawn),
                         ('job_closed', 'Tin đã đóng', proposal_status_counts.job_closed)
@@ -302,6 +318,52 @@
                         {% if status_filter == code %}bg-brand-50 text-brand-700 border border-brand-200 font-bold{% else %}text-slate-600 hover:bg-slate-100 border border-transparent{% endif %}">
                         <span>{{ label }}</span>
                         <span class="text-[10px] px-1.5 py-0.2 rounded-full {% if status_filter == code %}bg-brand-200/60 text-brand-800{% else %}bg-slate-100 text-slate-500{% endif %}">
+                            {{ cnt }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Sub-status Pills for Tab 'accepted' -->
+                {% if tab == 'accepted' %}
+                <div class="pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    {% set accepted_filter_list = [
+                        ('all', 'Tất cả ca đã nhận', accepted_sub_counts.all),
+                        ('escrow_pending', 'Chờ ký quỹ Escrow', accepted_sub_counts.escrow_pending),
+                        ('upcoming', 'Đã xác nhận / Sắp tới', accepted_sub_counts.upcoming)
+                    ] %}
+
+                    {% for code, label, cnt in accepted_filter_list %}
+                    <a href="{{ url_for('job_statistics', tab='accepted', status=code, q=search_query, sort=sort_by) }}"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 shrink-0
+                        {% if status_filter == code %}bg-sky-50 text-sky-700 border border-sky-200 font-bold{% else %}text-slate-600 hover:bg-slate-100 border border-transparent{% endif %}">
+                        <span>{{ label }}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded-full {% if status_filter == code %}bg-sky-200/60 text-sky-800{% else %}bg-slate-100 text-slate-500{% endif %}">
+                            {{ cnt }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Sub-status Pills for Tab 'cancelled' -->
+                {% if tab == 'cancelled' %}
+                <div class="pt-3 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    {% set cancelled_filter_list = [
+                        ('all', 'Tất cả', cancelled_sub_counts.all),
+                        ('rejected', 'Không được chọn', cancelled_sub_counts.rejected),
+                        ('withdrawn', 'Đã rút đơn', cancelled_sub_counts.withdrawn),
+                        ('job_closed', 'Tin đã đóng', cancelled_sub_counts.job_closed),
+                        ('cancelled', 'Ca đã hủy', cancelled_sub_counts.cancelled)
+                    ] %}
+
+                    {% for code, label, cnt in cancelled_filter_list %}
+                    <a href="{{ url_for('job_statistics', tab='cancelled', status=code, q=search_query, sort=sort_by) }}"
+                        class="px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 shrink-0
+                        {% if status_filter == code %}bg-rose-50 text-rose-700 border border-rose-200 font-bold{% else %}text-slate-600 hover:bg-slate-100 border border-transparent{% endif %}">
+                        <span>{{ label }}</span>
+                        <span class="text-[10px] px-1.5 py-0.2 rounded-full {% if status_filter == code %}bg-rose-200/60 text-rose-800{% else %}bg-slate-100 text-slate-500{% endif %}">
                             {{ cnt }}
                         </span>
                     </a>
@@ -770,6 +832,55 @@
 
             {% endfor %}
         </div>
+
+        <!-- Pagination Controls -->
+        {% if total_pages > 1 %}
+        <div class="mt-6 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div class="text-slate-500">
+                Hiển thị trang <span class="font-bold text-slate-800">{{ page }}</span> / {{ total_pages }} (Tổng <span class="font-semibold text-slate-800">{{ total_items }}</span> công việc)
+            </div>
+            <div class="inline-flex items-center gap-1.5">
+                {% if page > 1 %}
+                <a href="{{ url_for('job_statistics', tab=tab, status=status_filter, acceptance=acceptance_filter, payment=payment_filter, time=time_range, q=search_query, sort=sort_by, page=page-1) }}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                    ‹ Trước
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-semibold cursor-not-allowed">
+                    ‹ Trước
+                </span>
+                {% endif %}
+
+                {% for p in range(1, total_pages + 1) %}
+                    {% if p == page %}
+                    <span class="px-3 py-1.5 rounded-lg bg-brand-600 text-white font-bold shadow-xs">
+                        {{ p }}
+                    </span>
+                    {% elif p <= 3 or p > total_pages - 3 or (p >= page - 1 and p <= page + 1) %}
+                    <a href="{{ url_for('job_statistics', tab=tab, status=status_filter, acceptance=acceptance_filter, payment=payment_filter, time=time_range, q=search_query, sort=sort_by, page=p) }}"
+                       class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                        {{ p }}
+                    </a>
+                    {% elif p == 4 and page > 5 %}
+                    <span class="px-1.5 text-slate-400">…</span>
+                    {% elif p == total_pages - 3 and page < total_pages - 4 %}
+                    <span class="px-1.5 text-slate-400">…</span>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page < total_pages %}
+                <a href="{{ url_for('job_statistics', tab=tab, status=status_filter, acceptance=acceptance_filter, payment=payment_filter, time=time_range, q=search_query, sort=sort_by, page=page+1) }}"
+                   class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-semibold hover:bg-slate-50 shadow-2xs transition">
+                    Sau ›
+                </a>
+                {% else %}
+                <span class="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-semibold cursor-not-allowed">
+                    Sau ›
+                </span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
 
         {% else %}
         <!-- Empty State -->
