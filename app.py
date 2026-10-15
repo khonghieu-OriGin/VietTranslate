@@ -8249,6 +8249,14 @@ def job_statistics():
         'upcoming': len([c for c in accepted_upcoming_contracts if c.shift_status_info['code'] == 'upcoming']),
     }
 
+    # Sub-counts cho tab Đang thực hiện (bao gồm ca đang diễn ra & ca chờ xác nhận hoàn thành)
+    in_progress_total = in_progress_count + delivered_count
+    in_progress_sub_counts = {
+        'all': in_progress_total,
+        'in_progress': in_progress_count,
+        'delivered': delivered_count,
+    }
+
     # Sub-counts cho tab Không tiếp tục
     cancelled_sub_counts = {
         'all': non_continuing_count,
@@ -8263,6 +8271,7 @@ def job_statistics():
         'pending_review': pending_review_count,
         'accepted': accepted_count,
         'in_progress': in_progress_count,
+        'in_progress_total': in_progress_total,
         'delivered': delivered_count,
         'completed': completed_count,
         'non_continuing': non_continuing_count,
@@ -8279,7 +8288,7 @@ def job_statistics():
         'all': len(all_user_contracts) + len([p for p in all_user_proposals if p.effective_status != 'accepted']),
         'applied': len(all_user_proposals),
         'accepted': accepted_count,
-        'in_progress': in_progress_count,
+        'in_progress': in_progress_total,
         'delivered': delivered_count,
         'completed': completed_count,
         'cancelled': non_continuing_count,
@@ -8335,7 +8344,13 @@ def job_statistics():
                 })
 
     elif tab == 'in_progress':
-        for c in in_progress_contracts:
+        contracts_pool = []
+        if status_filter in ['all', 'in_progress']:
+            contracts_pool.extend(in_progress_contracts)
+        if status_filter in ['all', 'delivered']:
+            contracts_pool.extend(delivered_contracts)
+
+        for c in contracts_pool:
             title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
             loc = c.location or ''
             if matches_search(title, f"{loc} #{c.id}"):
@@ -8525,6 +8540,7 @@ def job_statistics():
         proposal_status_counts=proposal_status_counts,
         contract_status_counts=contract_status_counts,
         accepted_sub_counts=accepted_sub_counts,
+        in_progress_sub_counts=in_progress_sub_counts,
         cancelled_sub_counts=cancelled_sub_counts,
         status_filter=status_filter,
         acceptance_filter=acceptance_filter,
