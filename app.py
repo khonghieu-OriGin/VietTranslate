@@ -11569,20 +11569,65 @@ def notifications_page():
 @login_required
 def api_get_notifications():
     page = request.args.get('page', 1, type=int)
-    per_page = 20
-    from models import Notification
-    pagination = Notification.query.filter_by(user_id=session['user_id']).order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
-    
-    return jsonify({
-        'notifications': [{
+    per_page = request.args.get('per_page', 20, type=int)
+    filter_type = request.args.get('filter') or request.args.get('category')
+    from models import Notification, VERIFICATION_NOTIFICATION_TYPES
+    from services.verification import VERIFICATION_NOTIF_CONFIG
+    from sqlalchemy import or_
+
+    query = Notification.query.filter_by(user_id=session['user_id'])
+    if filter_type:
+        filter_type = filter_type.strip().lower()
+        if filter_type == 'verification':
+            query = query.filter(or_(
+                Notification.type.in_(VERIFICATION_NOTIFICATION_TYPES),
+                Notification.type.like('VERIFICATION_%')
+            ))
+        elif filter_type == 'job':
+            query = query.filter(or_(
+                Notification.type.like('%JOB%'),
+                Notification.type.like('PROPOSAL%')
+            ))
+        elif filter_type == 'message':
+            query = query.filter(Notification.type.like('%MESSAGE%'))
+        elif filter_type == 'contract':
+            query = query.filter(or_(
+                Notification.type.like('%CONTRACT%'),
+                Notification.type.like('PAYMENT%'),
+                Notification.type.like('PROJECT%'),
+                Notification.type.like('DELIVERABLE%'),
+                Notification.type.like('REVISION%')
+            ))
+        elif filter_type == 'review':
+            query = query.filter(Notification.type.like('%REVIEW%'))
+        elif filter_type == 'unread':
+            query = query.filter_by(is_read=False)
+
+    pagination = query.order_by(Notification.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+    items = []
+    for n in pagination.items:
+        vcfg = VERIFICATION_NOTIF_CONFIG.get(n.type) if n.type in VERIFICATION_NOTIF_CONFIG else None
+        item_data = {
             'id': n.id,
             'type': n.type,
             'title': n.title,
             'message': n.message,
-            'url': n.url,
+            'url': n.url or (vcfg.get('default_url') if vcfg else None),
             'is_read': n.is_read,
-            'created_at': n.created_at.isoformat()
-        } for n in pagination.items],
+            'created_at': n.created_at.isoformat() if n.created_at else None
+        }
+        if vcfg:
+            item_data['category'] = vcfg.get('category', 'verification')
+            item_data['type_label'] = vcfg.get('label', 'Xác minh hồ sơ')
+            item_data['badge_class'] = vcfg.get('badge_class', 'bg-blue-50 text-blue-700 border-blue-200')
+            item_data['icon_kind'] = vcfg.get('icon_kind', 'submitted')
+            item_data['action_label'] = vcfg.get('action_label', 'Xem chi tiết')
+            item_data['severity'] = vcfg.get('severity', 'info')
+        items.append(item_data)
+
+    return jsonify({
+        'notifications': items,
         'total': pagination.total,
         'pages': pagination.pages,
         'current_page': page
