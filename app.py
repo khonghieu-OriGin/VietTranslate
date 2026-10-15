@@ -7537,7 +7537,7 @@ def post_job():
 def my_jobs():
     current = get_current_user()
     if current and current.role == 'translator':
-        return applied_jobs()
+        return redirect(url_for('job_statistics'))
     user = _require_hirer()
     if not user:
         flash(_t('flash.hirer_only_post'), 'error')
@@ -7686,49 +7686,80 @@ def job_attachment(attachment_id):
     return resp
 
 
-@app.route('/applied-jobs', endpoint='applied_jobs')
+# ─── TRANG THỐNG KÊ CÔNG VIỆC (QUẢN LÝ VÒNG ĐỜI CÔNG VIỆC PHIÊN DỊCH VIÊN) ───────────
+
+@app.route('/job-statistics', endpoint='job_statistics')
+@app.route('/job-stats', endpoint='job_stats')
 @login_required
-def applied_jobs():
+def job_statistics():
     user = get_current_user()
     if not user:
         flash(_t('flash.account_not_found'), 'error')
         return redirect(url_for('index'))
+    if user.role != 'translator':
+        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
+        return redirect(url_for('my_jobs'))
 
-    # Tab phân loại: 'applied' (Đang ứng tuyển), 'contracts' (Hợp đồng đang làm), 'completed' (Hoàn thành), 'saved' (Đã lưu)
+    tab = request.args.get('tab', 'all').strip().lower()
     filter_param = request.args.get('filter', '').strip().lower()
-    tab = request.args.get('tab', '').strip().lower()
-    if not tab:
-        if filter_param in ['active']:
-            tab = 'contracts'
-        elif filter_param in ['completed']:
-            tab = 'completed'
-        elif filter_param in ['saved']:
-            tab = 'saved'
-        else:
-            tab = 'applied'
+    if filter_param in ['active', 'contracts']:
+        tab = 'accepted'
+    elif filter_param in ['completed']:
+        tab = 'completed'
+    elif filter_param in ['saved']:
+        tab = 'saved'
 
     status_filter = request.args.get('status', 'all').strip().lower()
+    acceptance_filter = request.args.get('acceptance', 'all').strip().lower()
+    payment_filter = request.args.get('payment', 'all').strip().lower()
+    time_range = request.args.get('time_range', 'all').strip().lower()
     search_query = request.args.get('q', '').strip()
     sort_by = request.args.get('sort', 'newest').strip().lower()
 
-    # Truy vấn proposals của translator
-    query = Proposal.query.filter_by(translator_id=user.id)
-    if search_query:
-        query = query.join(Job).filter(Job.title.ilike(f'%{search_query}%'))
+    # Truy vấn dữ liệu thực tế từ database
+    all_user_proposals = Proposal.query.filter_by(translator_id=user.id).order_by(Proposal.created_at.desc()).all()
+    all_user_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
 
-    if sort_by == 'oldest':
-        query = query.order_by(Proposal.created_at.asc())
-    elif sort_by == 'price_desc':
-        query = query.order_by(Proposal.price.desc())
-    elif sort_by == 'price_asc':
-        query = query.order_by(Proposal.price.asc())
-    else:
-        query = query.order_by(Proposal.created_at.desc())
+    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
+    saved_jobs = [s.job for s in saved_records if s.job]
 
-    all_user_proposals = query.all()
+    # 1. Thống kê theo chuẩn nghiệp vụ (Không hard-code, không trùng lặp)
+    total_applications = len(all_user_proposals)
 
-    # Thống kê số lượng theo 8 trạng thái chuẩn nghiệp vụ
-    status_counts = {
+    pending_review_proposals = [p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response']]
+    pending_review_count = len(pending_review_proposals)
+
+    selected_proposals = [p for p in all_user_proposals if p.effective_status == 'selected']
+    accepted_upcoming_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] in ['escrow_pending', 'upcoming']]
+    accepted_count = len(selected_proposals) + len(accepted_upcoming_contracts)
+
+    in_progress_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == 'in_progress']
+    in_progress_count = len(in_progress_contracts)
+
+    delivered_contracts = [c for c in all_user_contracts if c.status == 'delivered']
+    delivered_count = len(delivered_contracts)
+
+    completed_contracts = [c for c in all_user_contracts if c.status in ['completed', 'reviewed']]
+    completed_count = len(completed_contracts)
+
+    rejected_proposals = [p for p in all_user_proposals if p.effective_status == 'rejected']
+    withdrawn_proposals = [p for p in all_user_proposals if p.effective_status == 'withdrawn']
+    closed_proposals = [p for p in all_user_proposals if p.effective_status == 'job_closed']
+    cancelled_contracts = [c for c in all_user_contracts if c.status == 'cancelled']
+    non_continuing_count = len(rejected_proposals) + len(withdrawn_proposals) + len(closed_proposals) + len(cancelled_contracts)
+
+    # Thống kê tài chính
+    total_net_earned = sum(c.translator_net_amount for c in completed_contracts)
+    total_gross_earned = sum(c.agreed_price for c in completed_contracts)
+    total_platform_fee = sum(c.platform_fee for c in completed_contracts)
+    total_held_escrow = sum(c.translator_net_amount for c in delivered_contracts)
+
+    rated_reviews = [c.client_review for c in completed_contracts if c.client_review and c.client_review.rating]
+    avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
+    total_reviews_count = len(rated_reviews)
+
+    # Thống kê số lượng theo 8 trạng thái đề xuất (hỗ trợ pill filters)
+    proposal_status_counts = {
         'all': len(all_user_proposals),
         'pending': 0,
         'reviewing': 0,
@@ -7741,44 +7772,288 @@ def applied_jobs():
     }
     for p in all_user_proposals:
         eff = p.effective_status
-        if eff in status_counts:
-            status_counts[eff] += 1
+        if eff in proposal_status_counts:
+            proposal_status_counts[eff] += 1
 
-    # Lọc danh sách theo status_filter
-    if status_filter != 'all':
-        filtered_proposals = [p for p in all_user_proposals if p.effective_status == status_filter]
-    else:
-        filtered_proposals = all_user_proposals
+    # Thống kê số lượng theo trạng thái ca làm
+    contract_status_counts = {
+        'all': len(all_user_contracts),
+        'escrow_pending': 0,
+        'upcoming': 0,
+        'in_progress': 0,
+        'delivered': 0,
+        'completed': 0,
+        'cancelled': 0,
+    }
+    for c in all_user_contracts:
+        code = c.shift_status_info['code']
+        if code in contract_status_counts:
+            contract_status_counts[code] += 1
 
-    # Lấy Contracts và SavedJobs cho các tab phụ trợ
-    all_contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
-    active_statuses = ('escrow_pending', 'escrow_paid', 'in_progress', 'delivered')
-    completed_statuses = ('completed', 'reviewed')
-    active_contracts = [c for c in all_contracts if c.status in active_statuses]
-    completed_contracts = [c for c in all_contracts if c.status in completed_statuses]
+    metrics = {
+        'total_applications': total_applications,
+        'pending_review': pending_review_count,
+        'accepted': accepted_count,
+        'in_progress': in_progress_count,
+        'delivered': delivered_count,
+        'completed': completed_count,
+        'non_continuing': non_continuing_count,
+        'saved': len(saved_jobs),
+        'total_net_earned': total_net_earned,
+        'total_gross_earned': total_gross_earned,
+        'total_platform_fee': total_platform_fee,
+        'total_held_escrow': total_held_escrow,
+        'avg_rating': avg_rating,
+        'total_reviews_count': total_reviews_count,
+    }
 
-    saved_records = SavedJob.query.filter_by(user_id=user.id).order_by(SavedJob.created_at.desc()).all()
-    saved_jobs = [s.job for s in saved_records if s.job]
-
-    counts = {
-        'applied': len(all_user_proposals),
-        'active': len(active_contracts),
-        'completed': len(completed_contracts),
+    tab_counts = {
+        'all': len(all_user_contracts) + len([p for p in all_user_proposals if p.effective_status != 'accepted']),
+        'applied': len([p for p in all_user_proposals if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]),
+        'accepted': accepted_count,
+        'in_progress': in_progress_count,
+        'delivered': delivered_count,
+        'completed': completed_count,
+        'cancelled': non_continuing_count,
         'saved': len(saved_jobs),
     }
 
-    return render_template('applied_jobs.html',
-        proposals=filtered_proposals,
-        status_counts=status_counts,
-        status_filter=status_filter,
-        search_query=search_query,
-        sort_by=sort_by,
+    # Xử lý lọc và chuẩn bị danh sách hiển thị theo Tab
+    items = []
+    
+    def matches_search(title_text, extra_text=""):
+        if not search_query:
+            return True
+        sq = search_query.lower()
+        return sq in (title_text or '').lower() or sq in (extra_text or '').lower()
+
+    if tab == 'applied':
+        proposals_pool = all_user_proposals
+        if status_filter != 'all':
+            proposals_pool = [p for p in proposals_pool if p.effective_status == status_filter]
+        else:
+            proposals_pool = [p for p in proposals_pool if p.effective_status in ['pending', 'reviewing', 'needs_response', 'selected']]
+        
+        for p in proposals_pool:
+            title = p.job.title if p.job else ''
+            loc = p.job.event_location if p.job else ''
+            if matches_search(title, loc):
+                items.append({
+                    'type': 'proposal',
+                    'data': p,
+                    'created_at': p.created_at or datetime.min,
+                    'sort_date': p.created_at or datetime.min,
+                    'price': p.price or 0,
+                    'status_info': p.status_info,
+                    'title': title
+                })
+
+    elif tab == 'accepted':
+        for p in selected_proposals:
+            title = p.job.title if p.job else ''
+            loc = p.job.event_location if p.job else ''
+            if matches_search(title, loc):
+                items.append({
+                    'type': 'proposal',
+                    'data': p,
+                    'created_at': p.created_at or datetime.min,
+                    'sort_date': p.created_at or datetime.min,
+                    'price': p.price or 0,
+                    'status_info': p.status_info,
+                    'title': title
+                })
+        for c in accepted_upcoming_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'in_progress':
+        for c in in_progress_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'delivered':
+        for c in delivered_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'completed':
+        contracts_pool = completed_contracts
+        if acceptance_filter == 'accepted':
+            contracts_pool = [c for c in contracts_pool if c.status in ['completed', 'reviewed']]
+        elif acceptance_filter == 'pending':
+            contracts_pool = [c for c in contracts_pool if c.status == 'delivered']
+
+        if payment_filter == 'paid':
+            contracts_pool = [c for c in contracts_pool if c.status in ['completed', 'reviewed']]
+        elif payment_filter == 'escrow_held':
+            contracts_pool = [c for c in contracts_pool if c.status == 'delivered']
+
+        today = date.today()
+        if time_range == 'this_month':
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
+        elif time_range == 'last_month':
+            last_m = today.month - 1 if today.month > 1 else 12
+            last_y = today.year if today.month > 1 else today.year - 1
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == last_y and c.event_sort_date.month == last_m]
+        elif time_range == 'this_year':
+            contracts_pool = [c for c in contracts_pool if c.event_sort_date.year == today.year]
+
+        for c in contracts_pool:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            field = c.job.field if c.job else ''
+            hirer_name = c.hirer.name if c.hirer else ''
+            if matches_search(title, f"{loc} #{c.id} {field} {hirer_name}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'net_price': c.translator_net_amount or 0,
+                    'status_info': c.shift_status_info,
+                    'acceptance_info': c.acceptance_status_info,
+                    'payment_info': c.payment_status_info,
+                    'review': c.client_review,
+                    'title': title
+                })
+
+    elif tab == 'cancelled':
+        for p in rejected_proposals + withdrawn_proposals + closed_proposals:
+            title = p.job.title if p.job else ''
+            loc = p.job.event_location if p.job else ''
+            if matches_search(title, loc):
+                items.append({
+                    'type': 'proposal',
+                    'data': p,
+                    'created_at': p.created_at or datetime.min,
+                    'sort_date': p.created_at or datetime.min,
+                    'price': p.price or 0,
+                    'status_info': p.status_info,
+                    'title': title
+                })
+        for c in cancelled_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+
+    elif tab == 'saved':
+        for j in saved_jobs:
+            if matches_search(j.title, j.event_location or ''):
+                items.append({
+                    'type': 'saved_job',
+                    'data': j,
+                    'created_at': j.created_at or datetime.min,
+                    'sort_date': j.created_at or datetime.min,
+                    'price': j.budget or 0,
+                    'title': j.title
+                })
+
+    else:  # tab == 'all'
+        for c in all_user_contracts:
+            title = c.job.title if c.job else (c.service.name if c.service else f'Ca #{c.id}')
+            loc = c.location or ''
+            if matches_search(title, f"{loc} #{c.id}"):
+                items.append({
+                    'type': 'contract',
+                    'data': c,
+                    'created_at': c.created_at or datetime.min,
+                    'sort_date': c.event_sort_date or datetime.min,
+                    'price': c.agreed_price or 0,
+                    'status_info': c.shift_status_info,
+                    'title': title
+                })
+        for p in all_user_proposals:
+            if p.effective_status != 'accepted':
+                title = p.job.title if p.job else ''
+                loc = p.job.event_location if p.job else ''
+                if matches_search(title, loc):
+                    items.append({
+                        'type': 'proposal',
+                        'data': p,
+                        'created_at': p.created_at or datetime.min,
+                        'sort_date': p.created_at or datetime.min,
+                        'price': p.price or 0,
+                        'status_info': p.status_info,
+                        'title': title
+                    })
+
+    # Sắp xếp danh sách items
+    if sort_by == 'oldest':
+        items.sort(key=lambda x: x['created_at'])
+    elif sort_by == 'price_desc':
+        items.sort(key=lambda x: x['price'], reverse=True)
+    elif sort_by == 'price_asc':
+        items.sort(key=lambda x: x['price'])
+    elif sort_by == 'top_rated':
+        items.sort(key=lambda x: (x.get('review').rating if x.get('review') else 0), reverse=True)
+    elif sort_by == 'event_asc':
+        items.sort(key=lambda x: x['sort_date'])
+    else:  # 'newest'
+        items.sort(key=lambda x: x['created_at'], reverse=True)
+
+    return render_template('job_statistics.html',
+        items=items,
         tab=tab,
-        active_contracts=active_contracts,
-        completed_contracts=completed_contracts,
-        saved_jobs=saved_jobs,
-        counts=counts
+        metrics=metrics,
+        tab_counts=tab_counts,
+        proposal_status_counts=proposal_status_counts,
+        contract_status_counts=contract_status_counts,
+        status_filter=status_filter,
+        acceptance_filter=acceptance_filter,
+        payment_filter=payment_filter,
+        time_range=time_range,
+        search_query=search_query,
+        sort_by=sort_by
     )
+
+
+@app.route('/applied-jobs', endpoint='applied_jobs')
+@login_required
+def applied_jobs():
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'applied'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/proposals/<int:proposal_id>/withdraw', methods=['POST'])
@@ -7928,7 +8203,7 @@ def api_confirm_job_acceptance(proposal_id):
         return jsonify({
             'success': True,
             'message': 'Chúc mừng! Bạn đã xác nhận nhận việc thành công.',
-            'redirect_url': url_for('accepted_jobs')
+            'redirect_url': url_for('job_statistics', tab='accepted')
         })
     except (BookingConflictError, BookingValidationError, ScheduleCheckError) as e:
         db.session.rollback()
@@ -8064,83 +8339,10 @@ def api_hirer_request_info(proposal_id):
 @app.route('/accepted-jobs', endpoint='accepted_jobs')
 @login_required
 def accepted_jobs():
-    user = get_current_user()
-    if not user:
-        flash(_t('flash.account_not_found'), 'error')
-        return redirect(url_for('index'))
-
-    status_filter = request.args.get('status', 'all').strip().lower()
-    search_query = request.args.get('q', '').strip()
-    sort_by = request.args.get('sort', 'event_asc').strip().lower()
-    tab = request.args.get('tab', '').strip().lower()
-
-    # Hỗ trợ tham số tab nếu có (ví dụ ?tab=upcoming từ menu Lịch làm việc)
-    if tab and status_filter == 'all':
-        if tab in ['upcoming', 'in_progress', 'delivered', 'completed', 'cancelled', 'escrow_pending']:
-            status_filter = tab
-
-    # Lấy toàn bộ hợp đồng / ca làm của phiên dịch viên hiện tại
-    query = Contract.query.filter_by(translator_id=user.id)
-    if search_query:
-        query = query.outerjoin(Job, Contract.job_id == Job.id).filter(
-            db.or_(
-                Job.title.ilike(f'%{search_query}%'),
-                Contract.location.ilike(f'%{search_query}%'),
-                db.cast(Contract.id, db.String).ilike(f'%{search_query}%')
-            )
-        )
-
-    all_user_contracts = query.all()
-
-    # Thống kê số lượng theo 6 trạng thái chuẩn nghiệp vụ VietTranslate
-    status_counts = {
-        'all': len(all_user_contracts),
-        'escrow_pending': 0,
-        'upcoming': 0,
-        'in_progress': 0,
-        'delivered': 0,
-        'completed': 0,
-        'cancelled': 0,
-    }
-    for c in all_user_contracts:
-        code = c.shift_status_info['code']
-        if code in status_counts:
-            status_counts[code] += 1
-
-    # Lọc danh sách theo status_filter
-    if status_filter != 'all':
-        filtered_contracts = [c for c in all_user_contracts if c.shift_status_info['code'] == status_filter]
-    else:
-        filtered_contracts = all_user_contracts
-
-    # Sắp xếp danh sách
-    if sort_by == 'event_desc':
-        filtered_contracts.sort(key=lambda c: c.event_sort_date, reverse=True)
-    elif sort_by == 'newest':
-        filtered_contracts.sort(key=lambda c: c.created_at or datetime.min, reverse=True)
-    elif sort_by == 'price_desc':
-        filtered_contracts.sort(key=lambda c: c.agreed_price or 0, reverse=True)
-    elif sort_by == 'price_asc':
-        filtered_contracts.sort(key=lambda c: c.agreed_price or 0)
-    else:  # 'event_asc' mặc định: ca diễn ra gần nhất lên trước
-        filtered_contracts.sort(key=lambda c: c.event_sort_date)
-
-    counts = {
-        'total': len(all_user_contracts),
-        'active_or_upcoming': status_counts['upcoming'] + status_counts['in_progress'],
-        'delivered': status_counts['delivered'],
-        'completed': status_counts['completed'],
-        'pending': status_counts['escrow_pending'],
-    }
-
-    return render_template('accepted_jobs.html',
-        contracts=filtered_contracts,
-        status_counts=status_counts,
-        status_filter=status_filter,
-        search_query=search_query,
-        sort_by=sort_by,
-        counts=counts
-    )
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'accepted'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/contracts/<int:contract_id>/report-issue', methods=['POST'])
@@ -8277,123 +8479,10 @@ def api_contract_checkin(contract_id):
 @app.route('/completed-jobs', endpoint='completed_jobs')
 @login_required
 def completed_jobs():
-    user = get_current_user()
-    if not user:
-        flash(_t('flash.account_not_found'), 'error')
-        return redirect(url_for('index'))
-    if user.role != 'translator':
-        flash('Trang này dành riêng cho tài khoản phiên dịch viên.', 'warning')
-        return redirect(url_for('index'))
-
-    # Các tham số bộ lọc & tìm kiếm
-    q = request.args.get('q', '').strip()
-    acceptance_filter = request.args.get('acceptance', 'all').strip().lower()
-    payment_filter = request.args.get('payment', 'all').strip().lower()
-    time_range = request.args.get('time_range', 'all').strip().lower()
-    sort_by = request.args.get('sort', 'newest').strip().lower()
-
-    # Điều kiện ca đưa vào danh sách lịch sử kết thúc:
-    # 1. Thuộc tài khoản phiên dịch viên hiện tại: translator_id == user.id
-    # 2. Ca đã kết thúc theo quy trình: 'delivered', 'completed', 'reviewed'
-    completed_status_codes = ['delivered', 'completed', 'reviewed']
-    query = Contract.query.filter_by(translator_id=user.id).filter(Contract.status.in_(completed_status_codes))
-
-    if q:
-        q_clean = q.lstrip('#').replace('CA-', '').replace('ca-', '')
-        query = query.outerjoin(Job, Contract.job_id == Job.id).outerjoin(User, Contract.hirer_id == User.id).filter(
-            db.or_(
-                Job.title.ilike(f'%{q}%'),
-                Job.field.ilike(f'%{q}%'),
-                Contract.location.ilike(f'%{q}%'),
-                User.name.ilike(f'%{q}%'),
-                db.cast(Contract.id, db.String).ilike(f'%{q_clean}%')
-            )
-        )
-
-    all_user_completed = query.all()
-
-    # Thống kê tổng quan dựa trên toàn bộ dữ liệu thực tế của tài khoản
-    total_finished_count = len(all_user_completed)
-    accepted_contracts = [c for c in all_user_completed if c.status in ['completed', 'reviewed']]
-    pending_contracts = [c for c in all_user_completed if c.status == 'delivered']
-
-    total_net_earned = sum(c.translator_net_amount for c in accepted_contracts)
-    total_gross_earned = sum(c.agreed_price for c in accepted_contracts)
-    total_platform_fee = sum(c.platform_fee for c in accepted_contracts)
-    total_held_escrow = sum(c.translator_net_amount for c in pending_contracts)
-
-    # Đánh giá sao trung bình từ khách hàng
-    rated_reviews = [c.client_review for c in all_user_completed if c.client_review and c.client_review.rating]
-    avg_rating = round(sum(r.rating for r in rated_reviews) / len(rated_reviews), 1) if rated_reviews else 0.0
-    total_reviews_count = len(rated_reviews)
-
-    filter_counts = {
-        'all': total_finished_count,
-        'accepted': len(accepted_contracts),
-        'pending': len(pending_contracts),
-        'paid': len(accepted_contracts),
-        'escrow_held': len(pending_contracts)
-    }
-
-    filtered_list = list(all_user_completed)
-
-    # Lọc theo trạng thái nghiệm thu
-    if acceptance_filter == 'accepted':
-        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
-    elif acceptance_filter == 'pending':
-        filtered_list = [c for c in filtered_list if c.status == 'delivered']
-
-    # Lọc theo trạng thái thanh toán
-    if payment_filter == 'paid':
-        filtered_list = [c for c in filtered_list if c.status in ['completed', 'reviewed']]
-    elif payment_filter == 'escrow_held':
-        filtered_list = [c for c in filtered_list if c.status == 'delivered']
-
-    # Lọc theo khoảng thời gian thực hiện
-    today = date.today()
-    if time_range == 'this_month':
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year and c.event_sort_date.month == today.month]
-    elif time_range == 'last_month':
-        last_month = today.month - 1 if today.month > 1 else 12
-        last_year = today.year if today.month > 1 else today.year - 1
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == last_year and c.event_sort_date.month == last_month]
-    elif time_range == 'this_year':
-        filtered_list = [c for c in filtered_list if c.event_sort_date.year == today.year]
-
-    # Sắp xếp
-    if sort_by == 'oldest':
-        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min))
-    elif sort_by == 'highest_pay':
-        filtered_list.sort(key=lambda c: c.agreed_price or 0, reverse=True)
-    elif sort_by == 'lowest_pay':
-        filtered_list.sort(key=lambda c: c.agreed_price or 0)
-    elif sort_by == 'top_rated':
-        filtered_list.sort(key=lambda c: (c.client_review.rating if c.client_review else 0), reverse=True)
-    else:  # 'newest'
-        filtered_list.sort(key=lambda c: (c.event_sort_date, c.created_at or datetime.min), reverse=True)
-
-    metrics = {
-        'total_finished': total_finished_count,
-        'accepted_count': len(accepted_contracts),
-        'pending_count': len(pending_contracts),
-        'total_net_earned': total_net_earned,
-        'total_gross_earned': total_gross_earned,
-        'total_platform_fee': total_platform_fee,
-        'total_held_escrow': total_held_escrow,
-        'avg_rating': avg_rating,
-        'total_reviews_count': total_reviews_count
-    }
-
-    return render_template('completed_jobs.html',
-        contracts=filtered_list,
-        metrics=metrics,
-        filter_counts=filter_counts,
-        q=q,
-        acceptance_filter=acceptance_filter,
-        payment_filter=payment_filter,
-        time_range=time_range,
-        sort_by=sort_by
-    )
+    args = dict(request.args)
+    if 'tab' not in args:
+        args['tab'] = 'completed'
+    return redirect(url_for('job_statistics', **args))
 
 
 @app.route('/api/contracts/<int:contract_id>/receipt-detail', methods=['GET'])
