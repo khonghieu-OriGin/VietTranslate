@@ -67,6 +67,21 @@
             display: none !important;
         }
 
+        /* Header Popover Dropdown Panel Animation */
+        @keyframes headerPopoverFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .header-popover-panel:not(.hidden) {
+            animation: headerPopoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         :root {
             --brand-blue: #2563eb;
             --brand-blue-deep: #1d4ed8;
@@ -341,26 +356,205 @@
                             </a>
                             {% endif %}
 
-                            <!-- Trợ giúp & Hỗ trợ (Help icon) -->
-                            <a href="{{ url_for('account_profile', tab='support') }}" id="nav-help-btn"
-                                onclick="if (typeof switchTab === 'function') { switchTab('support'); return false; }"
-                                class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint == 'account_profile' and request.args.get('tab') == 'support' %}bg-brand-50 text-brand-600{% endif %}"
-                                title="{{ t('nav.help_tooltip') }}" aria-label="{{ t('nav.help_tooltip') }}">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </a>
+                            <!-- Trợ giúp & Hỗ trợ (Help Popover Wrapper) -->
+                            {% set is_support_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'support' %}
+                            <div class="relative inline-block" id="nav-help-wrapper">
+                                <button type="button" id="nav-help-btn"
+                                    onclick="toggleHeaderPopover('help', event)"
+                                    data-page-active="{{ 'true' if is_support_active else 'false' }}"
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-help-popover"
+                                    class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_support_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    title="{{ t('nav.help_tooltip') }}" aria-label="{{ t('nav.help_tooltip') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
 
-                            <!-- Cài đặt & Bảo mật (Settings icon) -->
-                            <a href="{{ url_for('account_profile', tab='security') }}" id="nav-settings-btn"
-                                onclick="if (typeof switchTab === 'function') { switchTab('security'); return false; }"
-                                class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint == 'account_profile' and request.args.get('tab') == 'security' %}bg-brand-50 text-brand-600{% endif %}"
-                                title="{{ t('nav.settings_tooltip') }}" aria-label="{{ t('nav.settings_tooltip') }}">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                            </a>
+                                <!-- Help Popover Dropdown Panel -->
+                                <div id="nav-help-popover" role="dialog" aria-label="{{ t('nav.help_tooltip') }}"
+                                    class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[340px] sm:w-[360px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                                    
+                                    <!-- Popover Header -->
+                                    <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-bold text-slate-900 text-sm tracking-tight">Trợ giúp & Hỗ trợ</h3>
+                                            <p class="text-[11px] text-slate-500 mt-0.5">Bạn cần hỗ trợ gì?</p>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            24/7
+                                        </span>
+                                    </div>
+
+                                    <!-- Quick Access Items -->
+                                    <div class="p-2 space-y-1">
+                                        <!-- Item 1: Câu hỏi thường gặp -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-faq"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-faq', 'support', 'section-support-faq');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-purple-600 transition">Câu hỏi thường gặp</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Tìm câu trả lời nhanh</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 2: Hướng dẫn sử dụng -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-policies"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-policies', 'support', 'section-support-policies');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-indigo-600 transition">Hướng dẫn sử dụng</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Tìm hiểu cách sử dụng</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 3: Liên hệ hỗ trợ -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-tickets"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-tickets', 'support', 'section-support-tickets');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-sky-600 transition">Liên hệ hỗ trợ</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-sky-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Gửi yêu cầu hỗ trợ</p>
+                                            </div>
+                                        </a>
+                                    </div>
+
+                                    <!-- Popover Footer / CTA -->
+                                    <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                        <a href="{{ url_for('account_profile', tab='support') }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}', 'support');"
+                                            class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                            <span>Trung tâm trợ giúp</span>
+                                            <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cài đặt & Bảo mật (Settings Popover Wrapper) -->
+                            {% set is_security_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'security' %}
+                            {% set profile_tab_target = 'profile' if current_user.role == 'translator' else 'basic' %}
+                            <div class="relative inline-block" id="nav-settings-wrapper">
+                                <button type="button" id="nav-settings-btn"
+                                    onclick="toggleHeaderPopover('settings', event)"
+                                    data-page-active="{{ 'true' if is_security_active else 'false' }}"
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-settings-popover"
+                                    class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_security_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    title="{{ t('nav.settings_tooltip') }}" aria-label="{{ t('nav.settings_tooltip') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+
+                                <!-- Settings Popover Dropdown Panel -->
+                                <div id="nav-settings-popover" role="dialog" aria-label="{{ t('nav.settings_tooltip') }}"
+                                    class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[340px] sm:w-[360px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                                    
+                                    <!-- Popover Header -->
+                                    <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-bold text-slate-900 text-sm tracking-tight">Cài đặt</h3>
+                                            <p class="text-[11px] text-slate-500 mt-0.5">Quản lý tài khoản của bạn</p>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200/60 text-slate-600 text-[10px] font-bold">
+                                            Tài khoản
+                                        </span>
+                                    </div>
+
+                                    <!-- Quick Access Items -->
+                                    <div class="p-2 space-y-1">
+                                        <!-- Item 1: Bảo mật tài khoản -->
+                                        <a href="{{ url_for('account_profile', tab='security') }}#section-password-management"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-password-management', 'security', 'section-password-management');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-rose-600 transition">Bảo mật tài khoản</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-rose-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Mật khẩu, phiên đăng nhập</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 2: Cài đặt tài khoản -->
+                                        <a href="{{ url_for('account_profile', tab=profile_tab_target) }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab=profile_tab_target) }}', '{{ profile_tab_target }}');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 border border-blue-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-brand-600 transition">Cài đặt tài khoản</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Thông tin & tùy chọn</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 3: Cài đặt thông báo -->
+                                        <a href="{{ url_for('account_profile', tab='security') }}#section-notification-preferences"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-notification-preferences', 'security', 'section-notification-preferences');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-amber-600 transition">Cài đặt thông báo</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Quản lý thông báo</p>
+                                            </div>
+                                        </a>
+                                    </div>
+
+                                    <!-- Popover Footer / CTA -->
+                                    <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                        <a href="{{ url_for('account_profile', tab='security') }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}', 'security');"
+                                            class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                            <span>Xem tất cả cài đặt</span>
+                                            <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                             {% endif %}
                             <!-- User Dropdown -->
                             <div class="relative group">
@@ -954,6 +1148,9 @@
 
         mobMenuBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (typeof closeAllHeaderPopovers === 'function') {
+                closeAllHeaderPopovers();
+            }
             toggleMobileNav();
         });
 
@@ -1048,6 +1245,146 @@
             if (dd && wrap && !wrap.contains(e.target)) {
                 dd.classList.remove('!block');
             }
+        });
+
+        // ─── Header Popovers: Cài đặt & Trợ giúp ─────────────────────────────────
+        function updateTriggerButtonState(btn, isOpen) {
+            if (!btn) return;
+            btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen) {
+                if (!btn.dataset.origTitle) {
+                    btn.dataset.origTitle = btn.getAttribute('title') || '';
+                }
+                btn.removeAttribute('title');
+                btn.classList.add('ring-2', 'ring-brand-500/25', 'bg-slate-100', 'text-brand-600', 'shadow-xs');
+            } else {
+                if (btn.dataset.origTitle) {
+                    btn.setAttribute('title', btn.dataset.origTitle);
+                }
+                btn.classList.remove('ring-2', 'ring-brand-500/25', 'shadow-xs');
+                const isPageActive = btn.dataset.pageActive === 'true';
+                if (!isPageActive) {
+                    btn.classList.remove('bg-slate-100');
+                    if (!btn.classList.contains('bg-brand-50')) {
+                        btn.classList.remove('text-brand-600');
+                        btn.classList.add('text-slate-500');
+                    }
+                }
+            }
+        }
+
+        function adjustPopoverPosition(popover) {
+            if (!popover) return;
+            popover.style.right = '0px';
+            popover.style.left = 'auto';
+            const rect = popover.getBoundingClientRect();
+            const margin = 12;
+            if (rect.left < margin) {
+                const diff = margin - rect.left;
+                popover.style.right = (-diff) + 'px';
+            }
+            const rect2 = popover.getBoundingClientRect();
+            if (rect2.right > window.innerWidth - margin) {
+                const diff2 = rect2.right - (window.innerWidth - margin);
+                const currentRight = parseFloat(popover.style.right) || 0;
+                popover.style.right = (currentRight + diff2) + 'px';
+            }
+        }
+
+        function closeAllHeaderPopovers() {
+            ['help', 'settings'].forEach(function (type) {
+                const popover = document.getElementById('nav-' + type + '-popover');
+                const btn = document.getElementById('nav-' + type + '-btn');
+                if (popover && !popover.classList.contains('hidden')) {
+                    popover.classList.add('hidden');
+                }
+                if (btn) {
+                    updateTriggerButtonState(btn, false);
+                }
+            });
+        }
+
+        function toggleHeaderPopover(type, e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const popover = document.getElementById('nav-' + type + '-popover');
+            const btn = document.getElementById('nav-' + type + '-btn');
+            if (!popover || !btn) return;
+
+            const isCurrentlyOpen = !popover.classList.contains('hidden');
+
+            // Đóng tất cả popover khác trước
+            closeAllHeaderPopovers();
+
+            if (!isCurrentlyOpen) {
+                popover.classList.remove('hidden');
+                updateTriggerButtonState(btn, true);
+                adjustPopoverPosition(popover);
+            }
+        }
+
+        function handleHeaderPopoverNav(event, url, tab, sectionId) {
+            closeAllHeaderPopovers();
+            if (window.location.pathname.includes('/account') && typeof switchTab === 'function') {
+                if (event) {
+                    event.preventDefault();
+                }
+                switchTab(tab);
+                if (sectionId) {
+                    setTimeout(function () {
+                        const el = document.getElementById(sectionId);
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }, 100);
+                }
+                try {
+                    window.history.pushState(null, '', url);
+                } catch (err) { }
+                return false;
+            }
+            return true;
+        }
+
+        // Đóng popover khi click ra ngoài
+        document.addEventListener('click', function (e) {
+            const helpWrap = document.getElementById('nav-help-wrapper');
+            const settingsWrap = document.getElementById('nav-settings-wrapper');
+            const inHelp = helpWrap && helpWrap.contains(e.target);
+            const inSettings = settingsWrap && settingsWrap.contains(e.target);
+            if (!inHelp && !inSettings) {
+                closeAllHeaderPopovers();
+            }
+        });
+
+        // Đóng popover khi bấm Escape
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                const helpPop = document.getElementById('nav-help-popover');
+                const settingsPop = document.getElementById('nav-settings-popover');
+                const wasHelpOpen = helpPop && !helpPop.classList.contains('hidden');
+                const wasSettingsOpen = settingsPop && !settingsPop.classList.contains('hidden');
+                if (wasHelpOpen || wasSettingsOpen) {
+                    closeAllHeaderPopovers();
+                    if (wasHelpOpen) {
+                        document.getElementById('nav-help-btn')?.focus();
+                    } else if (wasSettingsOpen) {
+                        document.getElementById('nav-settings-btn')?.focus();
+                    }
+                }
+            }
+        });
+
+        // Điều chỉnh vị trí khi thay đổi kích thước màn hình
+        window.addEventListener('resize', function () {
+            ['help', 'settings'].forEach(function (type) {
+                const pop = document.getElementById('nav-' + type + '-popover');
+                if (pop && !pop.classList.contains('hidden')) {
+                    adjustPopoverPosition(pop);
+                }
+            });
         });
     </script>
     {% block scripts %}{% endblock %}
