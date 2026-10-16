@@ -1428,11 +1428,17 @@
         const ALL_HEADER_POPOVER_TYPES = ['msg', 'notif', 'help', 'settings'];
         let headerMessagesLoaded = false;
         let headerNotificationsLoaded = false;
+        let headerNotificationsData = [];
+        let isNotifModalMaximized = false;
 
         function escHeader(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch) {
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
             });
+        }
+
+        function safeHeaderUrl(u) {
+            return (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
         }
 
         function timeAgoHeader(dateStr) {
@@ -1447,6 +1453,46 @@
             const days = Math.floor(hours / 24);
             if (days < 30) return days + " ngày trước";
             return date.toLocaleDateString('vi-VN');
+        }
+
+        function formatFullDateHeader(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+            if (isNaN(date.getTime())) return dateStr;
+            const pad = function (n) { return n < 10 ? '0' + n : n; };
+            const hours = pad(date.getHours());
+            const minutes = pad(date.getMinutes());
+            const day = pad(date.getDate());
+            const month = pad(date.getMonth() + 1);
+            const year = date.getFullYear();
+            return hours + ':' + minutes + ' ngày ' + day + '/' + month + '/' + year;
+        }
+
+        function getHeaderNotifCategory(type) {
+            if (!type) return 'other';
+            if (type.startsWith('VERIFICATION_')) return 'verification';
+            if (type.includes('MESSAGE')) return 'message';
+            if (type.includes('REVIEW')) return 'review';
+            if (type.includes('JOB') || type.startsWith('PROPOSAL')) return 'job';
+            if (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION')) return 'contract';
+            return 'other';
+        }
+
+        function getHeaderNotifBadge(n) {
+            if (n.type && n.type.startsWith('VERIFICATION_')) {
+                if (n.type === 'VERIFICATION_APPROVED') return { label: 'Đã xác minh', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+                if (n.type === 'VERIFICATION_NEEDS_REVISION') return { label: 'Yêu cầu bổ sung', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
+                if (n.type === 'VERIFICATION_REJECTED') return { label: 'Từ chối hồ sơ', cls: 'bg-rose-50 text-rose-700 border-rose-200' };
+                if (n.type === 'VERIFICATION_POLICY_UPDATE_REQUIRED') return { label: 'Cập nhật chính sách', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
+                if (n.type === 'VERIFICATION_RESUBMITTED') return { label: 'Đã nộp bổ sung', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+                return { label: n.type_label || 'Xác minh hồ sơ', cls: n.badge_class || 'bg-blue-50 text-blue-700 border-blue-200' };
+            }
+            const cat = getHeaderNotifCategory(n.type);
+            if (cat === 'job') return { label: 'Việc làm', cls: 'bg-sky-50 text-sky-700 border-sky-200' };
+            if (cat === 'message') return { label: 'Tin nhắn', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            if (cat === 'contract') return { label: 'Hợp đồng', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            if (cat === 'review') return { label: 'Đánh giá', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+            return { label: 'Thông báo', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
         }
 
         function getHeaderNotifIcon(type) {
@@ -1545,6 +1591,7 @@
                 .then(function(data) {
                     headerNotificationsLoaded = true;
                     const items = data && data.notifications ? data.notifications : [];
+                    headerNotificationsData = items;
                     if (items.length === 0) {
                         listEl.innerHTML = '<div class="py-8 px-4 text-center text-slate-400">' +
                             '<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">' +
@@ -1558,8 +1605,7 @@
                     let html = '';
                     items.forEach(function(item) {
                         const isUnread = !item.is_read;
-                        const targetUrl = item.url || '{{ url_for('notifications_page') }}';
-                        html += '<a href="' + escHeader(targetUrl) + '" onclick="return handleHeaderNotifClick(event, ' + item.id + ', \'' + escHeader(targetUrl) + '\', ' + item.is_read + ');" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer ' + (isUnread ? 'bg-brand-50/40' : '') + '">' +
+                        html += '<div onclick="handleHeaderNotifItemClick(event, ' + item.id + ');" data-notif-id="' + item.id + '" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer select-none ' + (isUnread ? 'bg-brand-50/40' : '') + '">' +
                             '<div class="shrink-0 mt-0.5">' +
                                 getHeaderNotifIcon(item.type) +
                             '</div>' +
@@ -1568,7 +1614,7 @@
                                     '<span class="text-xs ' + (isUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800') + ' truncate">' +
                                         escHeader(item.title) +
                                     '</span>' +
-                                    (isUnread ? '<span class="w-2 h-2 rounded-full bg-brand-600 shrink-0"></span>' : '') +
+                                    (isUnread ? '<span class="unread-dot w-2 h-2 rounded-full bg-brand-600 shrink-0"></span>' : '') +
                                 '</div>' +
                                 '<p class="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">' +
                                     escHeader(item.message) +
@@ -1577,7 +1623,7 @@
                                     escHeader(timeAgoHeader(item.created_at)) +
                                 '</span>' +
                             '</div>' +
-                        '</a>';
+                        '</div>';
                     });
                     listEl.innerHTML = html;
                 })
@@ -1589,23 +1635,144 @@
                 });
         }
 
-        function handleHeaderNotifClick(e, id, url, isRead) {
+        function handleHeaderNotifItemClick(e, id) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
             closeAllHeaderPopovers();
-            if (!isRead && id) {
-                fetch('/api/notifications/' + id + '/read', {
+            const notif = headerNotificationsData.find(function(n) { return String(n.id) === String(id); });
+            if (notif) {
+                openNotifModal(notif);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // NOTIFICATION DETAIL MODAL CONTROLLER
+        // ═══════════════════════════════════════════════════════════════
+        function openNotifModal(notif) {
+            const modal = document.getElementById('vt-notif-modal');
+            if (!modal || !notif) return;
+
+            const modalPanel = document.getElementById('vt-notif-modal-panel');
+            const modalIcon = document.getElementById('vt-notif-modal-icon');
+            const modalBadge = document.getElementById('vt-notif-modal-badge');
+            const modalTime = document.getElementById('vt-notif-modal-time');
+            const modalTitle = document.getElementById('vt-notif-modal-title');
+            const modalSender = document.getElementById('vt-notif-modal-sender');
+            const modalDateFull = document.getElementById('vt-notif-modal-date-full');
+            const modalMessage = document.getElementById('vt-notif-modal-message');
+            const modalAttachBox = document.getElementById('vt-notif-modal-attach-box');
+            const modalActionBtn = document.getElementById('vt-notif-modal-action-btn');
+
+            const badge = getHeaderNotifBadge(notif);
+            const iconHtml = getHeaderNotifIcon(notif.type);
+
+            if (modalIcon) modalIcon.innerHTML = iconHtml;
+            if (modalBadge) {
+                modalBadge.textContent = badge.label;
+                modalBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-md border ' + badge.cls;
+            }
+            if (modalTime) modalTime.textContent = timeAgoHeader(notif.created_at);
+            if (modalTitle) modalTitle.textContent = notif.title || 'Thông báo';
+            if (modalDateFull) modalDateFull.textContent = formatFullDateHeader(notif.created_at);
+
+            // Xác định người gửi / đơn vị phát hành
+            const cat = getHeaderNotifCategory(notif.type);
+            let senderLabel = 'Hệ thống VietTranslate';
+            if (cat === 'verification') senderLabel = 'Ban Thẩm định VietTranslate';
+            else if (cat === 'job') senderLabel = 'Hệ thống Việc làm';
+            else if (cat === 'contract') senderLabel = 'Hệ thống Hợp đồng & Thanh toán';
+            else if (cat === 'message') senderLabel = 'Hệ thống Tin nhắn';
+            if (modalSender) modalSender.textContent = senderLabel;
+
+            // Nội dung chi tiết (giữ nguyên xuống dòng)
+            if (modalMessage) modalMessage.textContent = notif.message || '';
+
+            // Nút liên kết và tài liệu liên quan
+            const targetUrl = safeHeaderUrl(notif.url);
+            const hasValidUrl = targetUrl && targetUrl !== '#';
+            if (modalActionBtn) {
+                if (hasValidUrl) {
+                    modalActionBtn.href = targetUrl;
+                    modalActionBtn.classList.remove('hidden');
+                    modalActionBtn.classList.add('inline-flex');
+                } else {
+                    modalActionBtn.classList.add('hidden');
+                    modalActionBtn.classList.remove('inline-flex');
+                }
+            }
+            if (modalAttachBox) {
+                if (hasValidUrl) {
+                    modalAttachBox.classList.remove('hidden');
+                } else {
+                    modalAttachBox.classList.add('hidden');
+                }
+            }
+
+            // Reset maximize nếu đang mở
+            if (isNotifModalMaximized) {
+                toggleMaximizeNotifModal();
+            }
+
+            // Hiển thị modal
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+
+            // Đánh dấu đã đọc nếu chưa đọc
+            if (!notif.is_read) {
+                notif.is_read = true;
+                fetch('/api/notifications/' + notif.id + '/read', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'same-origin'
-                }).then(function() {
+                }).then(function () {
                     if (window.vtRefreshBadges) window.vtRefreshBadges(true);
-                }).catch(function() {});
+                    const notifEl = document.querySelector('[data-notif-id="' + notif.id + '"]');
+                    if (notifEl) {
+                        notifEl.classList.remove('bg-brand-50/40');
+                        const dot = notifEl.querySelector('.unread-dot');
+                        if (dot) dot.remove();
+                        const titleEl = notifEl.querySelector('span.text-xs');
+                        if (titleEl) {
+                            titleEl.classList.remove('font-bold', 'text-slate-900');
+                            titleEl.classList.add('font-semibold', 'text-slate-800');
+                        }
+                    }
+                }).catch(function () {});
             }
-            if (url && url !== '#' && !url.startsWith('javascript:')) {
-                return true;
-            }
-            if (e) e.preventDefault();
-            return false;
         }
+
+        function closeNotifModal() {
+            const modal = document.getElementById('vt-notif-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function toggleMaximizeNotifModal() {
+            const modalPanel = document.getElementById('vt-notif-modal-panel');
+            const modalMaxBtn = document.getElementById('vt-notif-modal-max-btn');
+            const modalMaxIcon = document.getElementById('vt-notif-modal-max-icon');
+            if (!modalPanel || !modalMaxBtn || !modalMaxIcon) return;
+
+            isNotifModalMaximized = !isNotifModalMaximized;
+            if (isNotifModalMaximized) {
+                modalPanel.classList.remove('sm:max-w-lg');
+                modalPanel.classList.add('sm:max-w-3xl', 'h-[85vh]');
+                modalMaxBtn.title = 'Thu nhỏ';
+                modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9L4 4m0 0v4m0-4h4m6 6l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0v-4m0 4h4m6-6l5-5m0 0v4m0-4h-4"/>';
+            } else {
+                modalPanel.classList.remove('sm:max-w-3xl', 'h-[85vh]');
+                modalPanel.classList.add('sm:max-w-lg');
+                modalMaxBtn.title = 'Phóng to';
+                modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>';
+            }
+        }
+
+        window.vtOpenNotifModal = openNotifModal;
 
         function markAllHeaderNotificationsRead(e) {
             if (e) {
@@ -1618,8 +1785,20 @@
                 credentials: 'same-origin'
             }).then(function(r) { return r.json(); })
             .then(function() {
+                headerNotificationsData.forEach(function(n) { n.is_read = true; });
+                const listEl = document.getElementById('nav-notif-list');
+                if (listEl) {
+                    listEl.querySelectorAll('.unread-dot').forEach(function(d) { d.remove(); });
+                    listEl.querySelectorAll('[data-notif-id]').forEach(function(it) {
+                        it.classList.remove('bg-brand-50/40');
+                        const t = it.querySelector('span.text-xs');
+                        if (t) {
+                            t.classList.remove('font-bold', 'text-slate-900');
+                            t.classList.add('font-semibold', 'text-slate-800');
+                        }
+                    });
+                }
                 if (window.vtRefreshBadges) window.vtRefreshBadges(true);
-                loadHeaderNotifications(true);
             }).catch(function() {});
         }
 
@@ -1730,6 +1909,10 @@
 
         // Đóng popover khi click ra ngoài
         document.addEventListener('click', function (e) {
+            const modal = document.getElementById('vt-notif-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                return;
+            }
             const isInsideAny = ALL_HEADER_POPOVER_TYPES.some(function(type) {
                 const wrap = document.getElementById('nav-' + type + '-wrapper');
                 return wrap && wrap.contains(e.target);
@@ -1739,9 +1922,14 @@
             }
         });
 
-        // Đóng popover khi bấm Escape
+        // Đóng modal / popover khi bấm Escape
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
+                const modal = document.getElementById('vt-notif-modal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeNotifModal();
+                    return;
+                }
                 const openType = ALL_HEADER_POPOVER_TYPES.find(function(type) {
                     const pop = document.getElementById('nav-' + type + '-popover');
                     return pop && !pop.classList.contains('hidden');
@@ -1751,6 +1939,23 @@
                     const btn = document.getElementById('nav-' + openType + '-btn');
                     if (btn) btn.focus();
                 }
+            }
+        });
+
+        // Modal event listeners (click outside & buttons)
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = document.getElementById('vt-notif-modal');
+            const closeX = document.getElementById('vt-notif-modal-close-x');
+            const closeBtn = document.getElementById('vt-notif-modal-close-btn');
+            const maxBtn = document.getElementById('vt-notif-modal-max-btn');
+
+            if (closeX) closeX.addEventListener('click', closeNotifModal);
+            if (closeBtn) closeBtn.addEventListener('click', closeNotifModal);
+            if (maxBtn) maxBtn.addEventListener('click', toggleMaximizeNotifModal);
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeNotifModal();
+                });
             }
         });
 
@@ -1765,6 +1970,80 @@
         });
     </script>
     {% block scripts %}{% endblock %}
+
+    {% if current_user %}
+    <!-- ═══════════════════════════════════════════════════════════════
+     NOTIFICATION DETAIL MODAL (GLOBAL)
+     ═══════════════════════════════════════════════════════════════ -->
+    <div id="vt-notif-modal" class="fixed inset-0 z-[70] hidden items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs transition-opacity duration-200" role="dialog" aria-modal="true" aria-labelledby="vt-notif-modal-title">
+        <div id="vt-notif-modal-panel" class="bg-white w-full sm:max-w-lg rounded-2xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] transition-all duration-200 overflow-hidden transform scale-100">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-3 bg-slate-50/70 shrink-0">
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                    <div id="vt-notif-modal-icon" class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs">
+                        <!-- Dynamic icon -->
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-1.5 mb-1">
+                            <span id="vt-notif-modal-badge" class="px-2 py-0.5 text-[10px] font-bold rounded-md border"></span>
+                            <span id="vt-notif-modal-time" class="text-[11px] font-medium text-slate-400"></span>
+                        </div>
+                        <h3 id="vt-notif-modal-title" class="text-base font-bold text-slate-900 leading-snug break-words"></h3>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0 -mt-1 -mr-1">
+                    <!-- Maximize / Restore Button -->
+                    <button id="vt-notif-modal-max-btn" type="button" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer" title="Phóng to">
+                        <svg id="vt-notif-modal-max-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+                        </svg>
+                    </button>
+                    <!-- Close Button (X) -->
+                    <button id="vt-notif-modal-close-x" type="button" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 flex items-center justify-center transition cursor-pointer" title="Đóng cửa sổ">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal Body (scrollable) -->
+            <div class="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                <!-- Sender & Date Info -->
+                <div class="flex items-center justify-between text-xs text-slate-500 pb-3 border-b border-slate-100">
+                    <span class="font-medium text-slate-500">Người gửi: <strong id="vt-notif-modal-sender" class="text-slate-800 font-semibold">Hệ thống VietTranslate</strong></span>
+                    <span id="vt-notif-modal-date-full" class="font-mono text-slate-400 text-[11px]"></span>
+                </div>
+
+                <!-- Content Message -->
+                <div>
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nội dung thông báo</h4>
+                    <div id="vt-notif-modal-message" class="text-sm text-slate-700 leading-relaxed whitespace-pre-line break-words bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                    </div>
+                </div>
+
+                <!-- Attachments Note (if applicable) -->
+                <div id="vt-notif-modal-attach-box" class="hidden">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Tài liệu / Tệp đính kèm liên quan</h4>
+                    <div id="vt-notif-modal-attach-content" class="p-3 bg-amber-50/60 border border-amber-200/70 rounded-xl text-xs text-amber-900 leading-relaxed">
+                        Tài liệu và tệp đính kèm liên quan được lưu trữ tại trang chi tiết. Nhấn nút "Đi tới liên quan" bên dưới để chuyển sang xem và tải tệp.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3 shrink-0">
+                <button id="vt-notif-modal-close-btn" type="button" class="px-4 py-2 text-xs font-bold text-slate-600 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl transition cursor-pointer">
+                    Đóng
+                </button>
+                <a id="vt-notif-modal-action-btn" href="#" class="hidden inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl transition shadow-xs cursor-pointer">
+                    <span id="vt-notif-modal-action-text">Đi tới liên quan</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </body>
 
 </html>
