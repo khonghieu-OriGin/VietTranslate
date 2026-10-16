@@ -43,7 +43,11 @@
                     <td>
                         <div class="flex items-center gap-2">
                             {% if r.reviewer and r.reviewer.avatar_url %}
-                                <img src="{{ r.reviewer.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                                <img src="{{ r.reviewer.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (r.reviewer.name or 'U')[:1] | upper }}
+                                </div>
                             {% elif r.reviewer %}
                                 <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
                                     {{ (r.reviewer.name or 'U')[:1] | upper }}

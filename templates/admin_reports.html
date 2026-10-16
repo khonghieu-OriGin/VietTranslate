@@ -43,7 +43,11 @@
                     <td>
                         <div class="flex items-center gap-2">
                             {% if report.reporter and report.reporter.avatar_url %}
-                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover">
+                                <img src="{{ report.reporter.avatar_url }}" alt="Avatar" class="w-6 h-6 rounded-full object-cover"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (report.reporter.name or 'U')[:1] | upper }}
+                                </div>
                             {% elif report.reporter %}
                                 <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
                                     {{ (report.reporter.name or 'U')[:1] | upper }}

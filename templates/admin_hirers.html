@@ -41,8 +41,14 @@
                 <tr>
                     <td>
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; shrink: 0;">
-                                {{ (p.company if (p and p.company) else u.name)[:2]|upper }}
+                            <div style="width: 36px; height: 36px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; shrink: 0; overflow: hidden; position: relative;">
+                                {% set avatar_src = u.avatar_url or (p.avatar_url if p else None) %}
+                                {% if avatar_src %}
+                                <img src="{{ avatar_src }}" alt="{{ u.name }}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <span style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center;">{{ (p.company if (p and p.company) else u.name)[:2]|upper }}</span>
+                                {% else %}
+                                <span>{{ (p.company if (p and p.company) else u.name)[:2]|upper }}</span>
+                                {% endif %}
                             </div>
                             <div>
                                 <div style="font-weight: 700; color: #f1f5f9;">

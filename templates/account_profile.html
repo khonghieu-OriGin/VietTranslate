@@ -333,12 +333,12 @@ function resendVerificationEmail() {
                         <div class="flex flex-col sm:flex-row items-center sm:items-end justify-between -mt-12 sm:-mt-10 gap-4 mb-5">
                             <div class="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
                                 <!-- Avatar Preview with Quick Edit -->
-                                <div class="relative w-24 h-24 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-slate-100 ring-2 ring-slate-100 shrink-0 group">
+                                <div id="translator-header-avatar-box" class="relative w-24 h-24 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-slate-100 ring-2 ring-slate-100 shrink-0 group">
                                     {% if user.avatar_url %}
-                                    <img src="{{ user.avatar_url }}" alt="{{ user.name }}" class="w-full h-full object-cover object-top"
-                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <img id="translator-header-avatar-img" src="{{ user.avatar_url }}" alt="{{ user.name }}" class="w-full h-full object-cover object-top"
+                                        onerror="this.style.display='none'; const fb = document.getElementById('translator-header-avatar-fallback'); if (fb) fb.style.display='flex';">
                                     {% endif %}
-                                    <div style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
+                                    <div id="translator-header-avatar-fallback" style="{% if user.avatar_url %}display:none;{% else %}display:flex;{% endif %}"
                                         class="w-full h-full bg-gradient-to-br from-brand-600 to-indigo-600 items-center justify-center text-white text-3xl font-black shadow-inner">
                                         {{ user.name[0] | upper }}
                                     </div>
@@ -6302,44 +6302,52 @@ function resendVerificationEmail() {
         const profileRemoveBtn = document.getElementById('btn-remove-profile-avatar');
         const profileCancelBtn = document.getElementById('btn-cancel-avatar-preview');
 
+        // Translator Header Avatar
+        const transHeaderImg = document.getElementById('translator-header-avatar-img');
+        const transHeaderFallback = document.getElementById('translator-header-avatar-fallback');
+
+        const cacheBustUrl = newUrl ? (newUrl.includes('?') ? (newUrl + '&_t=' + Date.now()) : (newUrl + '?_t=' + Date.now())) : null;
+
         // Header User Dropdown Avatar
         const headerAvatar = document.querySelector('button .rounded-full.bg-gradient-to-tr');
         if (headerAvatar) {
-            if (newUrl) {
-                headerAvatar.innerHTML = `<img src="${newUrl}" class="w-full h-full object-cover">`;
+            if (cacheBustUrl) {
+                headerAvatar.innerHTML = `<img src="${cacheBustUrl}" class="w-full h-full object-cover">`;
             } else if (initial) {
                 headerAvatar.innerHTML = `<span class="w-full h-full flex items-center justify-center">${initial}</span>`;
             }
         }
 
-        if (newUrl) {
+        if (cacheBustUrl) {
             if (sidebarImg) {
-                sidebarImg.src = newUrl;
+                sidebarImg.src = cacheBustUrl;
                 sidebarImg.style.display = 'block';
             } else {
                 const container = document.getElementById('sidebar-avatar-box');
                 if (container) {
                     const img = document.createElement('img');
                     img.id = 'sidebar-avatar-img';
-                    img.src = newUrl;
+                    img.src = cacheBustUrl;
                     img.alt = "{{ user.name }}";
                     img.className = 'w-full h-full object-cover object-top rounded-full border-2 border-white shadow-sm bg-white';
+                    img.onerror = function() { this.style.display = 'none'; if(sidebarFallback) sidebarFallback.style.display = 'flex'; };
                     container.insertBefore(img, container.firstChild);
                 }
             }
             if (sidebarFallback) sidebarFallback.style.display = 'none';
 
             if (basicImg) {
-                basicImg.src = newUrl;
+                basicImg.src = cacheBustUrl;
                 basicImg.style.display = 'block';
             } else {
                 const container = document.querySelector('#tab-basic .relative.w-24.h-24');
                 if (container) {
                     const img = document.createElement('img');
                     img.id = 'basic-tab-avatar-img';
-                    img.src = newUrl;
+                    img.src = cacheBustUrl;
                     img.alt = "{{ user.name }}";
                     img.className = 'w-full h-full object-cover object-top rounded-full border-4 border-white shadow-md group-hover:opacity-75 transition';
+                    img.onerror = function() { this.style.display = 'none'; if(basicFallback) basicFallback.style.display = 'flex'; };
                     container.insertBefore(img, container.firstChild);
                 }
             }
@@ -6347,20 +6355,39 @@ function resendVerificationEmail() {
 
             // Sync Tab Profile Elements
             if (profileTabImg) {
-                profileTabImg.src = newUrl;
+                profileTabImg.src = cacheBustUrl;
                 profileTabImg.style.display = 'block';
             } else {
                 const pContainer = document.querySelector('#tab-profile .relative.w-28, #tab-profile .relative.w-32');
                 if (pContainer) {
                     const pImg = document.createElement('img');
                     pImg.id = 'profile-tab-avatar-img';
-                    pImg.src = newUrl;
+                    pImg.src = cacheBustUrl;
                     pImg.alt = "{{ user.name }}";
                     pImg.className = 'w-full h-full object-cover object-top';
+                    pImg.onerror = function() { this.style.display = 'none'; if(profileTabFallback) profileTabFallback.style.display = 'flex'; };
                     pContainer.insertBefore(pImg, pContainer.firstChild);
                 }
             }
             if (profileTabFallback) profileTabFallback.style.display = 'none';
+
+            // Sync Translator Header Avatar
+            if (transHeaderImg) {
+                transHeaderImg.src = cacheBustUrl;
+                transHeaderImg.style.display = 'block';
+            } else {
+                const tContainer = document.getElementById('translator-header-avatar-box');
+                if (tContainer) {
+                    const tImg = document.createElement('img');
+                    tImg.id = 'translator-header-avatar-img';
+                    tImg.src = cacheBustUrl;
+                    tImg.alt = "{{ user.name }}";
+                    tImg.className = 'w-full h-full object-cover object-top';
+                    tImg.onerror = function() { this.style.display = 'none'; if(transHeaderFallback) transHeaderFallback.style.display = 'flex'; };
+                    tContainer.insertBefore(tImg, tContainer.firstChild);
+                }
+            }
+            if (transHeaderFallback) transHeaderFallback.style.display = 'none';
         } else {
             if (sidebarImg) sidebarImg.style.display = 'none';
             if (sidebarFallback) {
@@ -6378,6 +6405,13 @@ function resendVerificationEmail() {
             if (profileTabFallback) {
                 profileTabFallback.style.display = 'flex';
                 if (initial) profileTabFallback.textContent = initial;
+            }
+
+            // Sync Translator Header Avatar (empty)
+            if (transHeaderImg) transHeaderImg.style.display = 'none';
+            if (transHeaderFallback) {
+                transHeaderFallback.style.display = 'flex';
+                if (initial) transHeaderFallback.textContent = initial;
             }
         }
 

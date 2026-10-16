@@ -51,7 +51,11 @@
                     <td>
                         <div class="flex items-center gap-2">
                             {% if p.user and p.user.avatar_url %}
-                                <img src="{{ p.user.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar">
+                                <img src="{{ p.user.avatar_url }}" class="w-6 h-6 rounded-full object-cover" alt="Avatar"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div class="w-6 h-6 rounded-full bg-slate-700 items-center justify-center text-[10px] text-white" style="display: none;">
+                                    {{ (p.user.name or 'U')[:1] | upper }}
+                                </div>
                             {% elif p.user %}
                                 <div class="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-[10px] text-white">
                                     {{ (p.user.name or 'U')[:1] | upper }}

@@ -578,7 +578,7 @@ def save_user_avatar(file, user_id, current_avatar=None):
     if size > 5 * 1024 * 1024:
         return False, 'flash.avatar_file_too_large'
 
-    import time
+    import time, shutil
     clean_uid = str(user_id)
     ext = file.filename.rsplit('.', 1)[1].lower()
     filename = f"avatar_u{clean_uid}_{int(time.time())}.{ext}"
@@ -586,16 +586,33 @@ def save_user_avatar(file, user_id, current_avatar=None):
     os.makedirs(folder, exist_ok=True)
     filepath = os.path.join(folder, filename)
 
+    local_static_folder = os.path.join(app.root_path, 'static', 'uploads', 'avatars')
+    if os.path.abspath(folder) != os.path.abspath(local_static_folder):
+        try:
+            os.makedirs(local_static_folder, exist_ok=True)
+        except OSError:
+            pass
+
     try:
         if current_avatar and not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
             old_base = os.path.basename(current_avatar)
-            old_path = os.path.join(folder, old_base)
-            if os.path.exists(old_path):
-                try:
-                    os.remove(old_path)
-                except OSError:
-                    pass
+            for check_dir in [folder, local_static_folder, '/var/lib/viettranslate/uploads/avatars', '/tmp/avatars']:
+                if os.path.isdir(check_dir):
+                    old_path = os.path.join(check_dir, old_base)
+                    if os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except OSError:
+                            pass
         file.save(filepath)
+
+        # Tạo bản sao tại local_static_folder để cả Nginx/Flask static đều thấy tệp
+        if os.path.abspath(folder) != os.path.abspath(local_static_folder) and os.path.isdir(local_static_folder):
+            try:
+                shutil.copy2(filepath, os.path.join(local_static_folder, filename))
+            except Exception:
+                pass
+
         return True, filename
     except Exception as e:
         print(f"[AVATAR UPLOAD ERROR] {e}", file=sys.stderr)
@@ -638,16 +655,22 @@ def save_certificate_file(file, user_id):
 def delete_user_avatar(current_avatar):
     """Xóa file ảnh đại diện cũ nếu là ảnh do người dùng tải lên."""
     if not current_avatar:
-        return
+        return False
     folder = app.config.get('AVATAR_UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
+    local_static_folder = os.path.join(app.root_path, 'static', 'uploads', 'avatars')
+    deleted = False
     if not current_avatar.startswith('http') and not current_avatar.startswith('/static/avatars/'):
         old_base = os.path.basename(current_avatar)
-        old_path = os.path.join(folder, old_base)
-        if os.path.exists(old_path):
-            try:
-                os.remove(old_path)
-            except OSError:
-                pass
+        for check_dir in [folder, local_static_folder, '/var/lib/viettranslate/uploads/avatars', '/tmp/avatars']:
+            if os.path.isdir(check_dir):
+                old_path = os.path.join(check_dir, old_base)
+                if os.path.exists(old_path):
+                    try:
+                        os.remove(old_path)
+                        deleted = True
+                    except OSError:
+                        pass
+    return deleted
 
 db.init_app(app)
 
@@ -7362,6 +7385,49 @@ def serve_chat_image(filename):
         return send_from_directory(chat_img_dir, filename)
     if os.path.exists(os.path.join('/tmp', filename)):
         return send_from_directory('/tmp', filename)
+    abort(404)
+
+
+@app.route('/static/uploads/avatars/<path:filename>')
+@app.route('/uploads/avatars/<path:filename>')
+def serve_avatar_image(filename):
+    """Phục vụ file ảnh đại diện (avatar) trực tiếp từ mọi thư mục lưu trữ khả dĩ."""
+    filename = secure_filename(filename) if filename else ''
+    if not filename:
+        abort(404)
+
+    candidate_folders = []
+    # 1. AVATAR_UPLOAD_FOLDER cấu hình (e.g. /var/lib/viettranslate/uploads/avatars trên VPS)
+    avatar_dir = app.config.get('AVATAR_UPLOAD_FOLDER')
+    if avatar_dir:
+        candidate_folders.append(avatar_dir)
+
+    # 2. UPLOAD_FOLDER/avatars
+    upload_dir = app.config.get('UPLOAD_FOLDER')
+    if upload_dir:
+        candidate_folders.append(os.path.join(upload_dir, 'avatars'))
+        candidate_folders.append(upload_dir)
+
+    # 3. static/uploads/avatars trong root_path và basedir
+    candidate_folders.append(os.path.join(app.root_path, 'static', 'uploads', 'avatars'))
+    candidate_folders.append(os.path.join(basedir, 'static', 'uploads', 'avatars'))
+
+    # 4. Thư mục persistent cố định trên VPS
+    candidate_folders.append('/var/lib/viettranslate/uploads/avatars')
+    candidate_folders.append('/var/lib/viettranslate/uploads')
+
+    # 5. Thư mục tạm
+    candidate_folders.append('/tmp/avatars')
+    candidate_folders.append('/tmp')
+
+    for folder in candidate_folders:
+        if folder and os.path.isdir(folder):
+            file_path = os.path.join(folder, filename)
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                resp = send_from_directory(folder, filename)
+                resp.headers['Cache-Control'] = 'public, max-age=86400'
+                return resp
+
     abort(404)
 
 

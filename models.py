@@ -79,9 +79,13 @@ class User(db.Model):
     @property
     def avatar_url(self):
         if self.avatar:
-            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
-                return self.avatar
-            return f'/static/uploads/avatars/{self.avatar}'
+            avatar_val = str(self.avatar).strip()
+            if (avatar_val.startswith('http://') or 
+                avatar_val.startswith('https://') or 
+                avatar_val.startswith('/') or 
+                avatar_val.startswith('data:')):
+                return avatar_val
+            return f'/static/uploads/avatars/{avatar_val}'
 
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
@@ -631,6 +635,20 @@ class HirerProfile(db.Model):
     @property
     def is_business(self):
         return self.account_type == 'business'
+
+    @property
+    def avatar_url(self):
+        """Ảnh đại diện hoặc logo của hồ sơ người thuê."""
+        try:
+            if self.logo:
+                logo_val = str(self.logo).strip()
+                if logo_val:
+                    if logo_val.startswith('http://') or logo_val.startswith('https://') or logo_val.startswith('/') or logo_val.startswith('data:'):
+                        return logo_val
+                    return f"/static/uploads/logos/{logo_val}"
+            return self.user.avatar_url if self.user else None
+        except Exception:
+            return None
 
 
 class Service(db.Model):
