@@ -845,8 +845,10 @@
                     <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>
                 </svg>
                 Jobs
-                {% if admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
-                <span class="nav-badge warning">{{ admin_badge_flagged_jobs }}</span>
+                {% if admin_badge_pending_jobs and admin_badge_pending_jobs > 0 %}
+                <span class="nav-badge warning">{{ admin_badge_pending_jobs }}</span>
+                {% elif admin_badge_flagged_jobs and admin_badge_flagged_jobs > 0 %}
+                <span class="nav-badge danger">{{ admin_badge_flagged_jobs }}</span>
                 {% endif %}
             </a>
             {% endif %}
