@@ -1773,6 +1773,109 @@ def interpreter_dashboard():
     # - Khoản chờ khách nạp tiền ký quỹ Escrow (escrow_pending)
     escrow_pending_amount = sum(c.agreed_price for c in contracts_pending_payment if c.agreed_price)
 
+    # 4. Chuỗi dữ liệu biến động thu nhập 6 tháng gần nhất cho biểu đồ
+    chart_months = []
+    for offset in range(5, -1, -1):
+        m = today.month - offset
+        y = today.year
+        while m <= 0:
+            m += 12
+            y -= 1
+
+        # Lọc hợp đồng hoàn tất trong tháng (y, m)
+        m_contracts = [
+            c for c in contracts_done
+            if c.updated_at and c.updated_at.year == y and c.updated_at.month == m
+        ]
+        m_earned = sum(c.agreed_price for c in m_contracts if c.agreed_price)
+        chart_months.append({
+            'year': y,
+            'month': m,
+            'label': f"Thg {m:02d}",
+            'short_label': f"T{m}",
+            'full_label': f"Tháng {m:02d}/{y}",
+            'earned': m_earned,
+            'count': len(m_contracts),
+            'is_current': (offset == 0)
+        })
+
+    max_chart_earned = max((item['earned'] for item in chart_months), default=0)
+    total_chart_earned = sum(item['earned'] for item in chart_months)
+    has_chart_data = any(item['earned'] > 0 for item in chart_months)
+
+    # Tọa độ SVG cho biểu đồ vector nội tại (kích thước viewBox 0 0 600 180)
+    svg_width = 600
+    svg_height = 180
+    pad_x = 45
+    pad_top = 25
+    pad_bottom = 35
+    plot_w = svg_width - 2 * pad_x
+    plot_h = svg_height - pad_top - pad_bottom
+    ceiling = max(int(max_chart_earned * 1.15), 1000000) if max_chart_earned > 0 else 1000000
+
+    chart_points = []
+    num_pts = len(chart_months)
+    step_x = plot_w / (num_pts - 1) if num_pts > 1 else plot_w
+
+    for idx, item in enumerate(chart_months):
+        x = round(pad_x + idx * step_x, 1)
+        val = item['earned']
+        if max_chart_earned > 0:
+            y = round(pad_top + plot_h * (1.0 - (val / ceiling)), 1)
+        else:
+            y = round(pad_top + plot_h, 1)
+        chart_points.append({
+            'x': x,
+            'y': y,
+            'earned': val,
+            'count': item['count'],
+            'label': item['label'],
+            'short_label': item['short_label'],
+            'full_label': item['full_label'],
+            'is_current': item['is_current']
+        })
+
+    line_path = ""
+    baseline_y = round(pad_top + plot_h, 1)
+    if chart_points:
+        line_path = f"M {chart_points[0]['x']} {chart_points[0]['y']}"
+        for i in range(len(chart_points) - 1):
+            p0 = chart_points[max(0, i - 1)]
+            p1 = chart_points[i]
+            p2 = chart_points[i + 1]
+            p3 = chart_points[min(len(chart_points) - 1, i + 2)]
+
+            cp1x = round(p1['x'] + (p2['x'] - p0['x']) / 6.0, 1)
+            cp1y = round(p1['y'] + (p2['y'] - p0['y']) / 6.0, 1)
+            cp2x = round(p2['x'] - (p3['x'] - p1['x']) / 6.0, 1)
+            cp2y = round(p2['y'] - (p3['y'] - p1['y']) / 6.0, 1)
+            line_path += f" C {cp1x} {cp1y}, {cp2x} {cp2y}, {p2['x']} {p2['y']}"
+
+        area_path = f"{line_path} L {chart_points[-1]['x']} {baseline_y} L {chart_points[0]['x']} {baseline_y} Z"
+    else:
+        area_path = ""
+
+    grid_lines = [
+        {'y': round(pad_top, 1), 'val': ceiling},
+        {'y': round(pad_top + plot_h * 0.5, 1), 'val': int(ceiling * 0.5)},
+        {'y': baseline_y, 'val': 0}
+    ]
+
+    income_chart_data = {
+        'months': chart_months,
+        'points': chart_points,
+        'line_path': line_path,
+        'area_path': area_path,
+        'baseline_y': baseline_y,
+        'grid_lines': grid_lines,
+        'max_earned': max_chart_earned,
+        'total_earned': total_chart_earned,
+        'has_data': has_chart_data,
+        'ceiling': ceiling,
+        'start_month': chart_months[0]['label'] if chart_months else '',
+        'end_month': chart_months[-1]['label'] if chart_months else ''
+    }
+
     income_stats = {
         'total_earned':              total_earned,
         'monthly_earned':            monthly_earned,
@@ -1786,6 +1889,7 @@ def interpreter_dashboard():
         'completed_contracts_count': len(contracts_done),
         'active_contracts_count':    len(contracts_active),
         'escrow_pending_count':      len(contracts_pending_payment),
+        'chart_data':                income_chart_data,
     }
 
     # ── 4. Ca làm sắp tới (Sắp xếp tăng dần theo thời điểm bắt đầu) ────────
