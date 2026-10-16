@@ -336,7 +336,7 @@
                     <p class="text-xs text-slate-500 mt-0.5">Theo dõi doanh thu thực tế, tiền đã giải ngân và ký quỹ Escrow theo kỳ (Múi giờ UTC+7)</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <a href="{{ url_for('account_history') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
+                    <a href="{{ url_for('interpreter_income_transactions') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg px-2 py-1" title="Xem toàn bộ lịch sử giao dịch và ví">
                         Xem chi tiết lịch sử ví →
                     </a>
                 </div>
@@ -345,7 +345,7 @@
             <!-- Grid 3 thẻ chỉ số thu nhập chính -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                 <!-- Thẻ 1: Thu nhập trong kỳ hiện tại -->
-                <a href="{{ url_for('account_history', period='current_month', status='completed') }}"
+                <a href="{{ url_for('interpreter_income_details', status='paid') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-amber-50/30 border border-slate-200/90 hover:border-amber-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer"
                     title="Nhấn để xem danh sách hợp đồng hoàn tất giải ngân trong {{ income_stats.period_label }}">
                     <div class="flex items-start justify-between">
@@ -382,7 +382,7 @@
                 </a>
 
                 <!-- Thẻ 2: Thu nhập đã thanh toán (Tích lũy) -->
-                <a href="{{ url_for('account_history', status='completed') }}"
+                <a href="{{ url_for('interpreter_income_transactions', status='completed') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-emerald-50/30 border border-slate-200/90 hover:border-emerald-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                     title="Nhấn để xem toàn bộ danh sách hợp đồng đã giải ngân hoàn tất">
                     <div class="flex items-start justify-between">
@@ -419,7 +419,7 @@
                 </a>
 
                 <!-- Thẻ 3: Khoản thu nhập đang chờ xử lý -->
-                <a href="{{ url_for('account_history', status='in_progress') }}"
+                <a href="{{ url_for('interpreter_income_payouts', status='escrow_held') }}"
                     class="group relative block p-5 sm:p-6 rounded-2xl bg-gradient-to-b from-white to-blue-50/30 border border-slate-200/90 hover:border-blue-400 hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     title="Nhấn để xem các hợp đồng đang thực hiện với tiền được ký quỹ Escrow bảo đảm">
                     <div class="flex items-start justify-between">
@@ -469,7 +469,7 @@
                         {% endif %}
                     </span>
                 </div>
-                <a href="{{ url_for('account_history') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
+                <a href="{{ url_for('interpreter_income_transactions') }}" class="font-bold text-slate-700 hover:text-brand-600 hover:underline flex-shrink-0">
                     Xem toàn bộ lịch sử giao dịch →
                 </a>
             </div>
