@@ -469,6 +469,36 @@ class TranslatorProfile(db.Model):
         return val
 
     @property
+    def active_cv_document(self):
+        """
+        Trả về tệp CV đang hoạt động của phiên dịch viên (bất kể cờ is_cv_public bật hay tắt).
+        Dùng cho chính chủ, Quản trị viên hoặc Người thuê có ứng viên nộp hồ sơ.
+        """
+        try:
+            doc = VerificationDocument.query.filter_by(
+                user_id=self.user_id,
+                document_type='cv',
+                is_active=True
+            ).order_by(VerificationDocument.created_at.desc()).first()
+            if doc:
+                return doc
+        except Exception:
+            pass
+
+        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
+            for doc in self.latest_verification.documents:
+                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                    return doc
+
+        if self.user and hasattr(self.user, 'verifications') and self.user.verifications:
+            for v in self.user.verifications:
+                if hasattr(v, 'documents'):
+                    for doc in v.documents:
+                        if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                            return doc
+        return None
+
+    @property
     def public_cv_document(self):
         """
         Trả về đối tượng tài liệu CV hợp lệ khi người dùng CHỦ ĐỘNG chọn công khai (is_cv_public=True).
@@ -476,11 +506,7 @@ class TranslatorProfile(db.Model):
         """
         if not self.is_cv_public:
             return None
-        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
-            for doc in self.latest_verification.documents:
-                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
-                    return doc
-        return None
+        return self.active_cv_document
 
     @property
     def has_public_cv(self):

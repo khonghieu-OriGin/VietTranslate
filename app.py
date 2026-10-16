@@ -3103,6 +3103,16 @@ def account_profile():
             if user.profile:
                 user.profile.bio = bio
 
+            # 6.5. TIÊU ĐỀ CHUYÊN MÔN & CÔNG KHAI CV (TranslatorProfile)
+            if user.role == 'translator':
+                if not user.profile:
+                    user.profile = TranslatorProfile(user_id=user.id)
+                    db.session.add(user.profile)
+                if 'title' in request.form:
+                    user.profile.title = request.form.get('title', '').strip()[:200]
+                if 'is_cv_public' in request.form or 'has_cv_public_field' in request.form:
+                    user.profile.is_cv_public = (request.form.get('is_cv_public') in ('1', 'true', 'True', 'on'))
+
             # 7. SWITCH TOGGLE: CÔNG KHAI HỒ SƠ TRÊN DANH BẠ PHIÊN DỊCH VIÊN
             is_public_val = request.form.get('is_public_profile')
             is_public = (is_public_val in ('1', 'true', 'True', 'on'))
@@ -3148,6 +3158,8 @@ def account_profile():
                         'date_of_birth': user.date_of_birth,
                         'city': user.city,
                         'bio': user.bio,
+                        'title': user.profile.title if user.profile else '',
+                        'is_cv_public': user.profile.is_cv_public if user.profile else False,
                         'is_public_profile': user.is_public_profile,
                         'avatar_url': user.avatar_url,
                         'initial': (user.name or 'U')[0].upper(),
@@ -3157,6 +3169,33 @@ def account_profile():
                     }
                 })
             flash(msg, 'success')
+            return redirect(url_for('account_profile', tab='profile'))
+
+        elif action == 'update_profile_title':
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                       'application/json' in request.headers.get('Accept', '') or
+                       request.is_json)
+            new_title = request.form.get('title', '').strip()
+            if not user.profile:
+                user.profile = TranslatorProfile(user_id=user.id)
+                db.session.add(user.profile)
+            user.profile.title = new_title[:200]
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                if is_ajax:
+                    return jsonify({'success': False, 'message': 'Không thể lưu tiêu đề chuyên môn.'}), 500
+                flash('Không thể lưu tiêu đề chuyên môn.', 'error')
+                return redirect(url_for('account_profile', tab='profile'))
+
+            if is_ajax:
+                return jsonify({
+                    'success': True,
+                    'message': 'Đã cập nhật tiêu đề chuyên môn thành công!',
+                    'title': user.profile.title or 'Chưa đặt tiêu đề chuyên môn'
+                })
+            flash('Đã cập nhật tiêu đề chuyên môn thành công!', 'success')
             return redirect(url_for('account_profile', tab='profile'))
 
         elif action == 'upload_avatar':
@@ -4344,21 +4383,18 @@ def download_verification_document(doc_id):
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
-    from services.verification import can_user_access_document, get_private_verification_folder
+    from services.verification import can_user_access_document, resolve_document_file_path
     can_access, err = can_user_access_document(user, doc)
     if not can_access:
         abort(403)
 
-    file_path = doc.storage_path
-    if not file_path or not os.path.isabs(file_path):
-        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
-
-    if not os.path.exists(file_path):
-        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
-        if os.path.exists(fallback_path):
-            file_path = fallback_path
-        else:
-            abort(404)
+    ftype, target = resolve_document_file_path(doc)
+    if ftype == 'url':
+        return redirect(target)
+    elif ftype == 'file' and target:
+        file_path = target
+    else:
+        abort(404)
 
     response = send_file(
         file_path,
@@ -4386,21 +4422,18 @@ def view_verification_document(doc_id):
 
     doc = VerificationDocument.query.get_or_404(doc_id)
 
-    from services.verification import can_user_access_document, get_private_verification_folder
+    from services.verification import can_user_access_document, resolve_document_file_path
     can_access, err = can_user_access_document(user, doc)
     if not can_access:
         abort(403)
 
-    file_path = doc.storage_path
-    if not file_path or not os.path.isabs(file_path):
-        file_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
-
-    if not os.path.exists(file_path):
-        fallback_path = os.path.join(get_private_verification_folder(), doc.stored_filename)
-        if os.path.exists(fallback_path):
-            file_path = fallback_path
-        else:
-            abort(404)
+    ftype, target = resolve_document_file_path(doc)
+    if ftype == 'url':
+        return redirect(target)
+    elif ftype == 'file' and target:
+        file_path = target
+    else:
+        abort(404)
 
     response = send_file(
         file_path,
@@ -7009,7 +7042,8 @@ def view_public_cv(profile_id):
     Endpoint xem / tải CV chuyên môn công khai của phiên dịch viên.
     Chỉ cho phép khi:
     - Hồ sơ có bật cờ is_cv_public = True, HOẶC
-    - Người xem là chính chủ hồ sơ hoặc Quản trị viên (Admin).
+    - Người xem là chính chủ hồ sơ hoặc Quản trị viên (Admin), HOẶC
+    - Người xem là Người thuê (Hirer) mà phiên dịch viên đã nộp báo giá vào công việc của họ hoặc có Hợp đồng.
     Bảo mật nghiêm ngặt:
     - Chỉ phục vụ tài liệu loại 'cv'.
     - TUYỆT ĐỐI KHÔNG BAO GIỜ phục vụ 'id_card', hộ chiếu hoặc tài liệu định danh riêng tư.
@@ -7024,15 +7058,39 @@ def view_public_cv(profile_id):
     if profile.user and not getattr(profile.user, 'is_active', True) and not is_admin:
         abort(403)
 
-    if not profile.is_cv_public and not (is_owner or is_admin):
+    # Kiểm tra xem người xem có phải là người thuê có quan hệ công việc với phiên dịch viên này không
+    is_hirer_with_relation = False
+    if viewer and viewer.role == 'hirer':
+        has_prop = Proposal.query.join(Job).filter(
+            Proposal.translator_id == profile.user_id,
+            Job.hirer_id == viewer.id
+        ).first()
+        if has_prop:
+            is_hirer_with_relation = True
+        else:
+            has_contract = Contract.query.filter_by(
+                hirer_id=viewer.id,
+                translator_id=profile.user_id
+            ).first()
+            if has_contract:
+                is_hirer_with_relation = True
+
+    can_view = bool(profile.is_cv_public or is_owner or is_admin or is_hirer_with_relation)
+    if not can_view:
         flash('Phiên dịch viên chưa thiết lập công khai tài liệu CV.', 'warning')
         return redirect(url_for('translator_profile', profile_id=profile.id))
 
-    cv_doc = profile.public_cv_document
-    if not cv_doc and (is_owner or is_admin) and profile.latest_verification:
-        for doc in profile.latest_verification.documents:
-            if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
-                cv_doc = doc
+    cv_doc = profile.active_cv_document if (is_owner or is_admin or is_hirer_with_relation) else profile.public_cv_document
+
+    # Nếu chưa tìm thấy qua active_cv_document, kiểm tra thêm trong các verifications
+    if not cv_doc and profile.user:
+        for v in (profile.user.verifications or []):
+            if hasattr(v, 'documents'):
+                for d in v.documents:
+                    if d.document_type == 'cv' and getattr(d, 'is_active', True):
+                        cv_doc = d
+                        break
+            if cv_doc:
                 break
 
     if not cv_doc:
@@ -7042,17 +7100,19 @@ def view_public_cv(profile_id):
     if cv_doc.document_type != 'cv':
         abort(403)
 
-    from services.verification import get_private_verification_folder
-    file_path = cv_doc.storage_path
-    if not file_path or not os.path.isabs(file_path):
-        file_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
+    from services.verification import resolve_document_file_path
+    ftype, target = resolve_document_file_path(cv_doc)
 
-    if not os.path.exists(file_path):
-        fallback_path = os.path.join(get_private_verification_folder(), cv_doc.stored_filename)
-        if os.path.exists(fallback_path):
-            file_path = fallback_path
-        else:
-            abort(404)
+    if ftype == 'url':
+        return redirect(target)
+    elif ftype == 'file' and target:
+        file_path = target
+    else:
+        # Kiểm tra thêm nếu có cv_url trực tiếp trên verification
+        verif = profile.latest_verification
+        if verif and verif.cv_url and verif.cv_url.startswith(('http://', 'https://')):
+            return redirect(verif.cv_url)
+        abort(404)
 
     mode = request.args.get('mode', 'view')
     as_attachment = (mode == 'download')
@@ -7060,7 +7120,7 @@ def view_public_cv(profile_id):
     response = send_file(
         file_path,
         as_attachment=as_attachment,
-        download_name=cv_doc.original_filename,
+        download_name=cv_doc.original_filename or 'CV_ChuyenNghiep.pdf',
         mimetype=cv_doc.mime_type or 'application/pdf'
     )
     response.headers['X-Content-Type-Options'] = 'nosniff'
