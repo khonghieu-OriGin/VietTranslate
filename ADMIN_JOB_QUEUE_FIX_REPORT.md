@@ -31,6 +31,7 @@ badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count(
 - Số đếm phản ánh chính xác cả các job mới lẫn dữ liệu lịch sử chưa đồng bộ, đồng thời loại trừ các job đã bị gắn cờ vi phạm.
 
 ### 2. Hiển Thị Badge Chờ Duyệt Trên Sidebar (`templates/admin_base.html:847-853`)
+{% raw %}
 ```html
 Jobs
 {% if admin_badge_pending_jobs and admin_badge_pending_jobs > 0 %}
@@ -39,6 +40,7 @@ Jobs
 <span class="nav-badge danger">{{ admin_badge_flagged_jobs }}</span>
 {% endif %}
 ```
+{% endraw %}
 - Khi có job chờ duyệt, sidebar hiển thị badge màu vàng (warning) nổi bật. Nếu không có job pending nhưng có job bị flagged, hiển thị badge màu đỏ (danger).
 
 ### 3. Chuẩn Hóa Logic Bộ Lọc Trong `admin_jobs()` (`app.py:10290-10325`)
