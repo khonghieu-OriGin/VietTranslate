@@ -5857,16 +5857,20 @@ function resendVerificationEmail() {
         const navHelpBtn = document.getElementById('nav-help-btn');
         if (navSettingsBtn) {
             if (tab === 'security') {
-                navSettingsBtn.classList.add('bg-brand-50', 'text-brand-600');
+                navSettingsBtn.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
+                navSettingsBtn.dataset.pageActive = 'true';
             } else {
-                navSettingsBtn.classList.remove('bg-brand-50', 'text-brand-600');
+                navSettingsBtn.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
+                navSettingsBtn.dataset.pageActive = 'false';
             }
         }
         if (navHelpBtn) {
             if (tab === 'support') {
-                navHelpBtn.classList.add('bg-brand-50', 'text-brand-600');
+                navHelpBtn.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
+                navHelpBtn.dataset.pageActive = 'true';
             } else {
-                navHelpBtn.classList.remove('bg-brand-50', 'text-brand-600');
+                navHelpBtn.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
+                navHelpBtn.dataset.pageActive = 'false';
             }
         }
 
@@ -5988,6 +5992,14 @@ function resendVerificationEmail() {
         if (tabParam === 'hirer_profile') tabParam = 'hirer_verify';
         if (tabParam && document.getElementById('tab-' + tabParam)) {
             switchTab(tabParam);
+        }
+        if (window.location.hash && window.location.hash.startsWith('#section-')) {
+            setTimeout(() => {
+                const target = document.querySelector(window.location.hash);
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 200);
         }
     });
 
