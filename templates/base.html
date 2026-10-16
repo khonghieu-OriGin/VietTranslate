@@ -322,30 +322,111 @@
                     </a>
                     {% endif %}
 
-                    <!-- Messages icon with badge -->
+                    <!-- Messages Popover Wrapper -->
                     {% if current_user %}
-                    <a href="{{ url_for('messages_page') }}" id="nav-msg-btn"
-                            class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}bg-brand-50 text-brand-600{% endif %}"
-                            title="{{ t('nav.messages_tooltip') }}">
+                    {% set is_messages_active = request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}
+                    <div class="relative inline-block" id="nav-msg-wrapper">
+                        <button type="button" id="nav-msg-btn"
+                            onclick="toggleHeaderPopover('msg', event)"
+                            data-page-active="{{ 'true' if is_messages_active else 'false' }}"
+                            aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-msg-popover"
+                            class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_messages_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                            title="{{ t('nav.messages_tooltip') }}" aria-label="{{ t('nav.messages_tooltip') }}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                             <span id="msg-badge"
                                 class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
-                        </a>
+                        </button>
 
-                        <!-- Notifications icon with badge -->
-                        <a href="{{ url_for('notifications_page') }}" id="nav-notif-btn"
-                                class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint == 'notifications_page' %}bg-brand-50 text-brand-600{% endif %}"
-                                title="{{ t('nav.notifications_tooltip') }}">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                <span id="notif-badge"
-                                    class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
-                            </a>
+                        <!-- Messages Popover Dropdown Panel -->
+                        <div id="nav-msg-popover" role="dialog" aria-label="{{ t('nav.messages_tooltip') }}"
+                            class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                            
+                            <!-- Header -->
+                            <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-sm tracking-tight">Tin nhắn</h3>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Đoạn chat gần đây</p>
+                                </div>
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-bold border border-brand-200/60">
+                                    Trò chuyện
+                                </span>
+                            </div>
+
+                            <!-- Messages List Body (dynamic) -->
+                            <div id="nav-msg-list" class="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+                                <div class="py-8 text-center text-slate-400">
+                                    <svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <span class="text-xs">Đang tải tin nhắn...</span>
+                                </div>
+                            </div>
+
+                            <!-- Footer / CTA -->
+                            <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                <a href="{{ url_for('messages_page') }}"
+                                    onclick="closeAllHeaderPopovers();"
+                                    class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                    <span>Xem tất cả tin nhắn</span>
+                                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notifications Popover Wrapper -->
+                    {% set is_notif_active = request.endpoint == 'notifications_page' %}
+                    <div class="relative inline-block" id="nav-notif-wrapper">
+                        <button type="button" id="nav-notif-btn"
+                            onclick="toggleHeaderPopover('notif', event)"
+                            data-page-active="{{ 'true' if is_notif_active else 'false' }}"
+                            aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-notif-popover"
+                            class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_notif_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                            title="{{ t('nav.notifications_tooltip') }}" aria-label="{{ t('nav.notifications_tooltip') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span id="notif-badge"
+                                class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
+                        </button>
+
+                        <!-- Notifications Popover Dropdown Panel -->
+                        <div id="nav-notif-popover" role="dialog" aria-label="{{ t('nav.notifications_tooltip') }}"
+                            class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                            
+                            <!-- Header -->
+                            <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-sm tracking-tight">Thông báo</h3>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Thông báo mới nhận</p>
+                                </div>
+                                <button type="button" id="header-notif-mark-all-read" onclick="markAllHeaderNotificationsRead(event)"
+                                    class="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer">
+                                    Đánh dấu đã đọc
+                                </button>
+                            </div>
+
+                            <!-- Notifications List Body (dynamic) -->
+                            <div id="nav-notif-list" class="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+                                <div class="py-8 text-center text-slate-400">
+                                    <svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <span class="text-xs">Đang tải thông báo...</span>
+                                </div>
+                            </div>
+
+                            <!-- Footer / CTA -->
+                            <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                <a href="{{ url_for('notifications_page') }}"
+                                    onclick="closeAllHeaderPopovers();"
+                                    class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                    <span>Xem tất cả thông báo</span>
+                                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
 
                             {% if current_user.role == 'hirer' %}
                             <a href="{{ url_for('saved_translators') }}" title="Đã lưu" aria-label="Đã lưu"
@@ -837,16 +918,7 @@
                 <div class="px-3 pt-2 pb-1">
                     <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Chức năng chung</p>
                 </div>
-                <a href="{{ url_for('messages_page') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['messages_page', 'direct_chat'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    Tin nhắn
-                </a>
-                <a href="{{ url_for('notifications_page') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'notifications_page' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    Thông báo
-                </a>
+
                 <a href="{{ url_for('about') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'about' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2">Về VietTranslate</a>
                 <a href="{{ url_for('payment_info') }}"
@@ -998,14 +1070,7 @@
                 </a>
 {% endif %}
                 <p class="side-title">Chung</p>
-                <a href="{{ url_for('messages_page') }}" class="side-link {% if request.endpoint in ['messages_page', 'direct_chat'] %}active{% endif %}">
-                    <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>Tin nhắn</span>
-                </a>
-                <a href="{{ url_for('notifications_page') }}" class="side-link {% if request.endpoint == 'notifications_page' %}active{% endif %}">
-                    <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    <span>Thông báo</span>
-                </a>
+
                 <a href="{{ url_for('about') }}" class="side-link {% if request.endpoint == 'about' %}active{% endif %}">
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span>Về VietTranslate</span>
@@ -1247,7 +1312,205 @@
             }
         });
 
-        // ─── Header Popovers: Cài đặt & Trợ giúp ─────────────────────────────────
+        // ─── Header Popovers: Tin nhắn, Thông báo, Trợ giúp, Cài đặt ─────────────────
+        const ALL_HEADER_POPOVER_TYPES = ['msg', 'notif', 'help', 'settings'];
+        let headerMessagesLoaded = false;
+        let headerNotificationsLoaded = false;
+
+        function escHeader(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            });
+        }
+
+        function timeAgoHeader(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (isNaN(seconds) || seconds < 60) return "Vừa xong";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + " phút trước";
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return hours + " giờ trước";
+            const days = Math.floor(hours / 24);
+            if (days < 30) return days + " ngày trước";
+            return date.toLocaleDateString('vi-VN');
+        }
+
+        function getHeaderNotifIcon(type) {
+            if (type && type.startsWith('VERIFICATION_')) {
+                return '<div class="w-8 h-8 rounded-xl bg-blue-100/90 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>';
+            }
+            if (type && (type.includes('JOB') || type.startsWith('PROPOSAL'))) {
+                return '<div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>';
+            }
+            if (type && type.includes('MESSAGE')) {
+                return '<div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>';
+            }
+            if (type && (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION'))) {
+                return '<div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>';
+            }
+            return '<div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>';
+        }
+
+        function loadHeaderMessages(force) {
+            const listEl = document.getElementById('nav-msg-list');
+            if (!listEl) return;
+            if (!headerMessagesLoaded || force) {
+                listEl.innerHTML = '<div class="py-8 text-center text-slate-400">' +
+                    '<svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>' +
+                    '<span class="text-xs">Đang tải tin nhắn...</span></div>';
+            }
+            fetch('/api/messages/conversations', { credentials: 'same-origin' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(items) {
+                    headerMessagesLoaded = true;
+                    if (!items || items.length === 0) {
+                        listEl.innerHTML = '<div class="py-8 px-4 text-center text-slate-400">' +
+                            '<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">' +
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>' +
+                            '</div>' +
+                            '<p class="font-semibold text-slate-600 text-xs">Chưa có tin nhắn nào</p>' +
+                            '<p class="text-[11px] text-slate-400 mt-0.5">Tin nhắn trao đổi của bạn sẽ xuất hiện ở đây.</p>' +
+                        '</div>';
+                        return;
+                    }
+                    const top = items.slice(0, 6);
+                    let html = '';
+                    top.forEach(function(item) {
+                        const hasUnread = item.unread_count > 0;
+                        html += '<a href="' + (item.url || '#') + '" onclick="closeAllHeaderPopovers();" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer ' + (hasUnread ? 'bg-brand-50/30' : '') + '">' +
+                            '<div class="relative shrink-0">' +
+                                '<div class="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">' +
+                                    escHeader(item.other_initial || 'U') +
+                                '</div>' +
+                                (hasUnread ? '<span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-brand-600 border-2 border-white"></span>' : '') +
+                            '</div>' +
+                            '<div class="flex-1 min-w-0">' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<span class="text-xs ' + (hasUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800') + ' truncate">' +
+                                        escHeader(item.other_name) +
+                                    '</span>' +
+                                    '<span class="text-[10px] text-slate-400 shrink-0">' +
+                                        escHeader(item.last_time_str || '') +
+                                    '</span>' +
+                                '</div>' +
+                                (item.project ? '<p class="text-[10px] text-brand-600 font-medium truncate mt-0.5">📁 ' + escHeader(item.project) + '</p>' : '') +
+                                '<div class="flex items-center justify-between gap-2 mt-0.5">' +
+                                    '<p class="text-[11px] ' + (hasUnread ? 'font-semibold text-slate-800' : 'text-slate-500') + ' truncate leading-snug">' +
+                                        escHeader(item.last_message || 'Không có tin nhắn') +
+                                    '</p>' +
+                                    (hasUnread ? '<span class="shrink-0 min-w-[16px] h-[16px] rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center px-1">' + item.unread_count + '</span>' : '') +
+                                '</div>' +
+                            '</div>' +
+                        '</a>';
+                    });
+                    listEl.innerHTML = html;
+                })
+                .catch(function() {
+                    listEl.innerHTML = '<div class="py-6 px-4 text-center text-rose-500 text-xs">' +
+                        '<p>Không tải được tin nhắn.</p>' +
+                        '<button type="button" onclick="loadHeaderMessages(true)" class="mt-2 text-brand-600 font-bold hover:underline cursor-pointer">Thử lại</button>' +
+                    '</div>';
+                });
+        }
+
+        function loadHeaderNotifications(force) {
+            const listEl = document.getElementById('nav-notif-list');
+            if (!listEl) return;
+            if (!headerNotificationsLoaded || force) {
+                listEl.innerHTML = '<div class="py-8 text-center text-slate-400">' +
+                    '<svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>' +
+                    '<span class="text-xs">Đang tải thông báo...</span></div>';
+            }
+            fetch('/api/notifications?per_page=6', { credentials: 'same-origin' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    headerNotificationsLoaded = true;
+                    const items = data && data.notifications ? data.notifications : [];
+                    if (items.length === 0) {
+                        listEl.innerHTML = '<div class="py-8 px-4 text-center text-slate-400">' +
+                            '<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">' +
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>' +
+                            '</div>' +
+                            '<p class="font-semibold text-slate-600 text-xs">Chưa có thông báo nào</p>' +
+                            '<p class="text-[11px] text-slate-400 mt-0.5">Bạn sẽ nhận được thông báo khi có cập nhật mới.</p>' +
+                        '</div>';
+                        return;
+                    }
+                    let html = '';
+                    items.forEach(function(item) {
+                        const isUnread = !item.is_read;
+                        const targetUrl = item.url || '{{ url_for('notifications_page') }}';
+                        html += '<a href="' + escHeader(targetUrl) + '" onclick="return handleHeaderNotifClick(event, ' + item.id + ', \'' + escHeader(targetUrl) + '\', ' + item.is_read + ');" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer ' + (isUnread ? 'bg-brand-50/40' : '') + '">' +
+                            '<div class="shrink-0 mt-0.5">' +
+                                getHeaderNotifIcon(item.type) +
+                            '</div>' +
+                            '<div class="flex-1 min-w-0">' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<span class="text-xs ' + (isUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800') + ' truncate">' +
+                                        escHeader(item.title) +
+                                    '</span>' +
+                                    (isUnread ? '<span class="w-2 h-2 rounded-full bg-brand-600 shrink-0"></span>' : '') +
+                                '</div>' +
+                                '<p class="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">' +
+                                    escHeader(item.message) +
+                                '</p>' +
+                                '<span class="text-[10px] text-slate-400 mt-1 inline-block">' +
+                                    escHeader(timeAgoHeader(item.created_at)) +
+                                '</span>' +
+                            '</div>' +
+                        '</a>';
+                    });
+                    listEl.innerHTML = html;
+                })
+                .catch(function() {
+                    listEl.innerHTML = '<div class="py-6 px-4 text-center text-rose-500 text-xs">' +
+                        '<p>Không tải được thông báo.</p>' +
+                        '<button type="button" onclick="loadHeaderNotifications(true)" class="mt-2 text-brand-600 font-bold hover:underline cursor-pointer">Thử lại</button>' +
+                    '</div>';
+                });
+        }
+
+        function handleHeaderNotifClick(e, id, url, isRead) {
+            closeAllHeaderPopovers();
+            if (!isRead && id) {
+                fetch('/api/notifications/' + id + '/read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                }).then(function() {
+                    if (window.vtRefreshBadges) window.vtRefreshBadges(true);
+                }).catch(function() {});
+            }
+            if (url && url !== '#' && !url.startsWith('javascript:')) {
+                return true;
+            }
+            if (e) e.preventDefault();
+            return false;
+        }
+
+        function markAllHeaderNotificationsRead(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            fetch('/api/notifications/read-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            }).then(function(r) { return r.json(); })
+            .then(function() {
+                if (window.vtRefreshBadges) window.vtRefreshBadges(true);
+                loadHeaderNotifications(true);
+            }).catch(function() {});
+        }
+
         function updateTriggerButtonState(btn, isOpen) {
             if (!btn) return;
             btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
@@ -1292,7 +1555,7 @@
         }
 
         function closeAllHeaderPopovers() {
-            ['help', 'settings'].forEach(function (type) {
+            ALL_HEADER_POPOVER_TYPES.forEach(function (type) {
                 const popover = document.getElementById('nav-' + type + '-popover');
                 const btn = document.getElementById('nav-' + type + '-btn');
                 if (popover && !popover.classList.contains('hidden')) {
@@ -1322,6 +1585,11 @@
                 popover.classList.remove('hidden');
                 updateTriggerButtonState(btn, true);
                 adjustPopoverPosition(popover);
+                if (type === 'msg') {
+                    loadHeaderMessages();
+                } else if (type === 'notif') {
+                    loadHeaderNotifications();
+                }
             }
         }
 
@@ -1350,11 +1618,11 @@
 
         // Đóng popover khi click ra ngoài
         document.addEventListener('click', function (e) {
-            const helpWrap = document.getElementById('nav-help-wrapper');
-            const settingsWrap = document.getElementById('nav-settings-wrapper');
-            const inHelp = helpWrap && helpWrap.contains(e.target);
-            const inSettings = settingsWrap && settingsWrap.contains(e.target);
-            if (!inHelp && !inSettings) {
+            const isInsideAny = ALL_HEADER_POPOVER_TYPES.some(function(type) {
+                const wrap = document.getElementById('nav-' + type + '-wrapper');
+                return wrap && wrap.contains(e.target);
+            });
+            if (!isInsideAny) {
                 closeAllHeaderPopovers();
             }
         });
@@ -1362,24 +1630,21 @@
         // Đóng popover khi bấm Escape
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
-                const helpPop = document.getElementById('nav-help-popover');
-                const settingsPop = document.getElementById('nav-settings-popover');
-                const wasHelpOpen = helpPop && !helpPop.classList.contains('hidden');
-                const wasSettingsOpen = settingsPop && !settingsPop.classList.contains('hidden');
-                if (wasHelpOpen || wasSettingsOpen) {
+                const openType = ALL_HEADER_POPOVER_TYPES.find(function(type) {
+                    const pop = document.getElementById('nav-' + type + '-popover');
+                    return pop && !pop.classList.contains('hidden');
+                });
+                if (openType) {
                     closeAllHeaderPopovers();
-                    if (wasHelpOpen) {
-                        document.getElementById('nav-help-btn')?.focus();
-                    } else if (wasSettingsOpen) {
-                        document.getElementById('nav-settings-btn')?.focus();
-                    }
+                    const btn = document.getElementById('nav-' + openType + '-btn');
+                    if (btn) btn.focus();
                 }
             }
         });
 
         // Điều chỉnh vị trí khi thay đổi kích thước màn hình
         window.addEventListener('resize', function () {
-            ['help', 'settings'].forEach(function (type) {
+            ALL_HEADER_POPOVER_TYPES.forEach(function (type) {
                 const pop = document.getElementById('nav-' + type + '-popover');
                 if (pop && !pop.classList.contains('hidden')) {
                     adjustPopoverPosition(pop);
