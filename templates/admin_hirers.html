@@ -73,14 +73,18 @@
                         </div>
                     </td>
                     <td>
-                        {% if p and (p.verification_status == 'verified' or p.is_verified) %}
+                        {% if p and p.verification_status == 'verified' and p.is_verified %}
                         <span class="badge badge-green">✓ Đã xác minh</span>
+                        {% elif p and p.verification_status == 'pending' %}
+                        <span class="badge badge-warning" style="background: #fbbf24; color: #1e293b;">Chờ xác minh</span>
                         {% elif p and p.verification_status == 'needs_revision' %}
                         <span class="badge badge-warning">Cần bổ sung</span>
                         {% elif p and p.verification_status == 'rejected' %}
                         <span class="badge badge-red">Từ chối</span>
+                        {% elif p and p.verification_status == 'revoked' %}
+                        <span class="badge badge-red">Đã thu hồi</span>
                         {% else %}
-                        <span class="badge badge-warning" style="background: #fbbf24; color: #1e293b;">Chờ xác minh</span>
+                        <span class="badge badge-gray">Chưa nộp hồ sơ</span>
                         {% endif %}
                     </td>
                     <td style="color: #64748b; font-size: 12px;">{{ u.created_at.strftime('%d/%m/%Y') }}</td>

@@ -67,6 +67,21 @@
             display: none !important;
         }
 
+        /* Header Popover Dropdown Panel Animation */
+        @keyframes headerPopoverFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-6px) scale(0.98);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .header-popover-panel:not(.hidden) {
+            animation: headerPopoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
         :root {
             --brand-blue: #2563eb;
             --brand-blue-deep: #1d4ed8;
@@ -307,84 +322,111 @@
                     </a>
                     {% endif %}
 
-                    <!-- Messages icon with badge -->
+                    <!-- Messages Popover Wrapper -->
                     {% if current_user %}
-                    <a href="{{ url_for('messages_page') }}" id="nav-msg-btn"
-                            class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition {% if request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}bg-brand-50 text-brand-600{% endif %}"
-                            title="{{ t('nav.messages_tooltip') }}">
+                    {% set is_messages_active = request.endpoint in ['messages_page', 'direct_chat', 'transaction_detail'] %}
+                    <div class="relative inline-block" id="nav-msg-wrapper">
+                        <button type="button" id="nav-msg-btn"
+                            onclick="toggleHeaderPopover('msg', event)"
+                            data-page-active="{{ 'true' if is_messages_active else 'false' }}"
+                            aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-msg-popover"
+                            class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_messages_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                            title="{{ t('nav.messages_tooltip') }}" aria-label="{{ t('nav.messages_tooltip') }}">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                             <span id="msg-badge"
                                 class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
-                        </a>
+                        </button>
 
-                        <!-- Notifications Popover Wrapper -->
-                        <div class="relative" id="nav-notif-wrapper">
-                            <a href="{{ url_for('notifications_page') }}" id="nav-notif-btn"
-                                class="relative p-2 rounded-xl text-slate-500 hover:bg-slate-100 hover:text-brand-600 transition block cursor-pointer {% if request.endpoint == 'notifications_page' %}bg-brand-50 text-brand-600{% endif %}"
-                                title="{{ t('nav.notifications_tooltip') }}"
-                                aria-expanded="false" aria-haspopup="true">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                                <span id="notif-badge"
-                                    class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
-                            </a>
-
-                            <!-- Popover Notification List Dropdown -->
-                            <div id="nav-notif-popover" class="hidden absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200/90 z-50 overflow-hidden text-slate-800 transition-all origin-top-right flex-col max-h-[85vh]">
-                                <!-- Header -->
-                                <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between shrink-0">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-sm font-bold text-slate-900">Thông báo</span>
-                                        <span id="popover-unread-badge" class="hidden text-[11px] font-extrabold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700"></span>
-                                    </div>
-                                    <button id="popover-mark-all-read" type="button" class="text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-brand-50 px-2 py-1 rounded-lg transition cursor-pointer" title="Đánh dấu tất cả đã đọc">
-                                        Đã đọc tất cả
-                                    </button>
+                        <!-- Messages Popover Dropdown Panel -->
+                        <div id="nav-msg-popover" role="dialog" aria-label="{{ t('nav.messages_tooltip') }}"
+                            class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                            
+                            <!-- Header -->
+                            <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-sm tracking-tight">Tin nhắn</h3>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Đoạn chat gần đây</p>
                                 </div>
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-[10px] font-bold border border-brand-200/60">
+                                    Trò chuyện
+                                </span>
+                            </div>
 
-                                <!-- Body -->
-                                <div id="popover-notif-body" class="overflow-y-auto divide-y divide-slate-100 flex-1 max-h-[380px] min-h-[120px]">
-                                    <!-- Loading State -->
-                                    <div id="popover-notif-loading" class="flex flex-col items-center justify-center py-8 text-slate-400">
-                                        <svg class="animate-spin w-6 h-6 text-brand-500 mb-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-                                        <span class="text-xs font-medium">Đang tải thông báo...</span>
-                                    </div>
-
-                                    <!-- Empty State -->
-                                    <div id="popover-notif-empty" class="hidden flex-col items-center justify-center py-8 px-4 text-center text-slate-400">
-                                        <div class="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-2 text-slate-300">
-                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                                        </div>
-                                        <p class="text-xs font-bold text-slate-700">Chưa có thông báo nào</p>
-                                        <p class="text-[11px] text-slate-400 mt-0.5">Bạn sẽ nhận được thông báo khi có hoạt động mới.</p>
-                                    </div>
-
-                                    <!-- Error State -->
-                                    <div id="popover-notif-error" class="hidden py-6 px-4 text-center">
-                                        <p class="text-xs font-medium text-rose-600 mb-2">Không thể tải thông báo</p>
-                                        <button id="popover-notif-retry" type="button" class="text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 px-3 py-1.5 rounded-lg transition cursor-pointer">Thử lại</button>
-                                    </div>
-
-                                    <!-- Items Container -->
-                                    <div id="popover-notif-items" class="hidden divide-y divide-slate-100">
-                                        <!-- Dynamically populated by JS -->
-                                    </div>
-                                </div>
-
-                                <!-- Footer -->
-                                <div class="p-2.5 bg-slate-50 border-t border-slate-100 text-center shrink-0">
-                                    <a href="{{ url_for('notifications_page') }}" class="text-xs font-bold text-brand-600 hover:text-brand-700 hover:underline block py-1">
-                                        Xem tất cả thông báo →
-                                    </a>
+                            <!-- Messages List Body (dynamic) -->
+                            <div id="nav-msg-list" class="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+                                <div class="py-8 text-center text-slate-400">
+                                    <svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <span class="text-xs">Đang tải tin nhắn...</span>
                                 </div>
                             </div>
+
+                            <!-- Footer / CTA -->
+                            <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                <a href="{{ url_for('messages_page') }}"
+                                    onclick="closeAllHeaderPopovers();"
+                                    class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                    <span>Xem tất cả tin nhắn</span>
+                                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                </a>
+                            </div>
                         </div>
-                            {% endif %}
+                    </div>
+
+                    <!-- Notifications Popover Wrapper -->
+                    {% set is_notif_active = request.endpoint == 'notifications_page' %}
+                    <div class="relative inline-block" id="nav-notif-wrapper">
+                        <button type="button" id="nav-notif-btn"
+                            onclick="toggleHeaderPopover('notif', event)"
+                            data-page-active="{{ 'true' if is_notif_active else 'false' }}"
+                            aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-notif-popover"
+                            class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_notif_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                            title="{{ t('nav.notifications_tooltip') }}" aria-label="{{ t('nav.notifications_tooltip') }}">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span id="notif-badge"
+                                class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-extrabold rounded-full flex items-center justify-center px-1 shadow"></span>
+                        </button>
+
+                        <!-- Notifications Popover Dropdown Panel -->
+                        <div id="nav-notif-popover" role="dialog" aria-label="{{ t('nav.notifications_tooltip') }}"
+                            class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[350px] sm:w-[380px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                            
+                            <!-- Header -->
+                            <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-slate-900 text-sm tracking-tight">Thông báo</h3>
+                                    <p class="text-[11px] text-slate-500 mt-0.5">Thông báo mới nhận</p>
+                                </div>
+                                <button type="button" id="header-notif-mark-all-read" onclick="markAllHeaderNotificationsRead(event)"
+                                    class="text-[11px] font-semibold text-brand-600 hover:text-brand-700 hover:underline cursor-pointer">
+                                    Đánh dấu đã đọc
+                                </button>
+                            </div>
+
+                            <!-- Notifications List Body (dynamic) -->
+                            <div id="nav-notif-list" class="max-h-[360px] overflow-y-auto divide-y divide-slate-100">
+                                <div class="py-8 text-center text-slate-400">
+                                    <svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                    <span class="text-xs">Đang tải thông báo...</span>
+                                </div>
+                            </div>
+
+                            <!-- Footer / CTA -->
+                            <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                <a href="{{ url_for('notifications_page') }}"
+                                    onclick="closeAllHeaderPopovers();"
+                                    class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                    <span>Xem tất cả thông báo</span>
+                                    <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
 
                             {% if current_user.role == 'hirer' %}
                             <a href="{{ url_for('saved_translators') }}" title="Đã lưu" aria-label="Đã lưu"
@@ -393,6 +435,207 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                                 </svg>
                             </a>
+                            {% endif %}
+
+                            <!-- Trợ giúp & Hỗ trợ (Help Popover Wrapper) -->
+                            {% set is_support_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'support' %}
+                            <div class="relative inline-block" id="nav-help-wrapper">
+                                <button type="button" id="nav-help-btn"
+                                    onclick="toggleHeaderPopover('help', event)"
+                                    data-page-active="{{ 'true' if is_support_active else 'false' }}"
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-help-popover"
+                                    class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_support_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    title="{{ t('nav.help_tooltip') }}" aria-label="{{ t('nav.help_tooltip') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </button>
+
+                                <!-- Help Popover Dropdown Panel -->
+                                <div id="nav-help-popover" role="dialog" aria-label="{{ t('nav.help_tooltip') }}"
+                                    class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[340px] sm:w-[360px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                                    
+                                    <!-- Popover Header -->
+                                    <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-bold text-slate-900 text-sm tracking-tight">Trợ giúp & Hỗ trợ</h3>
+                                            <p class="text-[11px] text-slate-500 mt-0.5">Bạn cần hỗ trợ gì?</p>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200/60">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                            24/7
+                                        </span>
+                                    </div>
+
+                                    <!-- Quick Access Items -->
+                                    <div class="p-2 space-y-1">
+                                        <!-- Item 1: Câu hỏi thường gặp -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-faq"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-faq', 'support', 'section-support-faq');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-purple-600 transition">Câu hỏi thường gặp</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-purple-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Tìm câu trả lời nhanh</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 2: Hướng dẫn sử dụng -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-policies"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-policies', 'support', 'section-support-policies');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-indigo-600 transition">Hướng dẫn sử dụng</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Tìm hiểu cách sử dụng</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 3: Liên hệ hỗ trợ -->
+                                        <a href="{{ url_for('account_profile', tab='support') }}#section-support-tickets"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}#section-support-tickets', 'support', 'section-support-tickets');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-sky-600 transition">Liên hệ hỗ trợ</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-sky-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Gửi yêu cầu hỗ trợ</p>
+                                            </div>
+                                        </a>
+                                    </div>
+
+                                    <!-- Popover Footer / CTA -->
+                                    <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                        <a href="{{ url_for('account_profile', tab='support') }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='support') }}', 'support');"
+                                            class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                            <span>Trung tâm trợ giúp</span>
+                                            <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Cài đặt & Bảo mật (Settings Popover Wrapper) -->
+                            {% set is_security_active = request.endpoint == 'account_profile' and request.args.get('tab') == 'security' %}
+                            {% set profile_tab_target = 'profile' if current_user.role == 'translator' else 'basic' %}
+                            <div class="relative inline-block" id="nav-settings-wrapper">
+                                <button type="button" id="nav-settings-btn"
+                                    onclick="toggleHeaderPopover('settings', event)"
+                                    data-page-active="{{ 'true' if is_security_active else 'false' }}"
+                                    aria-haspopup="dialog" aria-expanded="false" aria-controls="nav-settings-popover"
+                                    class="relative p-2 rounded-xl transition focus:outline-none focus:ring-2 focus:ring-brand-500/20 cursor-pointer {% if is_security_active %}bg-brand-50 text-brand-600 font-bold{% else %}text-slate-500 hover:bg-slate-100 hover:text-brand-600{% endif %}"
+                                    title="{{ t('nav.settings_tooltip') }}" aria-label="{{ t('nav.settings_tooltip') }}">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                </button>
+
+                                <!-- Settings Popover Dropdown Panel -->
+                                <div id="nav-settings-popover" role="dialog" aria-label="{{ t('nav.settings_tooltip') }}"
+                                    class="header-popover-panel hidden absolute right-0 top-full mt-2 w-[340px] sm:w-[360px] max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-xl border border-slate-200/90 text-xs text-slate-700 z-[60] overflow-hidden select-none">
+                                    
+                                    <!-- Popover Header -->
+                                    <div class="px-4 py-3 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="font-bold text-slate-900 text-sm tracking-tight">Cài đặt</h3>
+                                            <p class="text-[11px] text-slate-500 mt-0.5">Quản lý tài khoản của bạn</p>
+                                        </div>
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-200/60 text-slate-600 text-[10px] font-bold">
+                                            Tài khoản
+                                        </span>
+                                    </div>
+
+                                    <!-- Quick Access Items -->
+                                    <div class="p-2 space-y-1">
+                                        <!-- Item 1: Bảo mật tài khoản -->
+                                        <a href="{{ url_for('account_profile', tab='security') }}#section-password-management"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-password-management', 'security', 'section-password-management');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-rose-600 transition">Bảo mật tài khoản</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-rose-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Mật khẩu, phiên đăng nhập</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 2: Cài đặt tài khoản -->
+                                        <a href="{{ url_for('account_profile', tab=profile_tab_target) }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab=profile_tab_target) }}', '{{ profile_tab_target }}');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-blue-50 text-brand-600 border border-blue-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-brand-600 transition">Cài đặt tài khoản</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-brand-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Thông tin & tùy chọn</p>
+                                            </div>
+                                        </a>
+
+                                        <!-- Item 3: Cài đặt thông báo -->
+                                        <a href="{{ url_for('account_profile', tab='security') }}#section-notification-preferences"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}#section-notification-preferences', 'security', 'section-notification-preferences');"
+                                            class="group flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition duration-150 cursor-pointer">
+                                            <div class="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                                </svg>
+                                            </div>
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex items-center justify-between">
+                                                    <span class="font-bold text-slate-800 text-xs sm:text-[13px] group-hover:text-amber-600 transition">Cài đặt thông báo</span>
+                                                    <svg class="w-3.5 h-3.5 text-slate-300 group-hover:text-amber-600 group-hover:translate-x-0.5 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                                </div>
+                                                <p class="text-[11px] text-slate-500 mt-0.5 leading-snug">Quản lý thông báo</p>
+                                            </div>
+                                        </a>
+                                    </div>
+
+                                    <!-- Popover Footer / CTA -->
+                                    <div class="p-2 border-t border-slate-100 bg-slate-50/60">
+                                        <a href="{{ url_for('account_profile', tab='security') }}"
+                                            onclick="return handleHeaderPopoverNav(event, '{{ url_for('account_profile', tab='security') }}', 'security');"
+                                            class="flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl bg-white hover:bg-brand-50 text-brand-600 font-bold border border-slate-200/70 hover:border-brand-200 text-xs transition shadow-2xs group">
+                                            <span>Xem tất cả cài đặt</span>
+                                            <span class="group-hover:translate-x-1 transition-transform">→</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
                             {% endif %}
                             <!-- User Dropdown -->
                             <div class="relative group">
@@ -699,16 +942,7 @@
                 <div class="px-3 pt-2 pb-1">
                     <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Chức năng chung</p>
                 </div>
-                <a href="{{ url_for('messages_page') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint in ['messages_page', 'direct_chat'] %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    Tin nhắn
-                </a>
-                <a href="{{ url_for('notifications_page') }}"
-                    class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'notifications_page' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2 flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    Thông báo
-                </a>
+
                 <a href="{{ url_for('about') }}"
                     class="block px-3 py-2 rounded-xl text-sm font-semibold {% if request.endpoint == 'about' %}text-brand-600 bg-brand-50{% else %}text-slate-700 hover:bg-brand-50 hover:text-brand-600{% endif %} ml-2">Về VietTranslate</a>
                 <a href="{{ url_for('payment_info') }}"
@@ -908,14 +1142,7 @@
                 </a>
 {% endif %}
                 <p class="side-title">Chung</p>
-                <a href="{{ url_for('messages_page') }}" class="side-link {% if request.endpoint in ['messages_page', 'direct_chat'] %}active{% endif %}">
-                    <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-                    <span>Tin nhắn</span>
-                </a>
-                <a href="{{ url_for('notifications_page') }}" class="side-link {% if request.endpoint == 'notifications_page' %}active{% endif %}">
-                    <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
-                    <span>Thông báo</span>
-                </a>
+
                 <a href="{{ url_for('about') }}" class="side-link {% if request.endpoint == 'about' %}active{% endif %}">
                     <svg class="w-[18px] h-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <span>Về VietTranslate</span>
@@ -1058,6 +1285,9 @@
 
         mobMenuBtn?.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (typeof closeAllHeaderPopovers === 'function') {
+                closeAllHeaderPopovers();
+            }
             toggleMobileNav();
         });
 
@@ -1176,426 +1406,6 @@
                 });
                 setInterval(function () { if (document.visibilityState === 'visible') refresh(false); }, 60000);
             })();
-
-            // ─── ĐIỀU KHIỂN KHUNG THÔNG BÁO NỔI (POPOVER) & MODAL CHI TIẾT ─────────
-            (function () {
-                var popoverWrapper = document.getElementById('nav-notif-wrapper');
-                var notifBtn = document.getElementById('nav-notif-btn');
-                var popover = document.getElementById('nav-notif-popover');
-                var markAllBtn = document.getElementById('popover-mark-all-read');
-                var loadingEl = document.getElementById('popover-notif-loading');
-                var emptyEl = document.getElementById('popover-notif-empty');
-                var errorEl = document.getElementById('popover-notif-error');
-                var retryBtn = document.getElementById('popover-notif-retry');
-                var itemsContainer = document.getElementById('popover-notif-items');
-                var unreadBadge = document.getElementById('popover-unread-badge');
-
-                // Modal elements
-                var modal = document.getElementById('vt-notif-modal');
-                var modalPanel = document.getElementById('vt-notif-modal-panel');
-                var modalIcon = document.getElementById('vt-notif-modal-icon');
-                var modalBadge = document.getElementById('vt-notif-modal-badge');
-                var modalTime = document.getElementById('vt-notif-modal-time');
-                var modalTitle = document.getElementById('vt-notif-modal-title');
-                var modalSender = document.getElementById('vt-notif-modal-sender');
-                var modalDateFull = document.getElementById('vt-notif-modal-date-full');
-                var modalMessage = document.getElementById('vt-notif-modal-message');
-                var modalAttachBox = document.getElementById('vt-notif-modal-attach-box');
-                var modalCloseX = document.getElementById('vt-notif-modal-close-x');
-                var modalCloseBtn = document.getElementById('vt-notif-modal-close-btn');
-                var modalMaxBtn = document.getElementById('vt-notif-modal-max-btn');
-                var modalMaxIcon = document.getElementById('vt-notif-modal-max-icon');
-                var modalActionBtn = document.getElementById('vt-notif-modal-action-btn');
-
-                var popoverNotifs = [];
-                var isMaximized = false;
-                var currentModalNotif = null;
-
-                var esc = function (s) {
-                    return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) {
-                        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
-                    });
-                };
-                var safeUrl = function (u) {
-                    return (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
-                };
-
-                var getTypeCategory = function (type) {
-                    if (!type) return 'other';
-                    if (type.startsWith('VERIFICATION_')) return 'verification';
-                    if (type.indexOf('MESSAGE') !== -1) return 'message';
-                    if (type.indexOf('REVIEW') !== -1) return 'review';
-                    if (type.indexOf('JOB') !== -1 || type.startsWith('PROPOSAL')) return 'job';
-                    if (type.indexOf('CONTRACT') !== -1 || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION')) return 'contract';
-                    return 'other';
-                };
-
-                function getNotificationIcon(type, iconKind) {
-                    if (type && type.startsWith('VERIFICATION_')) {
-                        if (type === 'VERIFICATION_APPROVED' || iconKind === 'approved') {
-                            return '<div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">' +
-                                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>';
-                        }
-                        if (type === 'VERIFICATION_NEEDS_REVISION' || iconKind === 'revision') {
-                            return '<div class="w-8 h-8 rounded-xl bg-orange-100 text-orange-600 border border-orange-200 flex items-center justify-center shrink-0">' +
-                                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></div>';
-                        }
-                        if (type === 'VERIFICATION_REJECTED' || iconKind === 'rejected') {
-                            return '<div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">' +
-                                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>';
-                        }
-                        return '<div class="w-8 h-8 rounded-xl bg-blue-100 text-blue-600 border border-blue-200 flex items-center justify-center shrink-0">' +
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"/></svg></div>';
-                    }
-                    var cat = getTypeCategory(type);
-                    if (cat === 'job') {
-                        return '<div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 border border-sky-200 flex items-center justify-center shrink-0">' +
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>';
-                    }
-                    if (cat === 'message') {
-                        return '<div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 border border-indigo-200 flex items-center justify-center shrink-0">' +
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>';
-                    }
-                    if (cat === 'contract') {
-                        return '<div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center shrink-0">' +
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>';
-                    }
-                    if (cat === 'review') {
-                        return '<div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0">' +
-                            '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg></div>';
-                    }
-                    return '<div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center shrink-0">' +
-                        '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>';
-                }
-
-                function getBadge(n) {
-                    if (n.type && n.type.startsWith('VERIFICATION_')) {
-                        if (n.type === 'VERIFICATION_APPROVED') return { label: 'Đã xác minh', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-                        if (n.type === 'VERIFICATION_NEEDS_REVISION') return { label: 'Yêu cầu bổ sung', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
-                        if (n.type === 'VERIFICATION_REJECTED') return { label: 'Từ chối hồ sơ', cls: 'bg-rose-50 text-rose-700 border-rose-200' };
-                        if (n.type === 'VERIFICATION_POLICY_UPDATE_REQUIRED') return { label: 'Cập nhật chính sách', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
-                        if (n.type === 'VERIFICATION_RESUBMITTED') return { label: 'Đã nộp bổ sung', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-                        return { label: n.type_label || 'Xác minh hồ sơ', cls: n.badge_class || 'bg-blue-50 text-blue-700 border-blue-200' };
-                    }
-                    var cat = getTypeCategory(n.type);
-                    if (cat === 'job') return { label: 'Việc làm', cls: 'bg-sky-50 text-sky-700 border-sky-200' };
-                    if (cat === 'message') return { label: 'Tin nhắn', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
-                    if (cat === 'contract') return { label: 'Hợp đồng', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-                    if (cat === 'review') return { label: 'Đánh giá', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
-                    return { label: 'Thông báo', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
-                }
-
-                function timeAgo(dateStr) {
-                    if (!dateStr) return '';
-                    var date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
-                    var seconds = Math.floor((new Date() - date) / 1000);
-                    if (isNaN(seconds) || seconds < 0) return 'Vừa xong';
-                    if (seconds < 60) return 'Vừa xong';
-                    var minutes = Math.floor(seconds / 60);
-                    if (minutes < 60) return minutes + ' phút trước';
-                    var hours = Math.floor(minutes / 60);
-                    if (hours < 24) return hours + ' giờ trước';
-                    var days = Math.floor(hours / 24);
-                    if (days < 30) return days + ' ngày trước';
-                    return date.toLocaleDateString('vi-VN');
-                }
-
-                function formatFullDate(dateStr) {
-                    if (!dateStr) return '';
-                    var date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
-                    if (isNaN(date.getTime())) return dateStr;
-                    var pad = function (n) { return n < 10 ? '0' + n : n; };
-                    var hours = pad(date.getHours());
-                    var minutes = pad(date.getMinutes());
-                    var day = pad(date.getDate());
-                    var month = pad(date.getMonth() + 1);
-                    var year = date.getFullYear();
-                    return hours + ':' + minutes + ' ngày ' + day + '/' + month + '/' + year;
-                }
-
-                function togglePopover() {
-                    if (!popover) return;
-                    var isHidden = popover.classList.contains('hidden');
-                    if (isHidden) {
-                        popover.classList.remove('hidden');
-                        popover.classList.add('flex');
-                        if (notifBtn) notifBtn.setAttribute('aria-expanded', 'true');
-                        loadPopoverNotifications();
-                    } else {
-                        closePopover();
-                    }
-                }
-
-                function closePopover() {
-                    if (!popover) return;
-                    popover.classList.add('hidden');
-                    popover.classList.remove('flex');
-                    if (notifBtn) notifBtn.setAttribute('aria-expanded', 'false');
-                }
-
-                function loadPopoverNotifications() {
-                    if (!loadingEl || !itemsContainer) return;
-                    loadingEl.classList.remove('hidden');
-                    if (emptyEl) {
-                        emptyEl.classList.add('hidden');
-                        emptyEl.classList.remove('flex');
-                    }
-                    if (errorEl) errorEl.classList.add('hidden');
-                    itemsContainer.classList.add('hidden');
-
-                    fetch('/api/notifications?page=1&per_page=10', { credentials: 'same-origin' })
-                        .then(function (r) {
-                            if (!r.ok) throw new Error(r.status);
-                            return r.json();
-                        })
-                        .then(function (data) {
-                            loadingEl.classList.add('hidden');
-                            popoverNotifs = data.notifications || [];
-                            var unreadCount = popoverNotifs.filter(function (n) { return !n.is_read; }).length;
-                            if (unreadBadge) {
-                                if (unreadCount > 0) {
-                                    unreadBadge.textContent = unreadCount + ' mới';
-                                    unreadBadge.classList.remove('hidden');
-                                } else {
-                                    unreadBadge.classList.add('hidden');
-                                }
-                            }
-
-                            if (popoverNotifs.length === 0) {
-                                if (emptyEl) {
-                                    emptyEl.classList.remove('hidden');
-                                    emptyEl.classList.add('flex');
-                                }
-                                return;
-                            }
-
-                            itemsContainer.innerHTML = popoverNotifs.map(function (n) {
-                                var badge = getBadge(n);
-                                var iconHtml = getNotificationIcon(n.type, n.icon_kind);
-                                var isRead = n.is_read;
-                                return (
-                                    '<div data-id="' + n.id + '" class="popover-notif-item group p-3.5 hover:bg-slate-50/90 transition cursor-pointer flex items-start gap-3 ' + (isRead ? 'bg-white' : 'bg-brand-50/30') + '">' +
-                                    '<div class="shrink-0 pt-0.5">' + iconHtml + '</div>' +
-                                    '<div class="flex-1 min-w-0">' +
-                                        '<div class="flex items-center gap-1.5 mb-1">' +
-                                            '<span class="px-2 py-0.2 text-[10px] font-bold rounded-md border ' + badge.cls + '">' + esc(badge.label) + '</span>' +
-                                            (!isRead ? '<span class="unread-dot w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>' : '') +
-                                            '<span class="text-[11px] text-slate-400 ml-auto shrink-0">' + timeAgo(n.created_at) + '</span>' +
-                                        '</div>' +
-                                        '<h4 class="text-xs leading-snug line-clamp-1 mb-1 ' + (isRead ? 'font-semibold text-slate-700' : 'font-extrabold text-slate-900') + '">' + esc(n.title) + '</h4>' +
-                                        '<p class="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">' + esc(n.message) + '</p>' +
-                                    '</div>' +
-                                    '</div>'
-                                );
-                            }).join('');
-
-                            itemsContainer.classList.remove('hidden');
-                        })
-                        .catch(function (err) {
-                            console.error('Failed to load popover notifications', err);
-                            loadingEl.classList.add('hidden');
-                            if (errorEl) errorEl.classList.remove('hidden');
-                        });
-                }
-
-                // Modal Controller
-                function openNotifModal(notif) {
-                    if (!modal || !notif) return;
-                    currentModalNotif = notif;
-
-                    var badge = getBadge(notif);
-                    var iconHtml = getNotificationIcon(notif.type, notif.icon_kind);
-
-                    if (modalIcon) modalIcon.innerHTML = iconHtml;
-                    if (modalBadge) {
-                        modalBadge.textContent = badge.label;
-                        modalBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-md border ' + badge.cls;
-                    }
-                    if (modalTime) modalTime.textContent = timeAgo(notif.created_at);
-                    if (modalTitle) modalTitle.textContent = notif.title || 'Thông báo';
-                    if (modalDateFull) modalDateFull.textContent = formatFullDate(notif.created_at);
-
-                    // Category / Sender Label
-                    var cat = getTypeCategory(notif.type);
-                    var senderLabel = 'Hệ thống VietTranslate';
-                    if (cat === 'verification') senderLabel = 'Ban Thẩm định VietTranslate';
-                    else if (cat === 'job') senderLabel = 'Hệ thống Việc làm';
-                    else if (cat === 'contract') senderLabel = 'Hệ thống Hợp đồng & Thanh toán';
-                    else if (cat === 'message') senderLabel = 'Hệ thống Tin nhắn';
-                    if (modalSender) modalSender.textContent = senderLabel;
-
-                    // Content message (safe text with linebreaks)
-                    if (modalMessage) modalMessage.textContent = notif.message || '';
-
-                    // Attachments info & Action button
-                    var hasUrl = notif.url && notif.url !== '#' && safeUrl(notif.url) !== '#';
-                    if (modalActionBtn) {
-                        if (hasUrl) {
-                            modalActionBtn.href = safeUrl(notif.url);
-                            modalActionBtn.classList.remove('hidden');
-                            modalActionBtn.classList.add('inline-flex');
-                        } else {
-                            modalActionBtn.classList.add('hidden');
-                            modalActionBtn.classList.remove('inline-flex');
-                        }
-                    }
-                    if (modalAttachBox) {
-                        if (hasUrl) {
-                            modalAttachBox.classList.remove('hidden');
-                        } else {
-                            modalAttachBox.classList.add('hidden');
-                        }
-                    }
-
-                    // Reset maximize
-                    if (isMaximized) {
-                        toggleMaximizeModal();
-                    }
-
-                    // Show modal
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                    document.body.classList.add('overflow-hidden');
-
-                    // If not read, mark as read
-                    if (!notif.is_read) {
-                        notif.is_read = true;
-                        fetch('/api/notifications/' + notif.id + '/read', { method: 'POST', credentials: 'same-origin' })
-                            .then(function () {
-                                if (window.vtRefreshBadges) window.vtRefreshBadges(true);
-                                // Update item in popover if open
-                                if (itemsContainer) {
-                                    var itemEl = itemsContainer.querySelector('[data-id="' + notif.id + '"]');
-                                    if (itemEl) {
-                                        itemEl.classList.remove('bg-brand-50/30');
-                                        itemEl.classList.add('bg-white');
-                                        var dot = itemEl.querySelector('.unread-dot');
-                                        if (dot) dot.remove();
-                                        var titleEl = itemEl.querySelector('h4');
-                                        if (titleEl) {
-                                            titleEl.classList.remove('font-extrabold', 'text-slate-900');
-                                            titleEl.classList.add('font-semibold', 'text-slate-700');
-                                        }
-                                    }
-                                }
-                            })
-                            .catch(function () {});
-                    }
-                }
-
-                function closeNotifModal() {
-                    if (!modal) return;
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                    document.body.classList.remove('overflow-hidden');
-                    currentModalNotif = null;
-                }
-
-                function toggleMaximizeModal() {
-                    if (!modalPanel || !modalMaxBtn || !modalMaxIcon) return;
-                    isMaximized = !isMaximized;
-                    if (isMaximized) {
-                        modalPanel.classList.remove('sm:max-w-lg');
-                        modalPanel.classList.add('sm:max-w-3xl', 'h-[85vh]');
-                        modalMaxBtn.title = 'Thu nhỏ';
-                        modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9L4 4m0 0v4m0-4h4m6 6l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0v-4m0 4h4m6-6l5-5m0 0v4m0-4h-4"/>';
-                    } else {
-                        modalPanel.classList.remove('sm:max-w-3xl', 'h-[85vh]');
-                        modalPanel.classList.add('sm:max-w-lg');
-                        modalMaxBtn.title = 'Phóng to';
-                        modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>';
-                    }
-                }
-
-                // Global function so external pages can also open modal if needed
-                window.vtOpenNotifModal = openNotifModal;
-
-                // Event Listeners
-                if (notifBtn) {
-                    notifBtn.addEventListener('click', function (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        togglePopover();
-                    });
-                }
-
-                if (markAllBtn) {
-                    markAllBtn.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        fetch('/api/notifications/read-all', { method: 'POST', credentials: 'same-origin' })
-                            .then(function (r) {
-                                if (!r.ok) throw new Error(r.status);
-                                popoverNotifs.forEach(function (n) { n.is_read = true; });
-                                if (unreadBadge) unreadBadge.classList.add('hidden');
-                                if (itemsContainer) {
-                                    var dots = itemsContainer.querySelectorAll('.unread-dot');
-                                    dots.forEach(function (d) { d.remove(); });
-                                    var items = itemsContainer.querySelectorAll('.popover-notif-item');
-                                    items.forEach(function (it) {
-                                        it.classList.remove('bg-brand-50/30');
-                                        it.classList.add('bg-white');
-                                        var t = it.querySelector('h4');
-                                        if (t) {
-                                            t.classList.remove('font-extrabold', 'text-slate-900');
-                                            t.classList.add('font-semibold', 'text-slate-700');
-                                        }
-                                    });
-                                }
-                                if (window.vtRefreshBadges) window.vtRefreshBadges(true);
-                            })
-                            .catch(function (err) {
-                                console.error('Failed to mark all as read', err);
-                            });
-                    });
-                }
-
-                if (retryBtn) {
-                    retryBtn.addEventListener('click', function (e) {
-                        e.stopPropagation();
-                        loadPopoverNotifications();
-                    });
-                }
-
-                if (itemsContainer) {
-                    itemsContainer.addEventListener('click', function (e) {
-                        var itemEl = e.target.closest('.popover-notif-item');
-                        if (!itemEl) return;
-                        var id = itemEl.dataset.id;
-                        var notif = popoverNotifs.find(function (n) { return String(n.id) === String(id); });
-                        if (notif) {
-                            openNotifModal(notif);
-                        }
-                    });
-                }
-
-                if (modalCloseX) modalCloseX.addEventListener('click', closeNotifModal);
-                if (modalCloseBtn) modalCloseBtn.addEventListener('click', closeNotifModal);
-                if (modalMaxBtn) modalMaxBtn.addEventListener('click', toggleMaximizeModal);
-                if (modal) {
-                    modal.addEventListener('click', function (e) {
-                        if (e.target === modal) closeNotifModal();
-                    });
-                }
-
-                // Global Click & Keydown
-                document.addEventListener('click', function (e) {
-                    if (popover && !popover.classList.contains('hidden')) {
-                        if (popoverWrapper && !popoverWrapper.contains(e.target) && (!modal || !modal.contains(e.target))) {
-                            closePopover();
-                        }
-                    }
-                });
-
-                document.addEventListener('keydown', function (e) {
-                    if (e.key === 'Escape') {
-                        if (modal && !modal.classList.contains('hidden')) {
-                            closeNotifModal();
-                        } else if (popover && !popover.classList.contains('hidden')) {
-                            closePopover();
-                        }
-                    }
-                });
-            })();
         }
 
         // Toggle Jobs Submenu on click / touch
@@ -1612,6 +1422,552 @@
             if (dd && wrap && !wrap.contains(e.target)) {
                 dd.classList.remove('!block');
             }
+        });
+
+        // ─── Header Popovers: Tin nhắn, Thông báo, Trợ giúp, Cài đặt ─────────────────
+        const ALL_HEADER_POPOVER_TYPES = ['msg', 'notif', 'help', 'settings'];
+        let headerMessagesLoaded = false;
+        let headerNotificationsLoaded = false;
+        let headerNotificationsData = [];
+        let isNotifModalMaximized = false;
+
+        function escHeader(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            });
+        }
+
+        function safeHeaderUrl(u) {
+            return (typeof u === 'string' && u.startsWith('/') && !u.startsWith('//')) ? u : '#';
+        }
+
+        function timeAgoHeader(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (isNaN(seconds) || seconds < 60) return "Vừa xong";
+            const minutes = Math.floor(seconds / 60);
+            if (minutes < 60) return minutes + " phút trước";
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return hours + " giờ trước";
+            const days = Math.floor(hours / 24);
+            if (days < 30) return days + " ngày trước";
+            return date.toLocaleDateString('vi-VN');
+        }
+
+        function formatFullDateHeader(dateStr) {
+            if (!dateStr) return '';
+            const date = new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
+            if (isNaN(date.getTime())) return dateStr;
+            const pad = function (n) { return n < 10 ? '0' + n : n; };
+            const hours = pad(date.getHours());
+            const minutes = pad(date.getMinutes());
+            const day = pad(date.getDate());
+            const month = pad(date.getMonth() + 1);
+            const year = date.getFullYear();
+            return hours + ':' + minutes + ' ngày ' + day + '/' + month + '/' + year;
+        }
+
+        function getHeaderNotifCategory(type) {
+            if (!type) return 'other';
+            if (type.startsWith('VERIFICATION_')) return 'verification';
+            if (type.includes('MESSAGE')) return 'message';
+            if (type.includes('REVIEW')) return 'review';
+            if (type.includes('JOB') || type.startsWith('PROPOSAL')) return 'job';
+            if (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION')) return 'contract';
+            return 'other';
+        }
+
+        function getHeaderNotifBadge(n) {
+            if (n.type && n.type.startsWith('VERIFICATION_')) {
+                if (n.type === 'VERIFICATION_APPROVED') return { label: 'Đã xác minh', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+                if (n.type === 'VERIFICATION_NEEDS_REVISION') return { label: 'Yêu cầu bổ sung', cls: 'bg-orange-50 text-orange-700 border-orange-200' };
+                if (n.type === 'VERIFICATION_REJECTED') return { label: 'Từ chối hồ sơ', cls: 'bg-rose-50 text-rose-700 border-rose-200' };
+                if (n.type === 'VERIFICATION_POLICY_UPDATE_REQUIRED') return { label: 'Cập nhật chính sách', cls: 'bg-purple-50 text-purple-700 border-purple-200' };
+                if (n.type === 'VERIFICATION_RESUBMITTED') return { label: 'Đã nộp bổ sung', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+                return { label: n.type_label || 'Xác minh hồ sơ', cls: n.badge_class || 'bg-blue-50 text-blue-700 border-blue-200' };
+            }
+            const cat = getHeaderNotifCategory(n.type);
+            if (cat === 'job') return { label: 'Việc làm', cls: 'bg-sky-50 text-sky-700 border-sky-200' };
+            if (cat === 'message') return { label: 'Tin nhắn', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' };
+            if (cat === 'contract') return { label: 'Hợp đồng', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+            if (cat === 'review') return { label: 'Đánh giá', cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+            return { label: 'Thông báo', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+        }
+
+        function getHeaderNotifIcon(type) {
+            if (type && type.startsWith('VERIFICATION_')) {
+                return '<div class="w-8 h-8 rounded-xl bg-blue-100/90 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>';
+            }
+            if (type && (type.includes('JOB') || type.startsWith('PROPOSAL'))) {
+                return '<div class="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>';
+            }
+            if (type && type.includes('MESSAGE')) {
+                return '<div class="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>';
+            }
+            if (type && (type.includes('CONTRACT') || type.startsWith('PAYMENT') || type.startsWith('PROJECT') || type.startsWith('DELIVERABLE') || type.startsWith('REVISION'))) {
+                return '<div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                    '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>';
+            }
+            return '<div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0 shadow-2xs">' +
+                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>';
+        }
+
+        function loadHeaderMessages(force) {
+            const listEl = document.getElementById('nav-msg-list');
+            if (!listEl) return;
+            if (!headerMessagesLoaded || force) {
+                listEl.innerHTML = '<div class="py-8 text-center text-slate-400">' +
+                    '<svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>' +
+                    '<span class="text-xs">Đang tải tin nhắn...</span></div>';
+            }
+            fetch('/api/messages/conversations', { credentials: 'same-origin' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(items) {
+                    headerMessagesLoaded = true;
+                    if (!items || items.length === 0) {
+                        listEl.innerHTML = '<div class="py-8 px-4 text-center text-slate-400">' +
+                            '<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">' +
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>' +
+                            '</div>' +
+                            '<p class="font-semibold text-slate-600 text-xs">Chưa có tin nhắn nào</p>' +
+                            '<p class="text-[11px] text-slate-400 mt-0.5">Tin nhắn trao đổi của bạn sẽ xuất hiện ở đây.</p>' +
+                        '</div>';
+                        return;
+                    }
+                    const top = items.slice(0, 6);
+                    let html = '';
+                    top.forEach(function(item) {
+                        const hasUnread = item.unread_count > 0;
+                        html += '<a href="' + (item.url || '#') + '" onclick="closeAllHeaderPopovers();" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer ' + (hasUnread ? 'bg-brand-50/30' : '') + '">' +
+                            '<div class="relative shrink-0">' +
+                                '<div class="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-600 text-white text-xs font-bold flex items-center justify-center shadow-xs">' +
+                                    escHeader(item.other_initial || 'U') +
+                                '</div>' +
+                                (hasUnread ? '<span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-brand-600 border-2 border-white"></span>' : '') +
+                            '</div>' +
+                            '<div class="flex-1 min-w-0">' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<span class="text-xs ' + (hasUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800') + ' truncate">' +
+                                        escHeader(item.other_name) +
+                                    '</span>' +
+                                    '<span class="text-[10px] text-slate-400 shrink-0">' +
+                                        escHeader(item.last_time_str || '') +
+                                    '</span>' +
+                                '</div>' +
+                                (item.project ? '<p class="text-[10px] text-brand-600 font-medium truncate mt-0.5">📁 ' + escHeader(item.project) + '</p>' : '') +
+                                '<div class="flex items-center justify-between gap-2 mt-0.5">' +
+                                    '<p class="text-[11px] ' + (hasUnread ? 'font-semibold text-slate-800' : 'text-slate-500') + ' truncate leading-snug">' +
+                                        escHeader(item.last_message || 'Không có tin nhắn') +
+                                    '</p>' +
+                                    (hasUnread ? '<span class="shrink-0 min-w-[16px] h-[16px] rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center px-1">' + item.unread_count + '</span>' : '') +
+                                '</div>' +
+                            '</div>' +
+                        '</a>';
+                    });
+                    listEl.innerHTML = html;
+                })
+                .catch(function() {
+                    listEl.innerHTML = '<div class="py-6 px-4 text-center text-rose-500 text-xs">' +
+                        '<p>Không tải được tin nhắn.</p>' +
+                        '<button type="button" onclick="loadHeaderMessages(true)" class="mt-2 text-brand-600 font-bold hover:underline cursor-pointer">Thử lại</button>' +
+                    '</div>';
+                });
+        }
+
+        function loadHeaderNotifications(force) {
+            const listEl = document.getElementById('nav-notif-list');
+            if (!listEl) return;
+            if (!headerNotificationsLoaded || force) {
+                listEl.innerHTML = '<div class="py-8 text-center text-slate-400">' +
+                    '<svg class="animate-spin w-5 h-5 mx-auto mb-2 text-brand-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>' +
+                    '<span class="text-xs">Đang tải thông báo...</span></div>';
+            }
+            fetch('/api/notifications?per_page=6', { credentials: 'same-origin' })
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(data) {
+                    headerNotificationsLoaded = true;
+                    const items = data && data.notifications ? data.notifications : [];
+                    headerNotificationsData = items;
+                    if (items.length === 0) {
+                        listEl.innerHTML = '<div class="py-8 px-4 text-center text-slate-400">' +
+                            '<div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">' +
+                                '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>' +
+                            '</div>' +
+                            '<p class="font-semibold text-slate-600 text-xs">Chưa có thông báo nào</p>' +
+                            '<p class="text-[11px] text-slate-400 mt-0.5">Bạn sẽ nhận được thông báo khi có cập nhật mới.</p>' +
+                        '</div>';
+                        return;
+                    }
+                    let html = '';
+                    items.forEach(function(item) {
+                        const isUnread = !item.is_read;
+                        html += '<div onclick="handleHeaderNotifItemClick(event, ' + item.id + ');" data-notif-id="' + item.id + '" class="flex items-start gap-3 p-3 hover:bg-slate-50 transition cursor-pointer select-none ' + (isUnread ? 'bg-brand-50/40' : '') + '">' +
+                            '<div class="shrink-0 mt-0.5">' +
+                                getHeaderNotifIcon(item.type) +
+                            '</div>' +
+                            '<div class="flex-1 min-w-0">' +
+                                '<div class="flex items-center justify-between gap-1">' +
+                                    '<span class="text-xs ' + (isUnread ? 'font-bold text-slate-900' : 'font-semibold text-slate-800') + ' truncate">' +
+                                        escHeader(item.title) +
+                                    '</span>' +
+                                    (isUnread ? '<span class="unread-dot w-2 h-2 rounded-full bg-brand-600 shrink-0"></span>' : '') +
+                                '</div>' +
+                                '<p class="text-[11px] text-slate-500 line-clamp-2 mt-0.5 leading-snug">' +
+                                    escHeader(item.message) +
+                                '</p>' +
+                                '<span class="text-[10px] text-slate-400 mt-1 inline-block">' +
+                                    escHeader(timeAgoHeader(item.created_at)) +
+                                '</span>' +
+                            '</div>' +
+                        '</div>';
+                    });
+                    listEl.innerHTML = html;
+                })
+                .catch(function() {
+                    listEl.innerHTML = '<div class="py-6 px-4 text-center text-rose-500 text-xs">' +
+                        '<p>Không tải được thông báo.</p>' +
+                        '<button type="button" onclick="loadHeaderNotifications(true)" class="mt-2 text-brand-600 font-bold hover:underline cursor-pointer">Thử lại</button>' +
+                    '</div>';
+                });
+        }
+
+        function handleHeaderNotifItemClick(e, id) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            closeAllHeaderPopovers();
+            const notif = headerNotificationsData.find(function(n) { return String(n.id) === String(id); });
+            if (notif) {
+                openNotifModal(notif);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // NOTIFICATION DETAIL MODAL CONTROLLER
+        // ═══════════════════════════════════════════════════════════════
+        function openNotifModal(notif) {
+            const modal = document.getElementById('vt-notif-modal');
+            if (!modal || !notif) return;
+
+            const modalPanel = document.getElementById('vt-notif-modal-panel');
+            const modalIcon = document.getElementById('vt-notif-modal-icon');
+            const modalBadge = document.getElementById('vt-notif-modal-badge');
+            const modalTime = document.getElementById('vt-notif-modal-time');
+            const modalTitle = document.getElementById('vt-notif-modal-title');
+            const modalSender = document.getElementById('vt-notif-modal-sender');
+            const modalDateFull = document.getElementById('vt-notif-modal-date-full');
+            const modalMessage = document.getElementById('vt-notif-modal-message');
+            const modalAttachBox = document.getElementById('vt-notif-modal-attach-box');
+            const modalActionBtn = document.getElementById('vt-notif-modal-action-btn');
+
+            const badge = getHeaderNotifBadge(notif);
+            const iconHtml = getHeaderNotifIcon(notif.type);
+
+            if (modalIcon) modalIcon.innerHTML = iconHtml;
+            if (modalBadge) {
+                modalBadge.textContent = badge.label;
+                modalBadge.className = 'px-2 py-0.5 text-[10px] font-bold rounded-md border ' + badge.cls;
+            }
+            if (modalTime) modalTime.textContent = timeAgoHeader(notif.created_at);
+            if (modalTitle) modalTitle.textContent = notif.title || 'Thông báo';
+            if (modalDateFull) modalDateFull.textContent = formatFullDateHeader(notif.created_at);
+
+            // Xác định người gửi / đơn vị phát hành
+            const cat = getHeaderNotifCategory(notif.type);
+            let senderLabel = 'Hệ thống VietTranslate';
+            if (cat === 'verification') senderLabel = 'Ban Thẩm định VietTranslate';
+            else if (cat === 'job') senderLabel = 'Hệ thống Việc làm';
+            else if (cat === 'contract') senderLabel = 'Hệ thống Hợp đồng & Thanh toán';
+            else if (cat === 'message') senderLabel = 'Hệ thống Tin nhắn';
+            if (modalSender) modalSender.textContent = senderLabel;
+
+            // Nội dung chi tiết (giữ nguyên xuống dòng)
+            if (modalMessage) modalMessage.textContent = notif.message || '';
+
+            // Nút liên kết và tài liệu liên quan
+            const targetUrl = safeHeaderUrl(notif.url);
+            const hasValidUrl = targetUrl && targetUrl !== '#';
+            if (modalActionBtn) {
+                if (hasValidUrl) {
+                    modalActionBtn.href = targetUrl;
+                    modalActionBtn.classList.remove('hidden');
+                    modalActionBtn.classList.add('inline-flex');
+                } else {
+                    modalActionBtn.classList.add('hidden');
+                    modalActionBtn.classList.remove('inline-flex');
+                }
+            }
+            if (modalAttachBox) {
+                if (hasValidUrl) {
+                    modalAttachBox.classList.remove('hidden');
+                } else {
+                    modalAttachBox.classList.add('hidden');
+                }
+            }
+
+            // Reset maximize nếu đang mở
+            if (isNotifModalMaximized) {
+                toggleMaximizeNotifModal();
+            }
+
+            // Hiển thị modal
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            document.body.classList.add('overflow-hidden');
+
+            // Đánh dấu đã đọc nếu chưa đọc
+            if (!notif.is_read) {
+                notif.is_read = true;
+                fetch('/api/notifications/' + notif.id + '/read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin'
+                }).then(function () {
+                    if (window.vtRefreshBadges) window.vtRefreshBadges(true);
+                    const notifEl = document.querySelector('[data-notif-id="' + notif.id + '"]');
+                    if (notifEl) {
+                        notifEl.classList.remove('bg-brand-50/40');
+                        const dot = notifEl.querySelector('.unread-dot');
+                        if (dot) dot.remove();
+                        const titleEl = notifEl.querySelector('span.text-xs');
+                        if (titleEl) {
+                            titleEl.classList.remove('font-bold', 'text-slate-900');
+                            titleEl.classList.add('font-semibold', 'text-slate-800');
+                        }
+                    }
+                }).catch(function () {});
+            }
+        }
+
+        function closeNotifModal() {
+            const modal = document.getElementById('vt-notif-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.body.classList.remove('overflow-hidden');
+        }
+
+        function toggleMaximizeNotifModal() {
+            const modalPanel = document.getElementById('vt-notif-modal-panel');
+            const modalMaxBtn = document.getElementById('vt-notif-modal-max-btn');
+            const modalMaxIcon = document.getElementById('vt-notif-modal-max-icon');
+            if (!modalPanel || !modalMaxBtn || !modalMaxIcon) return;
+
+            isNotifModalMaximized = !isNotifModalMaximized;
+            if (isNotifModalMaximized) {
+                modalPanel.classList.remove('sm:max-w-lg');
+                modalPanel.classList.add('sm:max-w-3xl', 'h-[85vh]');
+                modalMaxBtn.title = 'Thu nhỏ';
+                modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9L4 4m0 0v4m0-4h4m6 6l5 5m0 0v-4m0 4h-4M9 15l-5 5m0 0v-4m0 4h4m6-6l5-5m0 0v4m0-4h-4"/>';
+            } else {
+                modalPanel.classList.remove('sm:max-w-3xl', 'h-[85vh]');
+                modalPanel.classList.add('sm:max-w-lg');
+                modalMaxBtn.title = 'Phóng to';
+                modalMaxIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>';
+            }
+        }
+
+        window.vtOpenNotifModal = openNotifModal;
+
+        function markAllHeaderNotificationsRead(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            fetch('/api/notifications/read-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin'
+            }).then(function(r) { return r.json(); })
+            .then(function() {
+                headerNotificationsData.forEach(function(n) { n.is_read = true; });
+                const listEl = document.getElementById('nav-notif-list');
+                if (listEl) {
+                    listEl.querySelectorAll('.unread-dot').forEach(function(d) { d.remove(); });
+                    listEl.querySelectorAll('[data-notif-id]').forEach(function(it) {
+                        it.classList.remove('bg-brand-50/40');
+                        const t = it.querySelector('span.text-xs');
+                        if (t) {
+                            t.classList.remove('font-bold', 'text-slate-900');
+                            t.classList.add('font-semibold', 'text-slate-800');
+                        }
+                    });
+                }
+                if (window.vtRefreshBadges) window.vtRefreshBadges(true);
+            }).catch(function() {});
+        }
+
+        function updateTriggerButtonState(btn, isOpen) {
+            if (!btn) return;
+            btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            if (isOpen) {
+                if (!btn.dataset.origTitle) {
+                    btn.dataset.origTitle = btn.getAttribute('title') || '';
+                }
+                btn.removeAttribute('title');
+                btn.classList.add('ring-2', 'ring-brand-500/25', 'bg-slate-100', 'text-brand-600', 'shadow-xs');
+            } else {
+                if (btn.dataset.origTitle) {
+                    btn.setAttribute('title', btn.dataset.origTitle);
+                }
+                btn.classList.remove('ring-2', 'ring-brand-500/25', 'shadow-xs');
+                const isPageActive = btn.dataset.pageActive === 'true';
+                if (!isPageActive) {
+                    btn.classList.remove('bg-slate-100');
+                    if (!btn.classList.contains('bg-brand-50')) {
+                        btn.classList.remove('text-brand-600');
+                        btn.classList.add('text-slate-500');
+                    }
+                }
+            }
+        }
+
+        function adjustPopoverPosition(popover) {
+            if (!popover) return;
+            popover.style.right = '0px';
+            popover.style.left = 'auto';
+            const rect = popover.getBoundingClientRect();
+            const margin = 12;
+            if (rect.left < margin) {
+                const diff = margin - rect.left;
+                popover.style.right = (-diff) + 'px';
+            }
+            const rect2 = popover.getBoundingClientRect();
+            if (rect2.right > window.innerWidth - margin) {
+                const diff2 = rect2.right - (window.innerWidth - margin);
+                const currentRight = parseFloat(popover.style.right) || 0;
+                popover.style.right = (currentRight + diff2) + 'px';
+            }
+        }
+
+        function closeAllHeaderPopovers() {
+            ALL_HEADER_POPOVER_TYPES.forEach(function (type) {
+                const popover = document.getElementById('nav-' + type + '-popover');
+                const btn = document.getElementById('nav-' + type + '-btn');
+                if (popover && !popover.classList.contains('hidden')) {
+                    popover.classList.add('hidden');
+                }
+                if (btn) {
+                    updateTriggerButtonState(btn, false);
+                }
+            });
+        }
+
+        function toggleHeaderPopover(type, e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const popover = document.getElementById('nav-' + type + '-popover');
+            const btn = document.getElementById('nav-' + type + '-btn');
+            if (!popover || !btn) return;
+
+            const isCurrentlyOpen = !popover.classList.contains('hidden');
+
+            // Đóng tất cả popover khác trước
+            closeAllHeaderPopovers();
+
+            if (!isCurrentlyOpen) {
+                popover.classList.remove('hidden');
+                updateTriggerButtonState(btn, true);
+                adjustPopoverPosition(popover);
+                if (type === 'msg') {
+                    loadHeaderMessages();
+                } else if (type === 'notif') {
+                    loadHeaderNotifications();
+                }
+            }
+        }
+
+        function handleHeaderPopoverNav(event, url, tab, sectionId) {
+            closeAllHeaderPopovers();
+            if (window.location.pathname.includes('/account') && typeof switchTab === 'function') {
+                if (event) {
+                    event.preventDefault();
+                }
+                switchTab(tab);
+                if (sectionId) {
+                    setTimeout(function () {
+                        const el = document.getElementById(sectionId);
+                        if (el) {
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                    }, 100);
+                }
+                try {
+                    window.history.pushState(null, '', url);
+                } catch (err) { }
+                return false;
+            }
+            return true;
+        }
+
+        // Đóng popover khi click ra ngoài
+        document.addEventListener('click', function (e) {
+            const modal = document.getElementById('vt-notif-modal');
+            if (modal && !modal.classList.contains('hidden')) {
+                return;
+            }
+            const isInsideAny = ALL_HEADER_POPOVER_TYPES.some(function(type) {
+                const wrap = document.getElementById('nav-' + type + '-wrapper');
+                return wrap && wrap.contains(e.target);
+            });
+            if (!isInsideAny) {
+                closeAllHeaderPopovers();
+            }
+        });
+
+        // Đóng modal / popover khi bấm Escape
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('vt-notif-modal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeNotifModal();
+                    return;
+                }
+                const openType = ALL_HEADER_POPOVER_TYPES.find(function(type) {
+                    const pop = document.getElementById('nav-' + type + '-popover');
+                    return pop && !pop.classList.contains('hidden');
+                });
+                if (openType) {
+                    closeAllHeaderPopovers();
+                    const btn = document.getElementById('nav-' + openType + '-btn');
+                    if (btn) btn.focus();
+                }
+            }
+        });
+
+        // Modal event listeners (click outside & buttons)
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal = document.getElementById('vt-notif-modal');
+            const closeX = document.getElementById('vt-notif-modal-close-x');
+            const closeBtn = document.getElementById('vt-notif-modal-close-btn');
+            const maxBtn = document.getElementById('vt-notif-modal-max-btn');
+
+            if (closeX) closeX.addEventListener('click', closeNotifModal);
+            if (closeBtn) closeBtn.addEventListener('click', closeNotifModal);
+            if (maxBtn) maxBtn.addEventListener('click', toggleMaximizeNotifModal);
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeNotifModal();
+                });
+            }
+        });
+
+        // Điều chỉnh vị trí khi thay đổi kích thước màn hình
+        window.addEventListener('resize', function () {
+            ALL_HEADER_POPOVER_TYPES.forEach(function (type) {
+                const pop = document.getElementById('nav-' + type + '-popover');
+                if (pop && !pop.classList.contains('hidden')) {
+                    adjustPopoverPosition(pop);
+                }
+            });
+        });
         });
     </script>
     {% block scripts %}{% endblock %}

@@ -841,12 +841,14 @@ def _apply_hirer_profile_form(user, profile, form, files):
         auth_file.save(os.path.join(doc_dir, sec_name))
         profile.authorization_doc_url = f"/static/uploads/hirer_docs/{sec_name}"
 
-    # Điền đủ thông tin bắt buộc (đã qua validate ở trên) => tự động xác minh, không cần email/Admin
-    if profile.verification_status not in ('rejected', 'revoked', 'suspended'):
-        profile.is_verified = True
-        profile.verification_status = 'verified'
-        if not profile.verified_at:
-            profile.verified_at = datetime.utcnow()
+    # Cập nhật trạng thái xác minh:
+    # Người dùng điền đủ thông tin hợp lệ chỉ đưa hồ sơ vào trạng thái 'pending' chờ Admin duyệt.
+    # Tuyệt đối KHÔNG tự động cấp quyền 'verified'. Quyết định phê duyệt thuộc thẩm quyền Admin.
+    # Nếu hồ sơ đang ở trạng thái bị từ chối/thu hồi/đình chỉ, không tự mở lại.
+    # Nếu hồ sơ đã được Admin xác minh trước đó, giữ nguyên trạng thái xác minh.
+    if profile.verification_status in ('unverified', None, '', 'needs_revision'):
+        profile.verification_status = 'pending'
+        profile.is_verified = False
     return []
 
 
@@ -1311,7 +1313,10 @@ def inject_admin_badges():
         badges['admin_badge_pending_translators'] = TranslatorProfile.query.filter_by(is_verified=False).count()
         badges['admin_badge_pending_verifications'] = TranslatorVerification.query.filter_by(status='pending').count()
         badges['admin_badge_pending_hirers'] = HirerProfile.query.filter_by(verification_status='pending').count()
-        badges['admin_badge_pending_jobs'] = Job.query.filter_by(moderation_status='pending').count()
+        badges['admin_badge_pending_jobs'] = Job.query.filter(
+            db.or_(Job.moderation_status == 'pending', db.and_(Job.status == 'pending', Job.moderation_status.is_(None))),
+            db.or_(Job.is_flagged == False, Job.is_flagged.is_(None))
+        ).count()
         badges['admin_badge_flagged_jobs'] = Job.query.filter_by(is_flagged=True).count()
         badges['admin_badge_reports'] = Report.query.filter_by(status='new').count()
         badges['admin_badge_notifications'] = AdminNotification.query.filter_by(is_read=False).count()
@@ -3377,22 +3382,30 @@ def account_profile():
             else:
                 db.session.commit()
                 flash(_t('flash.hirer_profile_updated'), 'success')
-                if profile.is_verified:
+                if profile.is_verified and profile.verification_status == 'verified':
                     flash('Hồ sơ đã được cập nhật thành công ✓', 'success')
-                else:
+                elif profile.verification_status == 'pending':
                     flash('Hồ sơ đã được lưu và gửi yêu cầu thẩm định tới Ban quản trị. Chức năng đăng tuyển sẽ được kích hoạt sau khi hồ sơ được duyệt.', 'info')
                     try:
                         from models import AdminNotification
-                        db.session.add(AdminNotification(
+                        existing_notif = AdminNotification.query.filter_by(
                             type='HIRER_VERIFICATION',
-                            title=f'Hồ sơ người đăng tuyển chờ duyệt: #{user.id}',
-                            message=f'{user.name} ({user.email}) vừa nộp/cập nhật hồ sơ khách hàng.',
                             related_id=user.id,
-                            url=url_for('admin_hirer_verify', hirer_id=user.id)
-                        ))
-                        db.session.commit()
+                            is_read=False
+                        ).first()
+                        if not existing_notif:
+                            db.session.add(AdminNotification(
+                                type='HIRER_VERIFICATION',
+                                title=f'Hồ sơ người đăng tuyển chờ duyệt: #{user.id}',
+                                message=f'{user.name} ({user.email}) vừa nộp/cập nhật hồ sơ khách hàng.',
+                                related_id=user.id,
+                                url=url_for('admin_hirer_verify', hirer_id=user.id)
+                            ))
+                            db.session.commit()
                     except Exception:
                         pass
+                elif profile.verification_status in ('rejected', 'revoked', 'suspended'):
+                    flash('Hồ sơ người đăng tuyển của bạn hiện không ở trạng thái hợp lệ để gửi xét duyệt. Vui lòng liên hệ ban quản trị.', 'warning')
 
         elif action in ('save_notification_settings', 'notification_setting', 'notification_settings'):
             return save_notification_settings_action(user)
@@ -7665,16 +7678,24 @@ def _submit_for_moderation(job, user, is_new):
     job.status = 'pending'
     job.moderation_status = 'pending'
     job.submission_version = 1 if is_new else (job.submission_version or 1) + 1
-    result = evaluate_job_39_criteria(job)
-    job.moderation_checklist_data = json.dumps(result)
+    summary_label = 'Chờ kiểm duyệt'
     try:
+        result = evaluate_job_39_criteria(job)
+        job.moderation_checklist_data = json.dumps(result)
+        summary_label = result.get('summary_label', 'Chờ kiểm duyệt')
+    except Exception as e:
+        app.logger.warning(f"Error evaluating 39 criteria for job {job.id}: {e}")
+        job.moderation_checklist_data = json.dumps({'summary_label': 'Chờ kiểm duyệt', 'error': str(e)})
+
+    try:
+        from models import AdminNotification
         db.session.add(AdminNotification(
             type='NEW_JOB',
             title=(f'Job mới chờ duyệt: #{job.id}' if is_new else f'Job cập nhật chờ duyệt lại: #{job.id}'),
-            message=f'{user.name} vừa {"nộp" if is_new else "cập nhật"} job "{job.title}". Kết quả: {result["summary_label"]}',
+            message=f'{user.name} vừa {"nộp" if is_new else "cập nhật"} job "{job.title}". Kết quả: {summary_label}',
             related_id=job.id, url=url_for('admin_job_review', job_id=job.id)))
-    except Exception:
-        pass
+    except Exception as e:
+        app.logger.warning(f"Failed to create AdminNotification for job {job.id}: {e}")
 
 
 def _int_or_none(v):
@@ -7920,7 +7941,7 @@ def post_job():
     # Token dùng một lần: ngăn gửi trùng
     session['job_form_tokens'] = [t for t in tokens if t != token]
     try:
-        entries = data.pop('_entries')
+        entries = data.pop('_entries', [])
         job = Job(hirer_id=user.id, **data)
         db.session.add(job)
         db.session.flush()
@@ -7930,10 +7951,10 @@ def post_job():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        print(f"[post_job error] {e}")
+        app.logger.error(f"[post_job error] Failed to save job for user {user.id}: {e}", exc_info=True)
         session['job_form_tokens'] = tokens
         return _render_job_form(values=request.form.to_dict(),
-                                errors={'_form': 'Không thể lưu yêu cầu. Vui lòng thử lại.'}, status=500,
+                                errors={'_form': 'Không thể lưu yêu cầu. Vui lòng kiểm tra lại thông tin và thử lại.'}, status=500,
                                 rows=_schedule_entries_from_form(request.form), hirer_verified=can_post)
 
     # Job chỉ hiện cho phiên dịch viên và được thông báo sau khi admin duyệt
@@ -10268,7 +10289,7 @@ def admin_jobs():
     
     for job in all_jobs:
         eval_res = evaluate_job_39_criteria(job)
-        is_pending = (job.moderation_status == 'pending' or job.status == 'pending') and not job.is_flagged
+        is_pending = bool((job.moderation_status == 'pending' or (job.status == 'pending' and job.moderation_status not in ('approved', 'rejected', 'archived', 'flagged'))) and not job.is_flagged)
         is_critical = (eval_res['total_critical'] > 0)
         
         if is_pending:
@@ -10286,6 +10307,8 @@ def admin_jobs():
             include = (job.moderation_status == 'needs_revision' or (eval_res['total_warnings'] > 0 and is_pending))
         elif status_filter == 'open':
             include = (job.moderation_status == 'approved' or job.status == 'open') and not job.is_flagged
+        elif status_filter == 'rejected':
+            include = bool(job.moderation_status == 'rejected')
         elif status_filter == 'flagged':
             include = bool(job.is_flagged or job.moderation_status == 'flagged')
         elif status_filter == 'archived':
@@ -10319,7 +10342,12 @@ def admin_job_review(job_id):
 def admin_moderate_job(job_id):
     """Ra quyết định kiểm duyệt Job (Duyệt, Yêu cầu sửa, Từ chối)."""
     job = Job.query.get_or_404(job_id)
-    decision = request.form.get('decision', 'approve')
+    decision = (request.form.get('decision') or '').strip()
+    ALLOWED_DECISIONS = ('approve', 'needs_revision', 'reject')
+    if not decision or decision not in ALLOWED_DECISIONS:
+        flash('Quyết định kiểm duyệt không hợp lệ hoặc bị thiếu.', 'error')
+        return redirect(url_for('admin_job_review', job_id=job.id))
+
     from services.job_moderation import evaluate_job_39_criteria
     import json
     
@@ -10350,7 +10378,7 @@ def admin_moderate_job(job_id):
                 from app import create_notification
                 create_notification(
                     user_id=job.hirer_id,
-                    notification_type='JOB_MATCH',
+                    notification_type='JOB_APPROVED',
                     title='Công việc đã được phê duyệt',
                     message=f'Công việc "{job.title}" của bạn đã được kiểm duyệt và hiển thị công khai.',
                     url=url_for('job_detail', job_id=job.id),
@@ -10383,7 +10411,7 @@ def admin_moderate_job(job_id):
                 from app import create_notification
                 create_notification(
                     user_id=job.hirer_id,
-                    notification_type='JOB_MATCH',
+                    notification_type='JOB_NEEDS_REVISION',
                     title='Yêu cầu chỉnh sửa công việc',
                     message=f'Job "{job.title}" cần chỉnh sửa: {notes}',
                     url=url_for('job_detail', job_id=job.id),
@@ -10396,7 +10424,7 @@ def admin_moderate_job(job_id):
     elif decision == 'reject':
         reason = request.form.get('rejection_reason', '').strip()
         job.moderation_status = 'rejected'
-        job.status = 'pending'
+        job.status = 'closed'
         job.moderation_notes = reason
         _audit_log(
             action=ADMIN_AUDIT_ACTIONS['REJECT_JOB'],
@@ -10410,7 +10438,7 @@ def admin_moderate_job(job_id):
                 from app import create_notification
                 create_notification(
                     user_id=job.hirer_id,
-                    notification_type='JOB_MATCH',
+                    notification_type='JOB_REJECTED',
                     title='Công việc bị từ chối phê duyệt',
                     message=f'Job "{job.title}" đã bị từ chối: {reason}',
                     url=url_for('job_detail', job_id=job.id),
@@ -10568,7 +10596,7 @@ def admin_hirers():
     for u in users:
         p = u.hirer_profile
         ev = evaluate_hirer_criteria(u, p)
-        is_pending = bool(p and (p.verification_status == 'pending' or (not p.is_verified and p.verification_status != 'rejected')))
+        is_pending = bool(p and p.verification_status == 'pending')
         if is_pending:
             pending_count += 1
             
@@ -10576,11 +10604,13 @@ def admin_hirers():
         if status_filter == 'pending':
             include = is_pending
         elif status_filter == 'verified':
-            include = bool(p and (p.verification_status == 'verified' or p.is_verified))
+            include = bool(p and p.verification_status == 'verified' and p.is_verified)
         elif status_filter == 'needs_revision':
             include = bool(p and p.verification_status == 'needs_revision')
         elif status_filter == 'rejected':
-            include = bool(p and p.verification_status == 'rejected')
+            include = bool(p and p.verification_status in ('rejected', 'revoked', 'suspended'))
+        elif status_filter == 'unverified':
+            include = bool(not p or p.verification_status in ('unverified', None, ''))
             
         if include:
             hirer_items.append({'user': u, 'profile': p, 'eval': ev})
@@ -10610,10 +10640,15 @@ def admin_hirer_verify(hirer_id):
 @csrf_protected
 @require_permission('verify_hirer')
 def admin_hirer_review_action(hirer_id):
-    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối)."""
+    """Xử lý quyết định xác minh người đăng (Xác minh, Bổ sung, Từ chối, Thu hồi)."""
     hirer = User.query.get_or_404(hirer_id)
-    action = request.form.get('action', 'verify')
+    action = (request.form.get('action') or '').strip()
     reason = request.form.get('reason', '').strip()
+    
+    ALLOWED_ACTIONS = ('verify', 'needs_revision', 'reject', 'revoke')
+    if not action or action not in ALLOWED_ACTIONS:
+        flash('Hành động xét duyệt không hợp lệ hoặc bị thiếu.', 'error')
+        return redirect(url_for('admin_hirer_verify', hirer_id=hirer_id))
     
     profile = hirer.hirer_profile
     if not profile:
@@ -10698,6 +10733,30 @@ def admin_hirer_review_action(hirer_id):
         except Exception:
             pass
         flash(f'Đã từ chối xác minh người đăng {hirer.name}.', 'error')
+
+    elif action == 'revoke':
+        profile.verification_status = 'revoked'
+        profile.is_verified = False
+        profile.rejection_reason = reason
+        _audit_log(
+            action=ADMIN_AUDIT_ACTIONS['REVOKE_HIRER'],
+            target_type='user',
+            target_id=hirer.id,
+            description=f'Thu hồi quyền xác minh người đăng tuyển: {hirer.name}',
+            extra_data={'reason': reason}
+        )
+        try:
+            from app import create_notification
+            create_notification(
+                user_id=hirer.id,
+                notification_type='VERIFICATION_REVOKED',
+                title='Quyền xác minh đã bị thu hồi',
+                message=f'Quyền xác minh của bạn đã bị thu hồi: {reason}',
+                url=url_for('account_profile', tab='hirer_verify')
+            )
+        except Exception:
+            pass
+        flash(f'Đã thu hồi xác minh người đăng {hirer.name}.', 'warning')
 
     db.session.commit()
     return redirect(url_for('admin_hirers'))
