@@ -81,6 +81,37 @@
             --radius-card: 18px;
         }
 
+        html,
+        body {
+            max-width: 100%;
+            overflow-x: hidden;
+            overflow-x: clip;
+        }
+
+        img,
+        video,
+        svg,
+        iframe {
+            max-width: 100%;
+        }
+
+        @media (max-width: 767px) {
+            main {
+                min-width: 0;
+                max-width: 100vw;
+            }
+
+            /* Header compaction on phones: nothing may push past the viewport */
+            header .flex.items-center.justify-between>a:first-child {
+                min-width: 0;
+                flex-shrink: 1;
+            }
+
+            header .flex.items-center.justify-between>a:first-child>div:last-child {
+                min-width: 0;
+            }
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', 'Inter', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans SC', 'Noto Sans Thai', system-ui, -apple-system, sans-serif;
             color: #334155;
@@ -235,22 +266,22 @@
      ═══════════════════════════════════════════════════════════════ -->
     <header
         class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200/80 transition-all duration-200">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16 md:h-18">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between gap-2 h-16 md:h-18">
 
                 <!-- Brand Logo -->
-                <a href="{{ url_for('index') }}" class="flex items-center gap-2.5 group focus:outline-none">
+                <a href="{{ url_for('index') }}" class="flex items-center gap-2 sm:gap-2.5 group focus:outline-none min-w-0 shrink">
                     <div
                         class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-200">
                         <span class="font-extrabold text-lg tracking-tight">V</span>
                     </div>
-                    <div class="flex flex-col">
+                    <div class="flex flex-col min-w-0">
                         <span
-                            class="text-lg font-extrabold tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
+                            class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors">
                             Viet<span class="text-brand-600">Translate</span>
                         </span>
                         <span
-                            class="text-[10px] tracking-wider uppercase font-semibold text-slate-400 -mt-1 flex items-center gap-1.5">
+                            class="text-[10px] tracking-wider uppercase font-semibold text-slate-400 -mt-1 flex items-center gap-1.5 whitespace-nowrap">
                             {{ t('nav.brand_subtitle') }}
                             {% if current_user %}
                             {% if current_user.role == 'hirer' %}
@@ -305,9 +336,9 @@
                 </nav>
 
                 <!-- Right Actions & User Account -->
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-1 sm:gap-3 shrink-0">
                     <!-- Clean "VI/EN" Switcher (No emoji flag) -->
-                    <div class="inline-flex items-center bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80 text-xs font-bold"
+                    <div class="hidden md:inline-flex items-center bg-slate-100/90 rounded-xl p-0.5 border border-slate-200/80 text-xs font-bold"
                         title="{{ t('nav.switch_language') }}" aria-label="{{ t('nav.switch_language') }}">
                         <a href="{{ url_for('set_language', lang='vi') }}"
                             class="px-2.5 py-1 rounded-lg transition-all {% if current_lang == 'vi' %}bg-white text-brand-600 shadow-xs font-black{% else %}text-slate-500 hover:text-slate-800 font-semibold{% endif %}">VI</a>
