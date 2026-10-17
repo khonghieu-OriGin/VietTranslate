@@ -84,6 +84,21 @@
 </div>
 {% endif %}
 
+<!-- DEMO PROFILE NOTICE BANNER -->
+{% if profile.is_demo %}
+<div class="bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-amber-500/5 border-b border-amber-200 bg-white py-3 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto flex items-center gap-3 text-xs sm:text-sm text-amber-900">
+        <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-bold text-sm shadow-2xs">⚡</div>
+        <div>
+            <strong class="font-bold text-amber-950">HỒ SƠ MẪU MINH HỌA (DEMO PROFILE):</strong>
+            <span class="text-amber-800">
+                Đây là hồ sơ phiên dịch viên mẫu được tạo nhằm mục đích kiểm thử và khám phá tính năng tìm kiếm, duyệt ngôn ngữ, lĩnh vực chuyên môn và bảng giá dịch vụ. Mọi thông tin đều mang tính chất mô phỏng và không có huy hiệu xác minh danh tính thực tế.
+            </span>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
     <div class="flex flex-col lg:flex-row gap-8">
         
@@ -119,7 +134,11 @@
                             <div>
                                 <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
                                     <span>{{ profile.user.name }}</span>
-                                    {% if is_verified %}
+                                    {% if profile.is_demo %}
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2.5 py-1 rounded-full shadow-2xs" title="Hồ sơ nhân sự mẫu minh họa">
+                                        ⚡ Dữ liệu mẫu (Demo Profile)
+                                    </span>
+                                    {% elif is_verified %}
                                     <span class="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-full badge-verified-glow" title="Hồ sơ đã được thẩm định tài liệu minh chứng bởi VietTranslate">
                                         <svg class="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                                             <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -183,6 +202,10 @@
                                 <strong class="text-slate-800 font-bold">{{ profile.display_experience_years }}</strong> năm kinh nghiệm
                             </div>
                             <span class="text-slate-300">·</span>
+                            <div>
+                                📍 <strong class="text-slate-800 font-semibold">{{ profile.display_location }}</strong> ({{ profile.display_country }})
+                            </div>
+                            <span class="text-slate-300">·</span>
                             <div>{{ t('profile_page.completed_projects') }}: <strong class="text-slate-800 font-semibold">{{ profile.total_jobs }} {{ t('profile_page.projects_suffix') }}</strong></div>
                             <span class="text-slate-300">·</span>
                             <div>{{ t('profile_page.response_time') }}: <strong class="text-slate-800 font-semibold">{{ profile.response_time }}</strong></div>
@@ -195,6 +218,16 @@
                                 🌐 {{ mode }}
                             </span>
                             {% endfor %}
+                            {% if profile.employment_preference %}
+                            <span class="inline-flex items-center gap-1 bg-blue-50 text-blue-800 px-2.5 py-1 rounded-lg text-xs font-semibold border border-blue-200/80">
+                                💼 {{ profile.employment_preference }}
+                            </span>
+                            {% endif %}
+                            {% if profile.availability_status %}
+                            <span class="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2.5 py-1 rounded-lg text-xs font-semibold border border-emerald-200/80">
+                                🟢 {{ profile.availability_status }}
+                            </span>
+                            {% endif %}
                             {% if profile.badges %}
                                 {% for b in profile.badges.split(',') %}
                                 {% if b.strip() %}
@@ -427,8 +460,8 @@
                 {% endif %}
             </div>
 
-            <!-- KHỐI MINH BẠCH XÁC MINH VIETTRANSLATE (Chỉ hiển thị khi is_verified=True) -->
-            {% if is_verified %}
+            <!-- KHỐI MINH BẠCH XÁC MINH VIETTRANSLATE (Chỉ hiển thị khi is_verified=True và không phải hồ sơ demo) -->
+            {% if is_verified and not profile.is_demo %}
             <div class="bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-white rounded-3xl border border-emerald-200/90 p-6 sm:p-8 shadow-soft">
                 <div class="flex items-start gap-4 mb-4">
                     <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm shadow-emerald-600/30">
@@ -683,7 +716,11 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.cam_kết_chất_lượng_c') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
-                            {% if profile.is_verified %}
+                            {% if profile.is_demo %}
+                            <button disabled class="block w-full text-center bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Hồ sơ mẫu thử nghiệm
+                            </button>
+                            {% elif profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='basic') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_cơ_bản') }}
                             </a>
@@ -704,7 +741,11 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.ưu_tiên_lịch_trình') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
-                            {% if profile.is_verified %}
+                            {% if profile.is_demo %}
+                            <button disabled class="block w-full text-center bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Hồ sơ mẫu thử nghiệm
+                            </button>
+                            {% elif profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='standard') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_tiêu_chuẩn') }}
                             </a>
@@ -725,7 +766,11 @@
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.hỗ_trợ_chuyên_sâu_24') }}</li>
                                 <li class="flex items-center gap-2"><span class="text-emerald-500 font-bold">✓</span> {{ t('auto.bảo_vệ_escrow_an_toà') }}</li>
                             </ul>
-                            {% if profile.is_verified %}
+                            {% if profile.is_demo %}
+                            <button disabled class="block w-full text-center bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs py-3 rounded-xl cursor-not-allowed">
+                                Hồ sơ mẫu thử nghiệm
+                            </button>
+                            {% elif profile.is_verified %}
                             <a href="{{ url_for('book_service', service_id=service.id, tier='premium') }}" class="block w-full text-center bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl transition shadow-sm">
                                 {{ t('auto.đặt_gói_cao_cấp') }}
                             </a>

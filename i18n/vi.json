@@ -20,6 +20,8 @@
     "default_title": "VietTranslate | Nền Tảng Kết Nối Phiên Dịch Chuyên Nghiệp",
     "messages_tooltip": "Tin nhắn",
     "notifications_tooltip": "Thông báo",
+    "help_tooltip": "Trợ giúp & Hỗ trợ",
+    "settings_tooltip": "Cài đặt & Bảo mật",
     "my_jobs": "Việc làm của tôi",
     "find_jobs": "Tìm việc",
     "recommended_jobs": "Việc phù hợp",
@@ -67,18 +69,18 @@
     "popular_tags_label": "Tìm kiếm nhanh:"
   },
   "stats": {
-    "translators_count": "5,200+",
+    "translators_count": "11+",
     "translators_label": "Phiên dịch viên chuyên nghiệp",
-    "satisfaction_rate": "99.4%",
+    "satisfaction_rate": "100%",
     "satisfaction_label": "Tỷ lệ khách hàng hài lòng",
-    "contracts_count": "12,400+",
+    "contracts_count": "3+",
     "contracts_label": "Hợp đồng hoàn thành thành công",
     "escrow_amount": "100%",
     "escrow_label": "Quỹ thanh toán bảo vệ Escrow"
   },
   "home_languages": {
     "badge": "Ngôn ngữ phổ biến",
-    "title": "Hỗ Trợ Toàn Diện 10+ Ngôn Ngữ Trọng Tâm",
+    "title": "Hỗ Trợ Toàn Diện 13+ Ngôn Ngữ Trọng Tâm",
     "subtitle": "Mỗi ngôn ngữ đều có đội ngũ phiên dịch viên đã qua kiểm tra chứng chỉ quốc tế và kinh nghiệm thực chiến.",
     "view_all": "Xem tất cả phiên dịch viên",
     "translators_suffix": "chuyên gia"
@@ -190,8 +192,8 @@
     "policy_item1_text": "Áp dụng nếu phiên dịch viên vắng mặt, hủy ca đột xuất hoặc không bàn giao tài liệu như đã ký kết.",
     "policy_item2_label": "Hỗ trợ giải quyết tranh chấp:",
     "policy_item2_text": "Ban quản trị VietTranslate tham gia đối soát chứng từ, ghi âm, bản dịch trong vòng 24 giờ làm việc.",
-    "policy_item3_label": "99.4% tỉ lệ hài lòng:",
-    "policy_item3_text": "Hơn 12,000+ hợp đồng giao dịch an toàn không phát sinh tranh chấp."
+    "policy_item3_label": "100% tỉ lệ hài lòng:",
+    "policy_item3_text": "3 hợp đồng giao dịch an toàn không phát sinh tranh chấp."
   },
   "auth": {
     "login_title": "Đăng Nhập | VietTranslate",

@@ -49,6 +49,7 @@ class User(db.Model):
     admin_role = db.Column(db.String(50), nullable=True) # 'super_admin', 'moderator', 'finance'
     is_admin = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_demo = db.Column(db.Boolean, default=False, index=True)
     email_verified = db.Column(db.Boolean, default=False)
     verified_at = db.Column(db.DateTime, nullable=True) # Thời điểm xác minh thành công (dùng tính mốc 7 ngày đầu)
     avatar = db.Column(db.String(255), nullable=True)
@@ -78,9 +79,13 @@ class User(db.Model):
     @property
     def avatar_url(self):
         if self.avatar:
-            if self.avatar.startswith('http://') or self.avatar.startswith('https://') or self.avatar.startswith('/'):
-                return self.avatar
-            return f'/static/uploads/avatars/{self.avatar}'
+            avatar_val = str(self.avatar).strip()
+            if (avatar_val.startswith('http://') or 
+                avatar_val.startswith('https://') or 
+                avatar_val.startswith('/') or 
+                avatar_val.startswith('data:')):
+                return avatar_val
+            return f'/static/uploads/avatars/{avatar_val}'
 
         email_map = {
             'trans_kr@test.com': '/static/avatars/avatar_dung.jpg',
@@ -228,7 +233,68 @@ class TranslatorProfile(db.Model):
     notable_clients = db.Column(db.Text, nullable=True)
     featured_projects = db.Column(db.Text, nullable=True)
 
+    # Dữ liệu demo & Định giá / Khả dụng bổ sung
+    is_demo = db.Column(db.Boolean, default=False, index=True)
+    hourly_rate = db.Column(db.Float, nullable=True)
+    daily_rate = db.Column(db.Float, nullable=True)
+    currency = db.Column(db.String(10), default='VND')
+    employment_preference = db.Column(db.String(100), nullable=True)
+    availability_status = db.Column(db.String(100), default='Sẵn sàng nhận việc')
+    service_areas = db.Column(db.String(255), nullable=True)
+    country = db.Column(db.String(100), default='Việt Nam')
+    native_language = db.Column(db.String(100), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
     services = db.relationship('Service', backref='profile', lazy=True)
+
+    @property
+    def display_hourly_rate(self):
+        """Định dạng mức giá theo giờ hiển thị."""
+        if self.hourly_rate:
+            curr = self.currency or 'VND'
+            if curr == 'USD':
+                return f"${int(self.hourly_rate)}/giờ"
+            return f"{int(self.hourly_rate):,}".replace(',', '.') + " VND/giờ"
+        return None
+
+    @property
+    def display_daily_rate(self):
+        """Định dạng mức giá theo ngày hiển thị."""
+        if self.daily_rate:
+            curr = self.currency or 'VND'
+            if curr == 'USD':
+                return f"${int(self.daily_rate)}/ngày"
+            return f"{int(self.daily_rate):,}".replace(',', '.') + " VND/ngày"
+        return None
+
+    @property
+    def display_rate_summary(self):
+        """Tóm tắt mức giá theo giờ / ngày."""
+        parts = []
+        if self.display_hourly_rate:
+            parts.append(self.display_hourly_rate)
+        if self.display_daily_rate:
+            parts.append(self.display_daily_rate)
+        return " · ".join(parts) if parts else "Thỏa thuận theo dự án"
+
+    @property
+    def display_country(self):
+        """Quốc gia làm việc."""
+        return self.country or 'Việt Nam'
+
+    @property
+    def display_location(self):
+        """Địa điểm công tác chính."""
+        if self.user and self.user.city:
+            return self.user.city
+        return self.service_areas or 'Hà Nội'
+
+    @property
+    def display_native_language(self):
+        """Ngôn ngữ mẹ đẻ."""
+        if self.native_language:
+            return self.native_language
+        return self.display_source_language
 
     @property
     def avatar_url(self):
@@ -407,6 +473,36 @@ class TranslatorProfile(db.Model):
         return val
 
     @property
+    def active_cv_document(self):
+        """
+        Trả về tệp CV đang hoạt động của phiên dịch viên (bất kể cờ is_cv_public bật hay tắt).
+        Dùng cho chính chủ, Quản trị viên hoặc Người thuê có ứng viên nộp hồ sơ.
+        """
+        try:
+            doc = VerificationDocument.query.filter_by(
+                user_id=self.user_id,
+                document_type='cv',
+                is_active=True
+            ).order_by(VerificationDocument.created_at.desc()).first()
+            if doc:
+                return doc
+        except Exception:
+            pass
+
+        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
+            for doc in self.latest_verification.documents:
+                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                    return doc
+
+        if self.user and hasattr(self.user, 'verifications') and self.user.verifications:
+            for v in self.user.verifications:
+                if hasattr(v, 'documents'):
+                    for doc in v.documents:
+                        if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
+                            return doc
+        return None
+
+    @property
     def public_cv_document(self):
         """
         Trả về đối tượng tài liệu CV hợp lệ khi người dùng CHỦ ĐỘNG chọn công khai (is_cv_public=True).
@@ -414,11 +510,7 @@ class TranslatorProfile(db.Model):
         """
         if not self.is_cv_public:
             return None
-        if self.latest_verification and hasattr(self.latest_verification, 'documents'):
-            for doc in self.latest_verification.documents:
-                if doc.document_type == 'cv' and getattr(doc, 'is_active', True):
-                    return doc
-        return None
+        return self.active_cv_document
 
     @property
     def has_public_cv(self):
@@ -543,6 +635,20 @@ class HirerProfile(db.Model):
     @property
     def is_business(self):
         return self.account_type == 'business'
+
+    @property
+    def avatar_url(self):
+        """Ảnh đại diện hoặc logo của hồ sơ người thuê."""
+        try:
+            if self.logo:
+                logo_val = str(self.logo).strip()
+                if logo_val:
+                    if logo_val.startswith('http://') or logo_val.startswith('https://') or logo_val.startswith('/') or logo_val.startswith('data:'):
+                        return logo_val
+                    return f"/static/uploads/logos/{logo_val}"
+            return self.user.avatar_url if self.user else None
+        except Exception:
+            return None
 
 
 class Service(db.Model):
