@@ -1889,6 +1889,31 @@ LOCALIZED_LANGUAGES_DATA = [
 ]
 
 
+def _merge_missing(dst, src):
+    """Gộp dict src vào dst, chỉ thêm các khoá còn thiếu (không ghi đè)."""
+    for k, v in src.items():
+        if isinstance(v, dict):
+            _merge_missing(dst.setdefault(k, {}) if isinstance(dst.get(k, {}), dict) else {}, v)
+        elif k not in dst:
+            dst[k] = v
+
+
+def _load_json_translations():
+    """Nạp i18n/<lang>.json (flash.*, auth.*, ...) làm nguồn bổ sung cho TRANSLATIONS."""
+    import json
+    import os
+    base = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'i18n')
+    for lang in ('vi', 'en'):
+        try:
+            with open(os.path.join(base, f'{lang}.json'), encoding='utf-8') as f:
+                _merge_missing(TRANSLATIONS.setdefault(lang, {}), json.load(f))
+        except (OSError, ValueError) as e:
+            print(f"[i18n] Không nạp được {lang}.json: {e}")
+
+
+_load_json_translations()
+
+
 def t(key, lang='vi', **kwargs):
     """
     Look up a localized string key in dot notation (e.g. 'nav.find_translators').

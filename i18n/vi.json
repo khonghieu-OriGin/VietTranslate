@@ -219,7 +219,8 @@
     "password_placeholder": "Tối thiểu 6 ký tự",
     "register_button": "Đăng Ký Ngay",
     "have_account": "Đã có tài khoản?",
-    "login_link": "Đăng nhập"
+    "login_link": "Đăng nhập",
+    "password_hint": "Mật khẩu tối thiểu 6 ký tự."
   },
   "translator_list_page": {
     "title": "Tìm Phiên Dịch Viên Chuyên Nghiệp | VietTranslate",
@@ -555,7 +556,8 @@
     "already_applied": "Bạn đã gửi đề xuất cho công việc này rồi.",
     "missing_proposal_fields": "Không được để trống Giá đề xuất và Thời gian hoàn thành.",
     "proposal_sent": "Gửi đề xuất thành công!",
-    "message_sent": "Đã gửi tin nhắn!"
+    "message_sent": "Đã gửi tin nhắn!",
+    "register_password_short": "Mật khẩu phải có ít nhất 6 ký tự."
   },
   "auto": {
     "chờ_escrow": "Chờ Escrow",

@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from datetime import datetime, date, timedelta
 from functools import wraps
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 import re
 from translations import t as t_lookup, get_localized_languages, get_language_display_name
 from sqlalchemy.pool import StaticPool
@@ -43,6 +43,8 @@ def mongo_register_user(username, email, hashed_password, phone, role):
         return False, "MongoDB chưa được cấu hình."
     if col.find_one({"email": email}):
         return False, "Email đã được sử dụng."
+    if phone and col.find_one({"phone": phone}):
+        return False, "Số điện thoại đã được sử dụng."
     col.insert_one({
         "name": username,
         "email": email,
@@ -923,13 +925,15 @@ def login():
 
     return render_template('login.html')
 
+MIN_PASSWORD_LENGTH = 6
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        phone = request.form.get('phone')
+        name = (request.form.get('name') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        phone = (request.form.get('phone') or '').strip()
         role = request.form.get('role')
 
         if role not in ('hirer', 'translator'):
@@ -939,6 +943,10 @@ def register():
         import re
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             flash(_t('flash.invalid_email'), 'error')
+            return redirect(url_for('register'))
+
+        if len(password) < MIN_PASSWORD_LENGTH:
+            flash(_t('flash.register_password_short'), 'error')
             return redirect(url_for('register'))
 
         hashed_pw = generate_password_hash(password)
@@ -960,20 +968,29 @@ def register():
                 return redirect(url_for('register'))
 
         # ── Fallback: SQLite / SQLAlchemy (khi chạy local) ──
-        if User.query.filter_by(email=email).first():
+        try:
+            if User.query.filter(db.func.lower(User.email) == email).first():
+                flash(_t('flash.email_exists'), 'error')
+                return redirect(url_for('register'))
+
+            new_user = User(name=name, email=email,
+                            password_hash=hashed_pw,
+                            phone=phone, role=role)
+            db.session.add(new_user)
+            db.session.flush()
+
+            if role == 'translator':
+                db.session.add(TranslatorProfile(user_id=new_user.id))
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
             flash(_t('flash.email_exists'), 'error')
             return redirect(url_for('register'))
-
-        new_user = User(name=name, email=email,
-                        password_hash=hashed_pw,
-                        phone=phone, role=role)
-        db.session.add(new_user)
-        db.session.commit()
-
-        if role == 'translator':
-            profile = TranslatorProfile(user_id=new_user.id)
-            db.session.add(profile)
-            db.session.commit()
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            print(f"[REGISTER SQL ERROR] {e}")
+            flash(_t('flash.system_overload'), 'error')
+            return redirect(url_for('register'))
 
         flash(_t('flash.register_success'), 'success')
         return redirect(url_for('login'))

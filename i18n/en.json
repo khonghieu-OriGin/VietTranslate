@@ -219,7 +219,8 @@
     "password_placeholder": "Minimum 6 characters",
     "register_button": "Create Account",
     "have_account": "Already have an account?",
-    "login_link": "Sign in"
+    "login_link": "Sign in",
+    "password_hint": "Password must be at least 6 characters."
   },
   "translator_list_page": {
     "title": "Find Professional Translators & Interpreters | VietTranslate",
@@ -555,7 +556,8 @@
     "already_applied": "You have already applied to this job.",
     "missing_proposal_fields": "Proposed Rate and Delivery Time are required.",
     "proposal_sent": "Proposal sent successfully!",
-    "message_sent": "Message sent!"
+    "message_sent": "Message sent!",
+    "register_password_short": "Password must be at least 6 characters."
   },
   "auto": {
     "chờ_escrow": "Escrow Pending",
