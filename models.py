@@ -168,6 +168,10 @@ class Job(db.Model):
     event_time_end = db.Column(db.String(10))
     event_location = db.Column(db.String(200))
     deadline = db.Column(db.Date)
+    # Khối lượng công việc dùng chung cho dịch tài liệu và phiên dịch:
+    # pricing_unit = page | hour | day | flat, quantity = số trang / giờ / ngày.
+    pricing_unit = db.Column(db.String(20))
+    quantity = db.Column(db.Integer)
     status = db.Column(db.String(20), default='open', index=True)
     is_flagged = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -244,6 +248,13 @@ class Contract(db.Model):
     hirer_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     agreed_price = db.Column(db.Integer, nullable=False)
+    # Bản chụp giá và phí lúc tạo hợp đồng: đổi biểu phí sau này không ảnh hưởng hợp đồng cũ.
+    pricing_unit = db.Column(db.String(20))
+    quantity = db.Column(db.Integer)
+    unit_price = db.Column(db.Integer)
+    client_fee = db.Column(db.Integer)       # phí dịch vụ khách trả thêm
+    commission = db.Column(db.Integer)       # hoa hồng trừ vào phiên dịch viên
+    translator_net = db.Column(db.Integer)   # số tiền phiên dịch viên thực nhận
     scheduled_date = db.Column(db.String(100))
     scheduled_time_start = db.Column(db.String(10))
     scheduled_time_end = db.Column(db.String(10))
@@ -405,6 +416,14 @@ class PaymentTransaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Người thực hiện thanh toán
     amount = db.Column(db.Integer, nullable=False)
     
+    # Một loại giao dịch duy nhất cho mọi dịch vụ, phân biệt bằng `kind`:
+    #   deposit      khách nạp tiền, sàn giữ hộ (user_id = khách)
+    #   release      giải ngân cho phiên dịch viên (payee_id = phiên dịch viên)
+    #   platform_fee phí dịch vụ + hoa hồng sàn giữ lại
+    #   withdraw     phiên dịch viên rút tiền về ngân hàng (user_id = payee_id = phiên dịch viên)
+    kind = db.Column(db.String(20), default='deposit', nullable=False, index=True)
+    payee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+
     # pending | completed | failed | refunded | escrow_pending
     status = db.Column(db.String(20), default='pending', index=True)
     payment_method = db.Column(db.String(50))
@@ -415,6 +434,7 @@ class PaymentTransaction(db.Model):
 
     contract = db.relationship('Contract', backref=db.backref('payments', lazy=True))
     user = db.relationship('User', foreign_keys=[user_id])
+    payee = db.relationship('User', foreign_keys=[payee_id])
 
 # ─── ADMIN NOTIFICATION MODEL (TASK 14) ────────────────────────────────────────
 

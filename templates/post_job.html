@@ -113,6 +113,26 @@
                 </h2>
                 
                 <div class="space-y-5">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                                {{ 'Khối lượng công việc' if current_lang == 'vi' else 'Workload' }}
+                            </label>
+                            <input type="number" name="quantity" min="1" value="1" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50" placeholder="VD: 12">
+                        </div>
+                        <div>
+                            <label class="block text-slate-700 font-bold mb-1.5 text-xs uppercase tracking-wider">
+                                {{ 'Đơn vị tính' if current_lang == 'vi' else 'Unit' }}
+                            </label>
+                            <select name="pricing_unit" class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500 text-sm bg-slate-50/50">
+                                <option value="page">{{ 'Trang (dịch tài liệu)' if current_lang == 'vi' else 'Pages (document)' }}</option>
+                                <option value="hour">{{ 'Giờ (phiên dịch)' if current_lang == 'vi' else 'Hours (interpreting)' }}</option>
+                                <option value="day">{{ 'Ngày (hội nghị)' if current_lang == 'vi' else 'Days (conference)' }}</option>
+                                <option value="flat">{{ 'Trọn gói' if current_lang == 'vi' else 'Flat fee' }}</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div>
                         <label class="block text-slate-700 font-bold mb-2 text-xs uppercase tracking-wider">{{ t('post_job_page.budget_type_label') }}</label>
                         <div class="grid grid-cols-3 gap-3">

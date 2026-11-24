@@ -1,5 +1,6 @@
 import os
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, abort, Response, g
+from services import pricing
 from models import db, User, TranslatorProfile, HirerProfile, TranslatorPreference, Service, Job, Proposal, Contract, Message, DirectMessage, Deliverable, Review, LANGUAGES, LoginAttempt, AdminAuditLog, ADMIN_AUDIT_ACTIONS, Report, PaymentTransaction, AdminNotification, TranslatorSchedule
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -749,6 +750,8 @@ def format_date_vn(val):
             return val
     return str(val)
 
+app.jinja_env.globals['UNIT_LABELS'] = pricing.UNIT_LABELS
+
 @app.template_filter('vnd')
 def vnd_filter(value):
     try:
@@ -1176,6 +1179,33 @@ def account_history():
     else:
         contracts = Contract.query.filter_by(translator_id=user.id).order_by(Contract.created_at.desc()).all()
     return render_template('account_history.html', user=user, contracts=contracts)
+
+@app.route('/account/wallet', methods=['GET', 'POST'])
+@login_required
+def account_wallet():
+    """Ví của phiên dịch viên: số dư đã giải ngân, lịch sử và yêu cầu rút tiền."""
+    user = get_current_user()
+    if not user or user.role != 'translator':
+        flash('Chỉ phiên dịch viên mới có ví nhận tiền.', 'error')
+        return redirect(url_for('account_history'))
+
+    from services import payments
+    if request.method == 'POST':
+        try:
+            payments.request_withdrawal(user.id, request.form.get('amount'))
+            db.session.commit()
+            flash('Đã gửi yêu cầu rút tiền. Sàn sẽ chuyển khoản trong 2 ngày làm việc.', 'success')
+        except payments.PaymentError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+        return redirect(url_for('account_wallet'))
+
+    transactions = PaymentTransaction.query.filter(
+        PaymentTransaction.payee_id == user.id,
+        PaymentTransaction.kind.in_(['release', 'withdraw'])
+    ).order_by(PaymentTransaction.created_at.desc()).all()
+    return render_template('account_wallet.html', user=user, balance=payments.wallet_balance(user.id),
+                           transactions=transactions, withdraw_min=pricing.WITHDRAW_MIN)
 
 # ─── FLOW 1: TÌM PHIÊN DỊCH VIÊN ──────────────────────────────────────────────
 
@@ -1617,7 +1647,9 @@ def post_job():
             event_time_start=request.form.get('event_time_start', ''),
             event_time_end=request.form.get('event_time_end', ''),
             event_location=request.form.get('event_location', ''),
-            deadline=deadline
+            deadline=deadline,
+            pricing_unit=pricing.normalize_unit(request.form.get('pricing_unit'), request.form.get('category_group')),
+            quantity=pricing.normalize_quantity(request.form.get('quantity'))
         )
         db.session.add(job)
         db.session.commit()
@@ -1874,17 +1906,23 @@ def payment_mockup(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
 
-    platform_fee = int(contract.agreed_price * 0.10)
-    translator_receives = contract.agreed_price - platform_fee
+    from services import payments
+    payments.ensure_pricing_snapshot(contract)
+    platform_fee = contract.client_fee
+    translator_receives = contract.translator_net
+    total_payable = payments.amount_to_pay(contract)
     if request.method == 'POST':
         from services.scheduling import confirm_slot, SlotExpiredError
+        from services.booking import contract_has_no_time_slot
         try:
-            success = confirm_slot(contract.id)
+            # Dịch tài liệu không giữ khung giờ nên không có lịch để xác nhận.
+            success = True if contract_has_no_time_slot(contract) else confirm_slot(contract.id)
             if not success:
                 flash('Thanh toán thất bại: Không tìm thấy lịch hoặc trạng thái không hợp lệ.', 'error')
                 return redirect(url_for('index'))
                 
             contract.status = 'in_progress'
+            payments.record_deposit(contract, session['user_id'])
             db.session.commit()
             flash('Thanh toán thành công! Tiền đã được giữ trong Escrow an toàn.', 'success')
             return redirect(url_for('transaction_detail', contract_id=contract.id))
@@ -1906,7 +1944,8 @@ def payment_mockup(contract_id):
             db.session.commit()
             return redirect(url_for('index'))
     return render_template('payment_mockup.html', contract=contract,
-                           platform_fee=platform_fee, translator_receives=translator_receives)
+                           platform_fee=platform_fee, translator_receives=translator_receives,
+                           total_payable=total_payable)
 
 @app.route('/transaction/<int:contract_id>', methods=['GET', 'POST'])
 @login_required
@@ -1990,6 +2029,13 @@ def approve_contract(contract_id):
     from services.permissions import require_contract_access
     require_contract_access(session['user_id'], contract)
     if session['user_id'] == contract.hirer_id and contract.status == 'in_progress':
+        from services import payments
+        try:
+            payments.release_funds(contract)
+        except payments.PaymentError as e:
+            db.session.rollback()
+            flash(str(e), 'error')
+            return redirect(url_for('transaction_detail', contract_id=contract.id))
         contract.status = 'completed'
         if contract.job:
             contract.job.status = 'completed'
@@ -2548,8 +2594,8 @@ def admin_payments():
 @admin_required
 def admin_refund_payment(payment_id):
     p = PaymentTransaction.query.get_or_404(payment_id)
-    if p.status != 'escrow_pending' and p.status != 'completed':
-        flash('Chỉ có thể hoàn tiền các giao dịch ở trạng thái escrow_pending hoặc completed.', 'error')
+    if p.kind != 'deposit' or p.status != 'escrow_pending':
+        flash('Chỉ hoàn tiền được khoản đang giữ (escrow). Tiền đã giải ngân cho phiên dịch viên thì không hoàn.', 'error')
         return redirect(url_for('admin_payments'))
         
     p.status = 'refunded'
@@ -2565,6 +2611,27 @@ def admin_refund_payment(payment_id):
     
     db.session.commit()
     flash('Đã hoàn tiền thành công.', 'success')
+    return redirect(url_for('admin_payments'))
+
+@app.route('/admin/payments/<int:payment_id>/complete-withdrawal', methods=['POST'])
+@admin_required
+def admin_complete_withdrawal(payment_id):
+    from services import payments
+    p = PaymentTransaction.query.get_or_404(payment_id)
+    try:
+        payments.complete_withdrawal(p)
+    except payments.PaymentError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('admin_payments'))
+
+    _audit_log(
+        action=ADMIN_AUDIT_ACTIONS['PAYMENT_ACTION'],
+        target_type='payment',
+        target_id=p.id,
+        description=f"Admin xác nhận đã chuyển khoản rút tiền #{p.id} ({p.amount}đ) cho user #{p.payee_id}",
+    )
+    db.session.commit()
+    flash('Đã đánh dấu yêu cầu rút tiền hoàn tất.', 'success')
     return redirect(url_for('admin_payments'))
 
 @app.route('/admin/notifications')
