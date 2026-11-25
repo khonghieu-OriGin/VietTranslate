@@ -62,6 +62,22 @@ def compute_quote(unit_price, quantity, surcharge=0):
     return unit_price * normalize_quantity(quantity) + surcharge
 
 
+def compute_commission(amount, prior_revenue=0):
+    """Hoa hồng trên số tiền phiên dịch viên thực nhận (mục 3): 10%, phần vượt 10 triệu còn 5%.
+
+    Tối thiểu 20.000đ tính một lần cho cả hợp đồng, nhưng không vượt quá chính số tiền đó.
+    Số tiền 0 thì không có hoa hồng.
+    """
+    amount = max(int(amount or 0), 0)
+    prior_revenue = max(int(prior_revenue or 0), 0)
+    if amount == 0:
+        return 0
+    base_part = max(0, min(amount, LOYAL_THRESHOLD - prior_revenue))
+    loyal_part = amount - base_part
+    commission = _percent(base_part, COMMISSION_PERCENT) + _percent(loyal_part, COMMISSION_PERCENT_LOYAL)
+    return min(max(commission, COMMISSION_MIN), amount)
+
+
 def compute_fees(price, prior_revenue=0):
     """Tính phí cho một hợp đồng.
 
@@ -80,10 +96,7 @@ def compute_fees(price, prior_revenue=0):
 
     client_fee = max(_percent(price, CLIENT_FEE_PERCENT), CLIENT_FEE_MIN)
 
-    base_part = max(0, min(price, LOYAL_THRESHOLD - prior_revenue))
-    loyal_part = price - base_part
-    commission = _percent(base_part, COMMISSION_PERCENT) + _percent(loyal_part, COMMISSION_PERCENT_LOYAL)
-    commission = min(max(commission, COMMISSION_MIN), price)
+    commission = compute_commission(price, prior_revenue)
 
     return {
         'client_fee': client_fee,

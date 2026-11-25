@@ -50,7 +50,7 @@
                         <a href="{{ url_for('admin_contracts') }}?search={{ p.contract_id }}" class="text-brand hover:underline">#CTR-{{ p.contract_id }}</a>
                     </td>
                     <td class="text-slate-300 text-xs">
-                        {{ {'deposit': 'Khách nạp', 'release': 'Giải ngân', 'platform_fee': 'Phí sàn', 'withdraw': 'Rút tiền'}.get(p.kind, p.kind) }}
+                        {{ {'deposit': 'Khách nạp', 'release': 'Giải ngân', 'platform_fee': 'Phí sàn', 'withdraw': 'Rút tiền', 'refund': 'Hoàn tiền', 'voucher': 'Voucher bồi thường', 'unmatched': 'Chuyển khoản chưa khớp'}.get(p.kind, p.kind) }}
                     </td>
                     <td>
                         <div class="flex items-center gap-2">
@@ -93,7 +93,7 @@
                     <td>
                         <div class="flex items-center justify-end gap-2">
                             <button class="btn btn-sm btn-ghost" onclick="viewPaymentDetail({{ p.id }})">Chi tiết</button>
-                            {% if p.kind == 'withdraw' and p.status == 'pending' %}
+                            {% if p.kind in ['withdraw', 'refund'] and p.status == 'pending' %}
                             <form action="{{ url_for('admin_complete_withdrawal', payment_id=p.id) }}" method="POST" onsubmit="return confirm('Xác nhận bạn đã chuyển khoản số tiền này cho phiên dịch viên?');">
                                 <button type="submit" class="btn btn-sm btn-primary">Đã chuyển khoản</button>
                             </form>

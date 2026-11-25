@@ -255,6 +255,16 @@ class Contract(db.Model):
     client_fee = db.Column(db.Integer)       # phí dịch vụ khách trả thêm
     commission = db.Column(db.Integer)       # hoa hồng trừ vào phiên dịch viên
     translator_net = db.Column(db.Integer)   # số tiền phiên dịch viên thực nhận
+    # Vòng đời tiền (điều khoản mục 4): các mốc thời gian quyết định tự giải ngân và hoàn tiền.
+    refund_policy = db.Column(db.String(20))     # document | event | conference, chốt lúc tạo hợp đồng
+    paid_at = db.Column(db.DateTime)             # lúc khách thanh toán, sàn bắt đầu giữ tiền
+    started_at = db.Column(db.DateTime)          # phiên dịch viên bấm "Bắt đầu"
+    delivered_at = db.Column(db.DateTime)        # lần nộp bài gần nhất
+    auto_release_at = db.Column(db.DateTime, index=True)  # hết hạn này mà khách chưa phản hồi thì tự giải ngân
+    release_reminded_at = db.Column(db.DateTime)
+    revisions_used = db.Column(db.Integer, default=0)
+    cancelled_by = db.Column(db.String(20))      # hirer | translator | system | admin
+    cancel_reason = db.Column(db.String(255))
     scheduled_date = db.Column(db.String(100))
     scheduled_time_start = db.Column(db.String(10))
     scheduled_time_end = db.Column(db.String(10))
@@ -420,7 +430,10 @@ class PaymentTransaction(db.Model):
     #   deposit      khách nạp tiền, sàn giữ hộ (user_id = khách)
     #   release      giải ngân cho phiên dịch viên (payee_id = phiên dịch viên)
     #   platform_fee phí dịch vụ + hoa hồng sàn giữ lại
-    #   withdraw     phiên dịch viên rút tiền về ngân hàng (user_id = payee_id = phiên dịch viên)
+    #   withdraw     rút tiền về ngân hàng (user_id = payee_id = người rút)
+    #   refund       hoàn tiền cho khách (payee_id = khách; payment_method wallet = vào ví, original = về phương thức gốc)
+    #   unmatched    tiền vào ngân hàng nhưng sai số tiền hoặc hợp đồng, admin đối soát (không ghim)
+    #   voucher      voucher bồi thường cho khách, không rút được (payee_id = khách)
     kind = db.Column(db.String(20), default='deposit', nullable=False, index=True)
     payee_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
@@ -435,6 +448,43 @@ class PaymentTransaction(db.Model):
     contract = db.relationship('Contract', backref=db.backref('payments', lazy=True))
     user = db.relationship('User', foreign_keys=[user_id])
     payee = db.relationship('User', foreign_keys=[payee_id])
+
+class Dispute(db.Model):
+    """Tranh chấp một hợp đồng (mục 8): khi mở, tiền bị đóng băng cho tới khi sàn quyết định.
+
+    kind: quality (chất lượng bài nộp) | cancel_working (khách hủy khi phiên dịch viên đang làm).
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=False, index=True)
+    opened_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    kind = db.Column(db.String(20), default='quality', nullable=False)
+    reason = db.Column(db.Text, nullable=False)
+    hirer_evidence = db.Column(db.Text)
+    translator_evidence = db.Column(db.Text)
+    evidence_deadline = db.Column(db.DateTime)   # 48 giờ kể từ lúc mở
+    status = db.Column(db.String(20), default='open', index=True)  # open | resolved
+    decision = db.Column(db.String(20))          # refund_full | refund_partial | release_full
+    refund_percent = db.Column(db.Integer)       # phần giá hợp đồng hoàn cho khách
+    decision_note = db.Column(db.Text)
+    decided_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    decided_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    contract = db.relationship('Contract', backref=db.backref('disputes', lazy=True))
+    opener = db.relationship('User', foreign_keys=[opened_by])
+
+
+class TranslatorViolation(db.Model):
+    """Vi phạm của phiên dịch viên khi hủy hoặc vắng mặt (mục 7). 3 lần trong 12 tháng thì khóa tài khoản."""
+    id = db.Column(db.Integer, primary_key=True)
+    translator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    contract_id = db.Column(db.Integer, db.ForeignKey('contract.id'), nullable=True)
+    points = db.Column(db.Integer, default=1, nullable=False)
+    reason = db.Column(db.String(255))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    translator = db.relationship('User', foreign_keys=[translator_id], backref=db.backref('violations', lazy=True))
+
 
 # ─── ADMIN NOTIFICATION MODEL (TASK 14) ────────────────────────────────────────
 
